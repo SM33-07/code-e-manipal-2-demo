@@ -106,7 +106,7 @@ export function SubmissionList({
                   shadow-sm hover:shadow
                 "
               >
-                {submission.judged ? "Review Score" : "Grade Project"}
+                {submission.judged ? "View Score" : "Grade Project"}
               </button>
             </CardContent>
           </Card>

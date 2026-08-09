@@ -238,9 +238,9 @@ export default function AdminRegistrationsPage() {
             className="h-11 pl-4 pr-10 rounded-xl bg-jaipur-card border border-jaipur-secondary-light text-foreground text-sm outline-none focus:border-jaipur-gold appearance-none cursor-pointer"
             style={{ fontFamily: F, minWidth: 140 }}
           >
-            <option value="all">All Rounds</option>
-            <option value="1">Round 1</option>
-            <option value="2">Round 2</option>
+            <option value="all" className="bg-[#FCF6EF] text-[#6A4635] dark:bg-[#1E1208] dark:text-[#F5EFE0]">All Rounds</option>
+            <option value="1" className="bg-[#FCF6EF] text-[#6A4635] dark:bg-[#1E1208] dark:text-[#F5EFE0]">Round 1</option>
+            <option value="2" className="bg-[#FCF6EF] text-[#6A4635] dark:bg-[#1E1208] dark:text-[#F5EFE0]">Round 2</option>
           </select>
           <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-jaipur-primary pointer-events-none" />
         </div>

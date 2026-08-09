@@ -243,7 +243,7 @@ export default function AdminPage() {
         {stats.map(({ label, value, Icon }) => (
           <div 
             key={label} 
-            className="bg-jaipur-card border border-jaipur-secondary-light rounded-xl p-5 flex items-center gap-4 shadow-sm hover:shadow-[0_4px_16px_rgba(201,162,39,0.1)] transition-shadow"
+            className="bg-jaipur-card border border-jaipur-secondary-light rounded-xl p-5 flex items-center gap-4 shadow-sm hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(201,162,39,0.18)] transition-all duration-300"
           >
             <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center shrink-0 border border-jaipur-secondary-light">
               <Icon size={24} className="text-jaipur-gold" />
@@ -261,7 +261,7 @@ export default function AdminPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* JUDGE ASSIGNMENT PANEL */}
-        <div className="lg:col-span-2 bg-jaipur-card border border-jaipur-secondary-light rounded-2xl p-6 md:p-8 relative overflow-hidden flex flex-col min-h-[500px]">
+        <div className="lg:col-span-2 bg-jaipur-card border border-jaipur-secondary-light rounded-2xl p-6 md:p-8 relative overflow-hidden flex flex-col min-h-[500px] hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300">
           
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 shrink-0">
             <div className="flex items-center gap-4">
@@ -291,9 +291,9 @@ export default function AdminPage() {
                 onChange={e => setSelSub(e.target.value)} 
                 className="w-full h-11 bg-background border border-jaipur-secondary-light rounded-lg pl-4 pr-10 text-sm text-foreground focus:outline-none focus:border-jaipur-gold appearance-none cursor-pointer"
               >
-                <option value="">Select Submission</option>
+                <option value="" className="bg-[#FCF6EF] text-[#6A4635] dark:bg-[#1E1208] dark:text-[#F5EFE0]">Select Submission</option>
                 {submissions.map(s => (
-                  <option key={s.id} value={s.id}>{s.title}</option>
+                  <option key={s.id} value={s.id} className="bg-[#FCF6EF] text-[#6A4635] dark:bg-[#1E1208] dark:text-[#F5EFE0]">{s.title}</option>
                 ))}
               </select>
               <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-jaipur-primary pointer-events-none" />
@@ -304,9 +304,9 @@ export default function AdminPage() {
                 onChange={e => setSelJudge(e.target.value)} 
                 className="w-full h-11 bg-background border border-jaipur-secondary-light rounded-lg pl-4 pr-10 text-sm text-foreground focus:outline-none focus:border-jaipur-gold appearance-none cursor-pointer"
               >
-                <option value="">Select Judge</option>
+                <option value="" className="bg-[#FCF6EF] text-[#6A4635] dark:bg-[#1E1208] dark:text-[#F5EFE0]">Select Judge</option>
                 {judges.map(j => (
-                  <option key={j.id} value={j.id}>{j.name || j.email}</option>
+                  <option key={j.id} value={j.id} className="bg-[#FCF6EF] text-[#6A4635] dark:bg-[#1E1208] dark:text-[#F5EFE0]">{j.name || j.email}</option>
                 ))}
               </select>
               <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-jaipur-primary pointer-events-none" />
@@ -417,292 +417,6 @@ export default function AdminPage() {
 
       </div>
 
-      {/* USER & ROLE MANAGEMENT PANEL */}
-      <div className="bg-jaipur-card border border-jaipur-secondary-light rounded-2xl p-6 md:p-8 relative overflow-hidden flex flex-col mt-8 shadow-sm hover:shadow-[0_4px_16px_rgba(201,162,39,0.1)] transition-shadow">
-        
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-jaipur-secondary-light/30 pb-4 mb-6">
-          <div className="flex items-center gap-4">
-            <div className="bg-muted p-3 rounded-full shrink-0 border border-jaipur-secondary-light">
-              <Users size={32} className="text-jaipur-gold" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-foreground" style={{ fontFamily: SERIF }}>User & Role Management</h2>
-              <p className="text-sm text-muted-foreground mt-1" style={{ fontFamily: F }}>
-                Search user profiles and assign their system access roles.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setShowCreateModal(true);
-              setCreateError("");
-              setCreateSuccess("");
-            }}
-            className="shrink-0 flex items-center justify-center gap-2 h-10 px-4 rounded-lg border border-jaipur-gold bg-transparent text-jaipur-gold text-sm font-semibold hover:bg-jaipur-gold/10 transition-colors cursor-pointer"
-          >
-            <UserPlus size={16} /> Create User Account
-          </button>
-        </div>
-
-        {/* Filter & Search Controls */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="flex-1">
-            <input
-              type="text"
-              placeholder="Search by name or email..."
-              value={userSearch}
-              onChange={e => setUserSearch(e.target.value)}
-              className="w-full h-11 bg-background border border-jaipur-secondary-light rounded-lg px-4 text-sm text-foreground focus:outline-none focus:border-jaipur-gold placeholder-muted-foreground/50"
-              style={{ fontFamily: F }}
-            />
-          </div>
-          <div className="w-full sm:w-48 relative">
-            <select
-              value={userRoleFilter}
-              onChange={e => setUserRoleFilter(e.target.value)}
-              className="w-full h-11 bg-background border border-jaipur-secondary-light rounded-lg pl-4 pr-10 text-sm text-foreground focus:outline-none focus:border-jaipur-gold appearance-none cursor-pointer"
-            >
-              <option value="all">All Roles</option>
-              <option value="participant">Participants</option>
-              <option value="judge">Judges</option>
-              <option value="admin">Admins</option>
-            </select>
-            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-jaipur-primary pointer-events-none" />
-          </div>
-        </div>
-
-        {roleError && (
-          <div className="mb-4 p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-xs text-destructive font-semibold">
-            {roleError}
-          </div>
-        )}
-
-        {/* Users Table */}
-        <div className="overflow-x-auto w-full">
-          <table className="w-full border-collapse text-left text-sm">
-            <thead>
-              <tr className="border-b border-jaipur-secondary-light/40 text-muted-foreground">
-                <th className="py-3 px-4 font-semibold">User</th>
-                <th className="py-3 px-4 font-semibold">Email</th>
-                <th className="py-3 px-4 font-semibold">Role</th>
-                <th className="py-3 px-4 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {usersLoading ? (
-                <tr>
-                  <td colSpan={4} className="py-8 text-center text-muted-foreground">
-                    Loading users...
-                  </td>
-                </tr>
-              ) : filteredUsers.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="py-8 text-center text-muted-foreground">
-                    No users found matching filters.
-                  </td>
-                </tr>
-              ) : filteredUsers.map((u) => (
-                <tr key={u.id} className="border-b border-jaipur-secondary-light/20 hover:bg-jaipur-secondary-light/10 transition-colors">
-                  <td className="py-3.5 px-4 font-bold text-foreground">
-                    {u.name || "Unknown"}
-                  </td>
-                  <td className="py-3.5 px-4 text-muted-foreground">
-                    {u.email}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider ${
-                      u.role === 'admin' 
-                        ? 'bg-jaipur-primary/10 text-jaipur-primary' 
-                        : u.role === 'judge' 
-                          ? 'bg-jaipur-gold/20 text-[#A46A49] dark:text-[#F0C060]' 
-                          : 'bg-muted/30 text-muted-foreground'
-                    }`}>
-                      {u.role}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-right flex justify-end gap-2">
-                    {u.role !== 'participant' && (
-                      <button
-                        type="button"
-                        onClick={() => handleRoleChange(u.id, 'participant')}
-                        className="px-2.5 py-1 rounded-lg border border-jaipur-secondary-light text-xs font-semibold text-muted-foreground hover:bg-jaipur-secondary-light/30 transition-all cursor-pointer"
-                      >
-                        Make Participant
-                      </button>
-                    )}
-                    {u.role !== 'judge' && (
-                      <button
-                        type="button"
-                        onClick={() => handleRoleChange(u.id, 'judge')}
-                        className="px-2.5 py-1 rounded-lg border border-jaipur-gold text-xs font-semibold text-jaipur-gold hover:bg-jaipur-gold/10 transition-all cursor-pointer"
-                      >
-                        Make Judge
-                      </button>
-                    )}
-                    {u.role !== 'admin' && (
-                      <button
-                        type="button"
-                        onClick={() => handleRoleChange(u.id, 'admin')}
-                        className={`px-2.5 py-1 rounded-lg text-white text-xs font-semibold transition-all cursor-pointer ${
-                          isDark 
-                            ? "bg-gradient-to-r from-[#D4732A] to-[#C1440E] hover:from-[#E8924A] hover:to-[#D4732A]" 
-                            : "bg-gradient-to-r from-[#8B1F44] to-[#6D1632] hover:from-[#A61B36] hover:to-[#8B1F44]"
-                        }`}
-                      >
-                        Make Admin
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* CREATE USER MODAL OVERLAY */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-250">
-          <div 
-            className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl relative overflow-hidden transition-all transform animate-in fade-in zoom-in-95 duration-200 ${
-              isDark 
-                ? "bg-[#1E1208] border-[#C9A227]/30 text-foreground" 
-                : "bg-[#FCF6EF] border-[#EBCFB5] text-foreground"
-            }`}
-          >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-jaipur-secondary-light/30 mb-6">
-              <h3 className="text-xl font-bold font-serif text-foreground" style={{ fontFamily: SERIF }}>
-                Create User Account
-              </h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCreateModal(false)
-                  setCreateError("")
-                  setCreateSuccess("")
-                }}
-                className="text-muted-foreground hover:text-foreground text-xl font-bold cursor-pointer"
-              >
-                &times;
-              </button>
-            </div>
-
-            {/* Form */}
-            <form onSubmit={handleCreateUser} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Dr. John Doe"
-                  value={newUserName}
-                  onChange={(e) => setNewUserName(e.target.value)}
-                  className="w-full h-10 px-3 bg-background border border-jaipur-secondary-light rounded-lg text-sm text-foreground focus:outline-none focus:border-jaipur-gold placeholder-muted-foreground/30"
-                  style={{ fontFamily: F }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  required
-                  placeholder="e.g. judge.doe@example.com"
-                  value={newUserEmail}
-                  onChange={(e) => setNewUserEmail(e.target.value)}
-                  className="w-full h-10 px-3 bg-background border border-jaipur-secondary-light rounded-lg text-sm text-foreground focus:outline-none focus:border-jaipur-gold placeholder-muted-foreground/30"
-                  style={{ fontFamily: F }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-                  Password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    required
-                    minLength={6}
-                    placeholder="Min. 6 characters"
-                    value={newUserPassword}
-                    onChange={(e) => setNewUserPassword(e.target.value)}
-                    className="w-full h-10 pl-3 pr-10 bg-background border border-jaipur-secondary-light rounded-lg text-sm text-foreground focus:outline-none focus:border-jaipur-gold placeholder-muted-foreground/30"
-                    style={{ fontFamily: F }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
-                  >
-                    {showPassword ? "Hide" : "Show"}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-                  Access Role
-                </label>
-                <div className="relative">
-                  <select
-                    value={newUserRole}
-                    onChange={(e) => setNewUserRole(e.target.value as any)}
-                    className="w-full h-10 bg-background border border-jaipur-secondary-light rounded-lg pl-3 pr-10 text-sm text-foreground focus:outline-none focus:border-jaipur-gold appearance-none cursor-pointer"
-                    style={{ fontFamily: F }}
-                  >
-                    <option value="participant">Participant</option>
-                    <option value="judge">Judge</option>
-                    <option value="admin">Administrator</option>
-                  </select>
-                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-jaipur-primary pointer-events-none" />
-                </div>
-              </div>
-
-              {createError && (
-                <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-xs text-destructive font-semibold">
-                  {createError}
-                </div>
-              )}
-
-              {createSuccess && (
-                <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg text-xs text-green-600 dark:text-green-400 font-semibold font-medium">
-                  {createSuccess}
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex justify-end gap-3 pt-4 border-t border-jaipur-secondary-light/30 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  disabled={createLoading}
-                  className="h-10 px-4 rounded-lg border border-jaipur-secondary-light bg-transparent text-sm font-semibold text-muted-foreground hover:bg-jaipur-secondary-light/10 transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createLoading}
-                  className={`h-10 px-5 rounded-lg text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer ${
-                    isDark
-                      ? "bg-gradient-to-r from-[#D4732A] to-[#C1440E] hover:from-[#E8924A] hover:to-[#D4732A]"
-                      : "bg-gradient-to-r from-[#8B1F44] to-[#6D1632] hover:from-[#A61B36] hover:to-[#8B1F44]"
-                  }`}
-                >
-                  {createLoading ? "Creating..." : "Create Account"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

@@ -18,12 +18,12 @@ interface SubmissionCardProps {
 /* ── Palette per mode ─────────────────────────────────────────────────────── */
 
 const lightPalette = {
-  cardBg:        "linear-gradient(135deg, rgba(255,248,241,0.72) 0%, rgba(255,250,245,0.82) 100%)",
-  cardBgHover:   "linear-gradient(135deg, rgba(252,234,216,0.82) 0%, rgba(255,246,237,0.92) 100%)",
+  cardBg:        "#FCF6EF",
+  cardBgHover:   "#FCEAD8",
   border:        "#EBCFB5",
   borderHover:   "rgba(213,155,61,0.5)",
-  shadow:        "0 4px 20px rgba(173,114,55,0.08), inset 0 1px 0 rgba(255,255,255,0.4)",
-  shadowHover:   "0 10px 44px rgba(143,16,42,0.12), 0 0 0 1px rgba(213,155,61,0.15), inset 0 1px 0 rgba(255,255,255,0.6)",
+  shadow:        "0 4px 20px rgba(173,114,55,0.08)",
+  shadowHover:   "0 12px 36px rgba(143,16,42,0.14)",
   spotlight:     "rgba(213,155,61,0.1)",
   shimmer:       "linear-gradient(90deg, transparent, rgba(235,207,181,0.5), transparent)",
   shimmerHover:  "linear-gradient(90deg, transparent, rgba(213,155,61,0.7), rgba(143,16,42,0.4), transparent)",
@@ -75,12 +75,12 @@ const lightPalette = {
 };
 
 const darkPalette = {
-  cardBg:        "linear-gradient(135deg, rgba(26,16,8,0.92) 0%, rgba(30,18,8,0.92) 100%)",
-  cardBgHover:   "linear-gradient(135deg, rgba(35,22,10,0.97) 0%, rgba(40,25,12,0.97) 100%)",
+  cardBg:        "#1E1208",
+  cardBgHover:   "#25160A",
   border:        "rgba(201,162,39,0.15)",
   borderHover:   "rgba(213,155,61,0.45)",
-  shadow:        "0 4px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03)",
-  shadowHover:   "0 10px 44px rgba(143,16,42,0.2), 0 0 0 1px rgba(213,155,61,0.12), inset 0 1px 0 rgba(255,255,255,0.06)",
+  shadow:        "0 4px 20px rgba(0,0,0,0.35)",
+  shadowHover:   "0 12px 36px rgba(0,0,0,0.5)",
   spotlight:     "rgba(213,155,61,0.08)",
   shimmer:       "linear-gradient(90deg, transparent, rgba(201,162,39,0.08), transparent)",
   shimmerHover:  "linear-gradient(90deg, transparent, rgba(213,155,61,0.6), rgba(143,16,42,0.4), transparent)",
@@ -285,14 +285,13 @@ export function SubmissionCard({ submission, index = 0 }: SubmissionCardProps) {
       onMouseMove={handleMouseMove}
       style={{
         opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0) scale(1)" : "translateY(28px) scale(0.96)",
-        transition: "opacity 0.55s cubic-bezier(0.22,1,0.36,1), transform 0.55s cubic-bezier(0.22,1,0.36,1), box-shadow 0.35s ease, border-color 0.35s ease, background 0.35s ease",
+        transform: visible ? (hovered ? "translateY(-4px)" : "translateY(0)") : "translateY(28px) scale(0.96)",
+        transition: "opacity 0.55s cubic-bezier(0.22,1,0.36,1), transform 0.35s cubic-bezier(0.22,1,0.36,1), box-shadow 0.35s ease, border-color 0.35s ease, background 0.35s ease",
         position: "relative",
         borderRadius: "16px",
         background: hovered ? p.cardBgHover : p.cardBg,
         border: `1px solid ${hovered ? p.borderHover : p.border}`,
         boxShadow: hovered ? p.shadowHover : p.shadow,
-        backdropFilter: "blur(14px)",
         overflow: "hidden",
       }}
     >

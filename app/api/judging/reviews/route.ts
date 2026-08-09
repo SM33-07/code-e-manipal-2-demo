@@ -74,6 +74,15 @@ export const POST = withAuth(async (req, { user, profile }) => {
       }
     }
 
+    // Check if score is already complete / locked
+    const existingRes = await query(
+      'SELECT is_complete FROM public.judge_reviews WHERE submission_id = $1 AND judge_id = $2 LIMIT 1',
+      [submission_id, user.id]
+    );
+    if (existingRes.rows.length > 0 && existingRes.rows[0].is_complete) {
+      return Errors.FORBIDDEN();
+    }
+
     // Upsert the review
     const review = await upsertReview({
       submission_id,

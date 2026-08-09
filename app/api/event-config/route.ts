@@ -16,6 +16,20 @@ export async function GET(req: NextRequest) {
       return acc;
     }, {});
 
+    // Check if results_published is 'publishing' and 5-min timer has passed
+    if (config.results_published === 'publishing' && config.results_publish_time) {
+      const publishTime = new Date(config.results_publish_time).getTime();
+      if (Date.now() >= publishTime) {
+        // Auto-transition to published ('true')
+        await query(
+          `INSERT INTO public.event_config (key, value, updated_at)
+           VALUES ('results_published', 'true', NOW())
+           ON CONFLICT (key) DO UPDATE SET value = 'true', updated_at = NOW()`
+        );
+        config.results_published = 'true';
+      }
+    }
+
     return successResponse(config);
   } catch (err) {
     logger.error('GET /api/event-config failed', { error: String(err) });
@@ -25,18 +39,25 @@ export async function GET(req: NextRequest) {
 
 /**
  * PATCH /api/event-config
- * Admin only — updates hackathon global timer settings.
- * If hackathon_is_started is set to true, automatically disables past closing announcements.
+ * Admin only — updates hackathon global timer settings and results publishing state.
  */
 export const PATCH = withAuth(async (req, { user }) => {
   try {
     const body = await req.json();
-    const { hackathon_start_time, hackathon_duration_hours, hackathon_is_started } = body;
+    const {
+      hackathon_start_time,
+      hackathon_duration_hours,
+      hackathon_is_started,
+      results_published,
+      results_publish_time,
+    } = body;
 
     const updates = [];
-    if (hackathon_start_time !== undefined) updates.push({ key: 'hackathon_start_time', val: hackathon_start_time });
+    if (hackathon_start_time !== undefined) updates.push({ key: 'hackathon_start_time', val: String(hackathon_start_time) });
     if (hackathon_duration_hours !== undefined) updates.push({ key: 'hackathon_duration_hours', val: String(hackathon_duration_hours) });
     if (hackathon_is_started !== undefined) updates.push({ key: 'hackathon_is_started', val: String(hackathon_is_started) });
+    if (results_published !== undefined) updates.push({ key: 'results_published', val: String(results_published) });
+    if (results_publish_time !== undefined) updates.push({ key: 'results_publish_time', val: String(results_publish_time) });
 
     if (updates.length === 0) {
       return Errors.BAD_REQUEST('No updates specified');

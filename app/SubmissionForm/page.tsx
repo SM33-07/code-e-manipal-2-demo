@@ -85,9 +85,13 @@ function StatCard({
     return () => clearTimeout(timer);
   }, [delay]);
 
+  const [hovered, setHovered] = useState(false);
+
   return (
     <div
       ref={ref}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         position: "relative",
         padding: "24px 28px 22px",
@@ -95,11 +99,10 @@ function StatCard({
         background: "var(--card)",
         border: "1px solid var(--jaipur-secondary-light)",
         borderLeft: `4px solid ${accentColor}`,
-        backdropFilter: "blur(12px)",
         opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0)" : "translateY(20px)",
-        transition: `opacity 0.6s ease ${delay}ms, transform 0.6s cubic-bezier(0.22,1,0.36,1) ${delay}ms`,
-        boxShadow: "0 4px 20px rgba(143,16,42,0.08)",
+        transform: visible ? (hovered ? "translateY(-4px)" : "translateY(0)") : "translateY(20px)",
+        transition: `opacity 0.6s ease ${delay}ms, transform 0.3s cubic-bezier(0.22,1,0.36,1), box-shadow 0.3s ease`,
+        boxShadow: hovered ? "0 12px 30px rgba(143,16,42,0.16)" : "0 4px 20px rgba(143,16,42,0.08)",
         minWidth: "210px",
         textAlign: "left",
       }}
@@ -440,8 +443,15 @@ export default function Home() {
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    "submit" | "browse"
+    "submit" | "browse" | "leaderboard"
   >("submit");
+  const [publicResults, setPublicResults] = useState<any[]>([]);
+  const [resultsMeta, setResultsMeta] = useState<{ published: boolean; status: string; publish_time: string | null }>({
+    published: false,
+    status: "false",
+    publish_time: null,
+  });
+  const [loadingResults, setLoadingResults] = useState(false);
   const [submissions, setSubmissions] = useState<Submission[]>(
     [],
   );
@@ -488,9 +498,35 @@ export default function Home() {
     };
 
     fetchTimerAndTeam();
-    const interval = setInterval(fetchTimerAndTeam, 30000); // Poll every 30s
+    const interval = setInterval(fetchTimerAndTeam, 5000); // Poll every 5s for publishing status
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    const fetchPublicResults = async () => {
+      setLoadingResults(true);
+      try {
+        const res = await fetch("/api/results/public");
+        if (res.ok) {
+          const json = await res.json();
+          setPublicResults(json.data || []);
+          setResultsMeta({
+            published: json.meta?.published ?? false,
+            status: (json.meta?.status as string) ?? (json.meta?.published ? "true" : "false"),
+            publish_time: (json.meta?.publish_time as string) ?? null,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to load public results:", err);
+      } finally {
+        setLoadingResults(false);
+      }
+    };
+
+    fetchPublicResults();
+    const interval = setInterval(fetchPublicResults, 5000);
+    return () => clearInterval(interval);
+  }, [activeTab]);
 
   // Update countdown ticking
   useEffect(() => {
@@ -855,6 +891,14 @@ export default function Home() {
               <Trophy style={{ width: "14px", height: "14px" }} />
               Review Your Submission
             </TabButton>
+            <TabButton
+              active={activeTab === "leaderboard"}
+              onClick={() => setActiveTab("leaderboard")}
+              isDark={isDark}
+            >
+              <Trophy style={{ width: "14px", height: "14px" }} />
+              Leaderboard
+            </TabButton>
           </div>
         </section>
 
@@ -884,9 +928,8 @@ export default function Home() {
               <div
                 style={{
                   borderRadius: "20px",
-                  background: isDark ? "rgba(30,18,8,0.85)" : "rgba(255,248,239,0.68)",
+                  background: isDark ? "#1E1208" : "#FCF6EF",
                   border: isDark ? "1px solid rgba(201,162,39,0.25)" : "1px solid #EBCFB5",
-                  backdropFilter: "blur(16px)",
                   overflow: "hidden",
                   boxShadow: isDark
                     ? "0 20px 60px rgba(0,0,0,0.45), 0 0 0 1px rgba(201,162,39,0.15)"
@@ -1410,6 +1453,128 @@ export default function Home() {
                         index={i}
                       />
                     ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Leaderboard Tab ── */}
+          {activeTab === "leaderboard" && (
+            <div
+              style={{
+                animation: "float-up 0.5s cubic-bezier(0.22,1,0.36,1) forwards",
+                display: "flex",
+                justifyContent: "flex-start",
+                width: "100%",
+                marginLeft: "calc((100% - 560px) / 2 - 70px)",
+              }}
+            >
+              <div style={{ maxWidth: "800px", width: "100%" }}>
+                {!resultsMeta.published ? (
+                  <div
+                    style={{
+                      borderRadius: "20px",
+                      background: isDark ? "#1E1208" : "#FCF6EF",
+                      border: isDark ? "1px solid rgba(201,162,39,0.25)" : "1px solid #EBCFB5",
+                      padding: "48px 32px",
+                      textAlign: "center",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: "64px",
+                        height: "64px",
+                        borderRadius: "50%",
+                        background: isDark ? "rgba(212,115,42,0.15)" : "rgba(143,16,42,0.1)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        margin: "0 auto 20px",
+                        color: isDark ? "#F0C060" : "#8F102A",
+                      }}
+                    >
+                      <Trophy style={{ width: "32px", height: "32px" }} />
+                    </div>
+
+                    {resultsMeta.status === "publishing" ? (
+                      <div>
+                        <h3 className="text-xl font-bold font-serif mb-2 text-foreground">
+                          Publishing in Progress!
+                        </h3>
+                        <p className="text-sm text-[#A08070] max-w-md mx-auto mb-4">
+                          Official Announcement: Results announcement in progress! The leaderboard will be live in 5 minutes.
+                        </p>
+                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 font-mono font-bold text-sm animate-pulse">
+                          <span>⏳ Unlocks in 5 Minutes</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <h3 className="text-xl font-bold font-serif mb-2 text-foreground">
+                          Leaderboard Locked
+                        </h3>
+                        <p className="text-sm text-[#A08070] max-w-md mx-auto">
+                          Results have not been published yet by the organizers. Please check back after evaluations are complete!
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      borderRadius: "20px",
+                      background: isDark ? "#1E1208" : "#FCF6EF",
+                      border: isDark ? "1px solid rgba(201,162,39,0.25)" : "1px solid #EBCFB5",
+                      padding: "32px",
+                    }}
+                  >
+                    <div className="flex items-center justify-between pb-4 border-b border-[#C9A227]/20 mb-6">
+                      <div>
+                        <h3 className="text-2xl font-bold font-serif text-foreground flex items-center gap-2">
+                          <Trophy className="text-jaipur-gold" size={24} />
+                          Official Leaderboard
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Final ranked results of Code-e-Manipal 2.0 projects
+                        </p>
+                      </div>
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 uppercase tracking-wider">
+                        Live Ranks
+                      </span>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse text-left text-sm">
+                        <thead>
+                          <tr className="border-b border-[#C9A227]/20 text-muted-foreground text-xs uppercase tracking-wider">
+                            <th className="py-3 px-4 font-bold">Rank</th>
+                            <th className="py-3 px-4 font-bold">Project</th>
+                            <th className="py-3 px-4 font-bold">Category</th>
+                            <th className="py-3 px-4 font-bold text-right">Score</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {publicResults.map((r, idx) => (
+                            <tr key={r.id} className="border-b border-[#C9A227]/10 hover:bg-[#C9A227]/5 transition-colors">
+                              <td className="py-4 px-4 font-bold font-serif text-base">
+                                {idx === 0 ? "🥇 #1" : idx === 1 ? "🥈 #2" : idx === 2 ? "🥉 #3" : `#${idx + 1}`}
+                              </td>
+                              <td className="py-4 px-4">
+                                <div className="font-bold text-foreground">{r.title}</div>
+                                <div className="text-xs text-muted-foreground line-clamp-1">{r.summary}</div>
+                              </td>
+                              <td className="py-4 px-4 text-xs font-semibold text-muted-foreground">
+                                {r.category}
+                              </td>
+                              <td className="py-4 px-4 text-right font-black font-serif text-jaipur-gold text-base">
+                                {r.computed?.total_score?.toFixed(2) ?? "0.00"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </div>

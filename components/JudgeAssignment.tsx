@@ -158,9 +158,9 @@ export function JudgeAssignment() {
           onChange={(e) => setSelectedSubmission(e.target.value)}
           className="bg-black/40 border border-white/10 text-white rounded-lg p-3"
         >
-          <option value="">Select Submission</option>
+          <option value="" className="bg-[#1E1208] text-[#F5EFE0]">Select Submission</option>
           {availableSubmissions.map((s) => (
-            <option key={s.id} value={s.id}>
+            <option key={s.id} value={s.id} className="bg-[#1E1208] text-[#F5EFE0]">
               {s.teams?.name ?? "Unknown Team"} — {s.title}
             </option>
           ))}
@@ -171,9 +171,9 @@ export function JudgeAssignment() {
           onChange={(e) => setSelectedJudge(e.target.value)}
           className="bg-black/40 border border-white/10 text-white rounded-lg p-3"
         >
-          <option value="">Select Judge</option>
+          <option value="" className="bg-[#1E1208] text-[#F5EFE0]">Select Judge</option>
           {judges.map((j) => (
-            <option key={j.id} value={j.id}>
+            <option key={j.id} value={j.id} className="bg-[#1E1208] text-[#F5EFE0]">
               {j.name || j.email}
             </option>
           ))}

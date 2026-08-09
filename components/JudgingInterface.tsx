@@ -179,6 +179,8 @@ export function JudgingInterface({
   const textBody = isDark ? "text-[#A08070]" : "text-[#7A5A4A]";
   const dividerBg = isDark ? "bg-[#C9A227]/10" : "bg-[#EBCFB5]/40";
 
+  const isLocked = Boolean(existingScore?.isComplete);
+
   return (
     <div className="w-full flex flex-col gap-6">
       
@@ -356,11 +358,18 @@ export function JudgingInterface({
         <div className="lg:col-span-5 space-y-6">
           <Card className={`border shadow-sm rounded-2xl ${cardBg}`}>
             <CardHeader className="pb-4">
-              <CardTitle className={`text-xl font-serif font-bold ${textHeading}`}>
-                Evaluation Scoresheet
-              </CardTitle>
+              <div className="flex justify-between items-center">
+                <CardTitle className={`text-xl font-serif font-bold ${textHeading}`}>
+                  Evaluation Scoresheet
+                </CardTitle>
+                {isLocked && (
+                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 border border-amber-500/30 text-amber-500 flex items-center gap-1">
+                    🔒 Score Locked
+                  </span>
+                )}
+              </div>
               <CardDescription className="text-[#B89A85] dark:text-[#A08070]">
-                Grade each rubric criterion out of 10 points.
+                {isLocked ? "This evaluation has been completed and locked." : "Grade each rubric criterion out of 10 points."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -391,10 +400,11 @@ export function JudgingInterface({
                       max={10}
                       step={1}
                       value={criteria[key]}
+                      disabled={isLocked}
                       onChange={(e) => updateCriterion(key, Number(e.target.value))}
                       className="
                         flex-1 h-1.5 rounded-lg appearance-none cursor-pointer bg-neutral-200 dark:bg-neutral-800
-                        accent-[#8F102A] dark:accent-[#D4732A]
+                        accent-[#8F102A] dark:accent-[#D4732A] disabled:opacity-50 disabled:cursor-not-allowed
                       "
                     />
                     <span className="text-xs font-bold text-[#B89A85]">10</span>
@@ -415,55 +425,58 @@ export function JudgingInterface({
               <textarea
                 value={feedback}
                 onChange={(e) => setFeedback(e.target.value)}
-                placeholder="Write bulleted feedback notes for the team..."
+                readOnly={isLocked}
+                placeholder={isLocked ? "No feedback provided." : "Write bulleted feedback notes for the team..."}
                 rows={4}
                 className="
                   w-full text-sm rounded-xl p-3 resize-none focus:outline-none focus:ring-1
                   bg-[#FCF6EF]/50 border border-[#EBCFB5] text-[#6A4635] focus:border-[#8F102A] focus:ring-[#8F102A]
                   dark:bg-[#0F0A05] dark:border-[#C9A227]/30 dark:text-[#F5EFE0] dark:focus:border-[#D4732A] dark:focus:ring-[#D4732A]
-                  transition-all duration-200
+                  transition-all duration-200 read-only:opacity-75 read-only:cursor-not-allowed
                 "
               />
 
               {/* Preset Comments Panel */}
-              <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase tracking-wide text-[#B89A85] dark:text-[#A08070] block">
-                  Quick preset templates (click to insert)
-                </Label>
-                
-                <div className="flex flex-wrap gap-1.5">
-                  {feedbackPresets.positive.map((preset) => (
-                    <button
-                      key={preset.text}
-                      onClick={() => handleAddPreset(preset.text)}
-                      title={preset.desc}
-                      className="
-                        text-[11px] font-bold px-2 py-1 rounded-lg border transition-all active:scale-95
-                        bg-[#FCF6EF] text-[#6A4635] border-[#EBCFB5] hover:bg-[#8F102A]/5 hover:border-[#8F102A]/35
-                        dark:bg-[#1E1208] dark:text-[#F5EFE0] dark:border-[#C9A227]/20 dark:hover:bg-[#C9A227]/10 dark:hover:border-[#C9A227]/40
-                      "
-                    >
-                      {preset.text}
-                    </button>
-                  ))}
+              {!isLocked && (
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wide text-[#B89A85] dark:text-[#A08070] block">
+                    Quick preset templates (click to insert)
+                  </Label>
+                  
+                  <div className="flex flex-wrap gap-1.5">
+                    {feedbackPresets.positive.map((preset) => (
+                      <button
+                        key={preset.text}
+                        onClick={() => handleAddPreset(preset.text)}
+                        title={preset.desc}
+                        className="
+                          text-[11px] font-bold px-2 py-1 rounded-lg border transition-all active:scale-95
+                          bg-[#FCF6EF] text-[#6A4635] border-[#EBCFB5] hover:bg-[#8F102A]/5 hover:border-[#8F102A]/35
+                          dark:bg-[#1E1208] dark:text-[#F5EFE0] dark:border-[#C9A227]/20 dark:hover:bg-[#C9A227]/10 dark:hover:border-[#C9A227]/40
+                        "
+                      >
+                        {preset.text}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {feedbackPresets.constructive.map((preset) => (
+                      <button
+                        key={preset.text}
+                        onClick={() => handleAddPreset(preset.text)}
+                        title={preset.desc}
+                        className="
+                          text-[11px] font-bold px-2 py-1 rounded-lg border transition-all active:scale-95
+                          bg-[#FCF6EF] text-[#A61B36] border-[#EBCFB5] hover:bg-[#A61B36]/5 hover:border-[#A61B36]/35
+                          dark:bg-[#1E1208] dark:text-[#D4732A] dark:border-[#C9A227]/20 dark:hover:bg-[#D4732A]/15 dark:hover:border-[#D4732A]/35
+                        "
+                      >
+                        {preset.text}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  {feedbackPresets.constructive.map((preset) => (
-                    <button
-                      key={preset.text}
-                      onClick={() => handleAddPreset(preset.text)}
-                      title={preset.desc}
-                      className="
-                        text-[11px] font-bold px-2 py-1 rounded-lg border transition-all active:scale-95
-                        bg-[#FCF6EF] text-[#A61B36] border-[#EBCFB5] hover:bg-[#A61B36]/5 hover:border-[#A61B36]/35
-                        dark:bg-[#1E1208] dark:text-[#D4732A] dark:border-[#C9A227]/20 dark:hover:bg-[#D4732A]/15 dark:hover:border-[#D4732A]/35
-                      "
-                    >
-                      {preset.text}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              )}
 
               <div className={`p-4 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-4 ${dividerBg}`}>
                 <div>
@@ -476,30 +489,38 @@ export function JudgingInterface({
                 </div>
                 
                 <div className="flex flex-col sm:flex-row items-stretch gap-2.5">
-                  <Button
-                    onClick={() => handleSave(false)}
-                    className="
-                      h-10 px-4 rounded-xl font-bold transition-all shadow-sm text-xs
-                      bg-transparent border border-[#8F102A] text-[#8F102A] hover:bg-[#8F102A]/10
-                      dark:border-[#D4732A] dark:text-[#F0C060] dark:hover:bg-[#D4732A]/10
-                    "
-                  >
-                    <Save className="w-4 h-4 mr-1.5" />
-                    Save & Stay
-                  </Button>
-                  
-                  {hasNext && (
-                    <Button
-                      onClick={() => handleSave(true)}
-                      className="
-                        h-10 px-4 rounded-xl font-bold transition-all shadow-sm text-xs
-                        bg-[#8F102A] hover:bg-[#A61B36] text-white
-                        dark:bg-[#D4732A] dark:hover:bg-[#E28945] dark:text-[#0F0A05]
-                      "
-                    >
-                      <Save className="w-4 h-4 mr-1.5" />
-                      Save & Next
-                    </Button>
+                  {isLocked ? (
+                    <div className="px-4 py-2 rounded-xl font-bold text-xs bg-amber-500/10 text-amber-500 border border-amber-500/30 flex items-center justify-center gap-1.5">
+                      🔒 Evaluation Submitted & Locked
+                    </div>
+                  ) : (
+                    <>
+                      <Button
+                        onClick={() => handleSave(false)}
+                        className="
+                          h-10 px-4 rounded-xl font-bold transition-all shadow-sm text-xs
+                          bg-transparent border border-[#8F102A] text-[#8F102A] hover:bg-[#8F102A]/10
+                          dark:border-[#D4732A] dark:text-[#F0C060] dark:hover:bg-[#D4732A]/10
+                        "
+                      >
+                        <Save className="w-4 h-4 mr-1.5" />
+                        Save & Stay
+                      </Button>
+                      
+                      {hasNext && (
+                        <Button
+                          onClick={() => handleSave(true)}
+                          className="
+                            h-10 px-4 rounded-xl font-bold transition-all shadow-sm text-xs
+                            bg-[#8F102A] hover:bg-[#A61B36] text-white
+                            dark:bg-[#D4732A] dark:hover:bg-[#E28945] dark:text-[#0F0A05]
+                          "
+                        >
+                          <Save className="w-4 h-4 mr-1.5" />
+                          Save & Next
+                        </Button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

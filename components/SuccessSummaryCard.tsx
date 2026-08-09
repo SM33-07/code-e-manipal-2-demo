@@ -63,18 +63,6 @@ export function SuccessSummaryCard({ topThree, onClose, onGoToLeaderboard }: Pro
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-start justify-center p-4 pt-28 overflow-y-auto">
       <Card className={`max-w-md w-full border rounded-2xl transform scale-100 transition-all relative ${cardBg}`}>
-        {/* Absolute top-right close "X" cross */}
-        <button
-          type="button"
-          onClick={onClose}
-          className={`absolute top-4 right-4 p-1.5 rounded-full transition-colors ${
-            isDark ? "hover:bg-white/10 text-[#A08070]" : "hover:bg-black/5 text-[#7A5A4A]"
-          }`}
-          aria-label="Close"
-        >
-          <X className="w-4 h-4" />
-        </button>
-
         <CardHeader className="text-center pb-2">
           <div className="mx-auto w-14 h-14 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mb-4">
             <CheckCircle2 className="w-8 h-8" />
@@ -134,21 +122,6 @@ export function SuccessSummaryCard({ topThree, onClose, onGoToLeaderboard }: Pro
               "
             >
               Go to Leaderboard <ArrowRight className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className={`
-                w-full h-10 rounded-xl font-medium text-xs transition-all duration-200
-                flex items-center justify-center gap-1 border
-                ${
-                  isDark
-                    ? "border-[#C9A227]/30 text-[#A08070] hover:bg-[#C9A227]/10"
-                    : "border-[#EBCFB5] text-[#7A5A4A] hover:bg-black/5"
-                }
-              `}
-            >
-              Stay on Dashboard to Edit Scores
             </button>
           </div>
         </CardContent>

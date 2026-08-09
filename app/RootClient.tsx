@@ -31,40 +31,69 @@ interface Announcement {
 function AnnouncementBanner({ onActiveChange }: { onActiveChange: (active: boolean) => void }) {
   const { isAuthenticated } = useAuth()
   const [announcement, setAnnouncement] = useState<Announcement | null>(null)
+  const [publishingAlert, setPublishingAlert] = useState<boolean>(false)
 
   useEffect(() => {
     if (!isAuthenticated) {
       setAnnouncement(null)
+      setPublishingAlert(false)
       onActiveChange(false)
       return
     }
 
-    const fetchAnnouncement = async () => {
+    const fetchStatus = async () => {
       try {
-        const res = await fetch("/api/announcements")
-        if (res.ok) {
-          const result = await res.json()
+        const [annRes, cfgRes] = await Promise.all([
+          fetch("/api/announcements"),
+          fetch("/api/event-config"),
+        ])
+
+        let hasPublishingAlert = false
+        if (cfgRes.ok) {
+          const cfgJson = await cfgRes.json()
+          const cfg = cfgJson.data || {}
+          if (cfg.results_published === "publishing") {
+            hasPublishingAlert = true
+          }
+        }
+        setPublishingAlert(hasPublishingAlert)
+
+        if (annRes.ok) {
+          const result = await annRes.json()
           const data = result.data
           setAnnouncement(data)
-          onActiveChange(!!data)
+          onActiveChange(hasPublishingAlert || !!data)
         } else {
           setAnnouncement(null)
-          onActiveChange(false)
+          onActiveChange(hasPublishingAlert)
         }
       } catch (err) {
-        console.error("Error fetching announcements:", err)
+        console.error("Error fetching announcements/config:", err)
         setAnnouncement(null)
         onActiveChange(false)
       }
     }
 
-    fetchAnnouncement()
-    // Poll every 30 seconds
-    const interval = setInterval(fetchAnnouncement, 30000)
+    fetchStatus()
+    // Poll every 5 seconds for fast response during publishing buffer
+    const interval = setInterval(fetchStatus, 5000)
     return () => {
       clearInterval(interval)
     }
   }, [isAuthenticated, onActiveChange])
+
+  if (publishingAlert) {
+    return (
+      <div 
+        className="fixed top-0 left-0 right-0 z-[9999] h-10 px-4 flex items-center justify-center gap-2 border-b backdrop-blur-md shadow-sm transition-all duration-300 bg-amber-600 dark:bg-amber-950/95 text-white border-amber-500 animate-pulse"
+      >
+        <span className="text-sm">🏆</span>
+        <p className="text-xs font-bold tracking-wide text-center uppercase truncate max-w-[90%]">
+          Official Announcement: Results announcement in progress! The leaderboard will be live in 5 minutes.
+        </p>
+      </div>
+    )
+  }
 
   if (!announcement) return null
 

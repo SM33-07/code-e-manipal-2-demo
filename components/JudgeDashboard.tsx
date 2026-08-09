@@ -56,11 +56,12 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
       const json = await res.json();
       const data = Array.isArray(json.data) ? json.data : [];
 
-      const mapped: JudgeSubmission[] = data.map((a: any) => {
+      const mapped: JudgeSubmission[] = data.map((a: any, idx: number) => {
         const sub = a.submissions ?? {};
+        const label = `Project ${String.fromCharCode(65 + idx)}`;
         return {
           id: sub.id ?? a.submission_id,
-          title: sub.title ?? "Untitled",
+          title: label,
           description: sub.description ?? sub.summary ?? "",
           writeup: sub.description ?? "",
           reflection: sub.technical_challenges ?? "",
@@ -95,6 +96,14 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
   const gradedCount = submissions.filter((s) => s.judged).length;
   const pendingCount = allCount - gradedCount;
   const progressPercent = allCount > 0 ? (gradedCount / allCount) * 100 : 0;
+  const isAllGraded = allCount > 0 && gradedCount === allCount;
+
+  // Auto-switch to leaderboard tab when all are graded
+  useEffect(() => {
+    if (isAllGraded) {
+      setActiveTab("leaderboard");
+    }
+  }, [isAllGraded]);
 
   // Filter Submissions
   const filteredSubmissions = useMemo(() => {
@@ -311,9 +320,10 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
           <TabsList className="bg-transparent flex flex-row gap-4 h-auto p-0 mb-6 border-b border-[#EBCFB5]/30 dark:border-[#C9A227]/10 justify-start">
             <TabsTrigger
               value="submissions"
+              disabled={isAllGraded}
               className={`
                 px-5 pb-3 pt-1 rounded-none border-b-2 border-transparent bg-transparent
-                text-base font-bold shadow-none transition-all
+                text-base font-bold shadow-none transition-all disabled:opacity-40 disabled:cursor-not-allowed
                 data-[state=active]:bg-transparent data-[state=active]:shadow-none
                 ${isDark
                   ? "text-[#A08070] data-[state=active]:border-b-[#F0C060] data-[state=active]:text-[#F0C060]"
@@ -321,7 +331,7 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
               `}
             >
               <Award className="w-4 h-4 mr-2" />
-              Submissions
+              Submissions {isAllGraded && "(Completed)"}
             </TabsTrigger>
             <TabsTrigger
               value="leaderboard"

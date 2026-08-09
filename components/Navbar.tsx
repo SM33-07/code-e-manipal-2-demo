@@ -43,8 +43,11 @@ export default function Navbar({ className }: { className?: string }) {
     hackathon_start_time?: string;
     hackathon_duration_hours?: string;
     hackathon_is_started?: string;
+    results_published?: string;
+    results_publish_time?: string;
   } | null>(null);
   const [timeLeftStr, setTimeLeftStr] = useState("Not Started");
+  const [resultsCountdownStr, setResultsCountdownStr] = useState<string | null>(null);
   const [team, setTeam] = useState<{ deadline_extension?: string | null } | null>(null);
 
   useEffect(() => {
@@ -61,7 +64,7 @@ export default function Navbar({ className }: { className?: string }) {
     };
 
     fetchTimer();
-    const interval = setInterval(fetchTimer, 30000); // Poll every 30 seconds
+    const interval = setInterval(fetchTimer, 5000); // Poll every 5 seconds for responsive publishing state
 
     return () => clearInterval(interval);
   }, []);
@@ -90,32 +93,49 @@ export default function Navbar({ className }: { className?: string }) {
   }, [user]);
 
   useEffect(() => {
-    if (!timerConfig || timerConfig.hackathon_is_started !== "true" || !timerConfig.hackathon_start_time) {
-      setTimeLeftStr("Not Started");
-      return;
-    }
-
     const updateCountdown = () => {
-      const start = new Date(timerConfig.hackathon_start_time!).getTime();
-      const durationHours = parseFloat(timerConfig.hackathon_duration_hours || "48");
-      const globalEnd = start + durationHours * 60 * 60 * 1000;
-      
-      let end = globalEnd;
-      if (team && team.deadline_extension) {
-        end = new Date(team.deadline_extension).getTime();
-      }
-      
-      const remaining = end - Date.now();
-
-      if (remaining <= 0) {
-        setTimeLeftStr("Closed");
-      } else {
-        const secs = Math.floor((remaining / 1000) % 60);
-        const mins = Math.floor((remaining / (1000 * 60)) % 60);
-        const hours = Math.floor(remaining / (1000 * 60 * 60));
+      if (timerConfig?.hackathon_is_started === "true" && timerConfig?.hackathon_start_time) {
+        const start = new Date(timerConfig.hackathon_start_time!).getTime();
+        const durationHours = parseFloat(timerConfig.hackathon_duration_hours || "48");
+        const globalEnd = start + durationHours * 60 * 60 * 1000;
         
-        const pad = (num: number) => String(num).padStart(2, "0");
-        setTimeLeftStr(`${hours}:${pad(mins)}:${pad(secs)}`);
+        let end = globalEnd;
+        if (team && team.deadline_extension) {
+          end = new Date(team.deadline_extension).getTime();
+        }
+        
+        const remaining = end - Date.now();
+
+        if (remaining <= 0) {
+          setTimeLeftStr("Closed");
+        } else {
+          const secs = Math.floor((remaining / 1000) % 60);
+          const mins = Math.floor((remaining / (1000 * 60)) % 60);
+          const hours = Math.floor(remaining / (1000 * 60 * 60));
+          
+          const pad = (num: number) => String(num).padStart(2, "0");
+          setTimeLeftStr(`${hours}:${pad(mins)}:${pad(secs)}`);
+        }
+      } else {
+        setTimeLeftStr("Not Started");
+      }
+
+      // Check Results Publishing 5-Min Countdown
+      if (timerConfig?.results_published === "publishing" && timerConfig?.results_publish_time) {
+        const target = new Date(timerConfig.results_publish_time).getTime();
+        const diff = target - Date.now();
+        if (diff <= 0) {
+          setResultsCountdownStr("00:00");
+        } else {
+          const mins = Math.floor((diff / (1000 * 60)) % 60);
+          const secs = Math.floor((diff / 1000) % 60);
+          const pad = (n: number) => String(n).padStart(2, "0");
+          setResultsCountdownStr(`${pad(mins)}:${pad(secs)}`);
+        }
+      } else if (timerConfig?.results_published === "true") {
+        setResultsCountdownStr("Live");
+      } else {
+        setResultsCountdownStr(null);
       }
     };
 
@@ -212,6 +232,13 @@ export default function Navbar({ className }: { className?: string }) {
             <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-jaipur-secondary/50 border border-jaipur-gold/20 text-xs font-mono font-bold text-[#F0C060]">
               <span className={timeLeftStr !== "Not Started" && timeLeftStr !== "Closed" ? "animate-pulse" : ""}>⏳</span>
               <span>{timeLeftStr}</span>
+            </div>
+          )}
+
+          {/* Results Publishing Countdown Pill */}
+          {resultsCountdownStr && (
+            <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-jaipur-primary/20 border border-jaipur-primary/40 text-xs font-mono font-bold text-jaipur-gold animate-pulse shadow-sm">
+              <span>🏆 Results: {resultsCountdownStr}</span>
             </div>
           )}
 
