@@ -123,14 +123,27 @@ export const POST = withAuth(async (req, { user, profile }) => {
     }
 
     // 7. Generate signed Cloudinary upload authorization
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'code-e-manipal';
-    const apiKey = process.env.CLOUDINARY_API_KEY || 'cem_upload_key';
-    const apiSecret = process.env.CLOUDINARY_API_SECRET || 'cem_dev_secret_key_change_in_prod';
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.CLOUDINARY_API_KEY;
+    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+    if (!cloudName || !apiKey || !apiSecret) {
+      const missingCloudinaryConfig = [
+        !cloudName && 'CLOUDINARY_CLOUD_NAME',
+        !apiKey && 'CLOUDINARY_API_KEY',
+        !apiSecret && 'CLOUDINARY_API_SECRET',
+      ].filter((name): name is string => Boolean(name));
+
+      logger.error('Cloudinary upload authorization is not configured.', {
+        missing: missingCloudinaryConfig,
+      });
+      return Errors.INTERNAL('Asset upload service is not configured.');
+    }
 
     const timestamp = Math.floor(Date.now() / 1000);
     const folder = `code-e-manipal/teams/${teamId}`;
     const publicId = `${asset_type}_${crypto.randomUUID()}`;
-    const tags = `team_${teamId},event_2025,${asset_type}`;
+    const tags = `team_${teamId},event_2026,${asset_type}`;
     const resourceType = constraints.resourceType;
 
     // Cloudinary signature formula:

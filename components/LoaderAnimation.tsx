@@ -151,11 +151,13 @@ export default function LoaderAnimation({ onComplete }: LoaderAnimationProps) {
               alt="MUJ Campus Building"
               width={1600}
               height={1600}
+              sizes="(max-width: 639px) 180vw, 97vw"
+              loading="eager"
+              fetchPriority="high"
               className="w-full h-auto object-contain opacity-[0.35] mix-blend-screen"
               style={{
                 filter: "drop-shadow(0 0 12px rgba(246,196,83,0.15))",
               }}
-              priority
             />
           </motion.div>
 
@@ -591,8 +593,8 @@ export default function LoaderAnimation({ onComplete }: LoaderAnimationProps) {
                 src="/logo.png"
                 alt="Learn IT"
                 width={28}
-                height={28}
-                className="object-contain drop-shadow-[0_0_8px_rgba(246,196,83,0.5)]"
+                height={12}
+                className="h-3 w-7 object-contain drop-shadow-[0_0_8px_rgba(246,196,83,0.5)]"
               />
 
               {/* Footer circuit lines */}

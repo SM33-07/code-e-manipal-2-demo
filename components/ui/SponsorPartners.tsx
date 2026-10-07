@@ -179,7 +179,7 @@ export function SponsorPartners({
           <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
             Supporting Partners
           </p>
-          <div className="grid grid-cols-2 gap-px overflow-hidden border-y border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
+          <div className="sponsor-card-grid grid grid-cols-2 gap-px overflow-hidden border-y border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
             {supporting.map((partner) => {
               const tileClass =
                 "group block bg-card p-5 transition-[background-color] duration-200 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";

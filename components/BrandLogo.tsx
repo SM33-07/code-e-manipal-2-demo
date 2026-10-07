@@ -32,10 +32,10 @@ export function BrandLogo({
           <Image
             src="/logo.png"
             alt="Code-e-Manipal 2.0"
-            width={160}
-            height={68}
+            width={256}
+            height={110}
+            style={{ width: "auto" }}
             className={`${logoHeights} w-auto object-contain bg-transparent transition-opacity hover:opacity-90 dark:brightness-110`}
-            priority
           />
         </div>
       </div>

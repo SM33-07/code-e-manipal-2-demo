@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import {
   Terminal,
@@ -18,6 +18,8 @@ import {
   Medal,
   Activity,
   ArrowUpRight,
+  ChevronLeft,
+  ChevronRight,
   type LucideIcon
 } from "lucide-react";
 
@@ -42,9 +44,23 @@ type EventIndexStatus =
   | "ended"
   | "unavailable";
 
+const TRACK_SUMMARIES: Record<string, string> = {
+  "ai-ml": "Build predictive, vision, and edge-deployed learning systems.",
+  healthtech: "Improve care through diagnostics, clinical workflows, and patient data.",
+  "fintech-edtech": "Make finance safer and learning more adaptive and accessible.",
+  cybersecurity: "Defend infrastructure with threat intelligence and resilient systems.",
+  "genai-llms": "Create with domain-tuned LLMs, retrieval, and multimodal models.",
+  "multi-agent-systems": "Coordinate autonomous agents across tools, tasks, and teams.",
+  "gaming-immersive": "Build real-time 3D, AR/VR, and immersive interactive worlds.",
+  "smart-city-infra": "Design smarter civic systems, urban analytics, and resilient grids.",
+  "open-innovation": "Define a problem and engineer an original cross-disciplinary solution.",
+};
+
 export default function HomePage() {
   const { role, isAuthenticated, loading } = useAuth();
   const [eventStatus, setEventStatus] = useState<EventIndexStatus>("checking");
+  const [activeTrackIndex, setActiveTrackIndex] = useState(0);
+  const trackCarouselRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,6 +124,31 @@ export default function HomePage() {
   };
 
   const tracks = DETAILED_TRACKS;
+
+  function handleTrackCarouselScroll() {
+    const carousel = trackCarouselRef.current;
+    const firstCard = carousel?.firstElementChild;
+    if (!carousel || !(firstCard instanceof HTMLElement)) return;
+
+    const gap = Number.parseFloat(getComputedStyle(carousel).columnGap) || 0;
+    setActiveTrackIndex(
+      Math.min(
+        tracks.length - 1,
+        Math.round(carousel.scrollLeft / (firstCard.offsetWidth + gap))
+      )
+    );
+  }
+
+  function moveTrackCarousel(direction: -1 | 1) {
+    const carousel = trackCarouselRef.current;
+    const firstCard = carousel?.firstElementChild;
+    if (!carousel || !(firstCard instanceof HTMLElement)) return;
+
+    carousel.scrollBy({
+      left: direction * (firstCard.offsetWidth + (Number.parseFloat(getComputedStyle(carousel).columnGap) || 0)),
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    });
+  }
 
   const highlights = [
     { label: "Finale", value: `${EVENT_IDENTITY.durationHours} hours`, sub: "On-campus sprint" },
@@ -216,9 +257,9 @@ export default function HomePage() {
             </div>
           </div>
 
-          <aside className="hero-index relative isolate overflow-hidden border-y border-l-4 border-secondary bg-card px-5 py-5 sm:px-7 sm:py-6 lg:min-h-[390px] lg:border-y-0 lg:border-l-4 lg:px-8 lg:py-8">
+          <aside className="hero-index relative isolate overflow-hidden rounded-3xl border border-secondary/35 border-l-4 bg-card px-5 py-5 shadow-sm sm:px-7 sm:py-6 lg:min-h-[390px] lg:px-8 lg:py-8">
             <div className="hero-index-number pointer-events-none absolute -right-1 -top-12 select-none font-black leading-none text-secondary/[0.09]" aria-hidden="true">02</div>
-            <div className="relative z-10 flex h-full flex-col justify-between gap-6">
+            <div className="relative z-10 flex h-full flex-col gap-5 sm:gap-6">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-secondary">Hackathon intelligence</p>
@@ -227,35 +268,40 @@ export default function HomePage() {
                 <span className="font-mono text-xs font-bold tracking-[0.18em] text-muted-foreground">CEM / 02</span>
               </div>
 
-              <div className="flex items-center gap-3 border-y border-border/80 py-3">
-                <span className={`event-status-marker ${["live", "submission", "submission-closed", "judging"].includes(eventStatus) ? "event-status-marker--active" : ""}`} aria-hidden="true" />
-                <div>
-                  <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Current status</p>
-                  <p className="mt-0.5 text-sm font-bold text-foreground" aria-live="polite">{eventStatusLabel[eventStatus]}</p>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-y border-border/80 py-3">
+                <div className="flex items-center gap-3">
+                  <span className={`event-status-marker ${["live", "submission", "submission-closed", "judging"].includes(eventStatus) ? "event-status-marker--active" : ""}`} aria-hidden="true" />
+                  <div>
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Current status</p>
+                    <p className="mt-0.5 text-sm font-bold text-foreground" aria-live="polite">{eventStatusLabel[eventStatus]}</p>
+                  </div>
                 </div>
-                <Activity className="ml-auto text-secondary" size={18} aria-hidden="true" />
+                <Activity className="text-secondary" size={18} aria-hidden="true" />
               </div>
 
-              <div>
-                <div className="flex items-end justify-between gap-3">
-                  <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Official tracks</p>
-                  <span className="font-mono text-xs font-bold text-secondary">
-                    {String(DETAILED_TRACKS.length).padStart(2, "0")} / {String(DETAILED_TRACKS.length).padStart(2, "0")}
-                  </span>
+              <p className="max-w-sm text-[clamp(1.4rem,3vw,2rem)] font-black leading-[1.08] tracking-[-0.035em] text-foreground">
+                36 hours to turn a bold idea into something real.
+              </p>
+
+              <div className="grid grid-cols-2 gap-x-4 gap-y-4 border-t border-border/80 pt-4">
+                <div>
+                  <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Event format</p>
+                  <p className="mt-1 text-xs font-semibold leading-snug text-foreground">{EVENT_IDENTITY.mode} · {EVENT_IDENTITY.durationHours}-hour campus finale</p>
                 </div>
-                <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 lg:grid-cols-1 lg:gap-y-2.5">
-                  {DETAILED_TRACKS.slice(0, 4).map((track, index) => (
-                    <li key={track.id} className={`hero-index-track hero-index-track--${index + 1} flex min-w-0 items-baseline justify-between gap-2 border-b border-border/70 pb-2 text-xs font-medium text-foreground/85`}>
-                      <span className="truncate">{track.title}</span>
-                      <span className="shrink-0 font-mono text-[9px] text-muted-foreground">{track.tag.replace("TRACK ", "")}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Link href="/problem-statements" className="group mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-primary transition-colors hover:text-primary/75">
-                  Explore all tracks
-                  <ArrowUpRight size={14} className="transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-                </Link>
+                <div>
+                  <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Prize pool</p>
+                  <p className="mt-1 text-xs font-semibold leading-snug text-foreground">{PRIZE_STRUCTURE.advertisedTotal}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Venue</p>
+                  <p className="mt-1 text-xs font-semibold leading-snug text-foreground">{EVENT_IDENTITY.location}</p>
+                </div>
               </div>
+
+              <Link href="/timeline" className="group mt-auto inline-flex min-h-11 items-center gap-2 self-start text-xs font-bold text-primary transition-colors hover:text-primary/75">
+                Explore the event
+                <ArrowUpRight size={14} className="transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+              </Link>
             </div>
           </aside>
         </div>
@@ -291,8 +337,9 @@ export default function HomePage() {
               <span>Architectural Arenas</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-black text-foreground">
-              Core Technical Tracks
+              TRACK ATLAS
             </h2>
+            <p className="mt-1 text-sm text-muted-foreground">Nine directions. One build window.</p>
           </div>
           <Link
             href="/problem-statements"
@@ -306,35 +353,74 @@ export default function HomePage() {
         {/* Interactive Track Dial (Option Wheel) */}
         <OptionWheel />
 
-        {/* Full Track Accessible Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
-          {tracks.map((t) => (
+        <div role="group" className="flex items-center justify-between gap-4 md:hidden" aria-label="Track carousel controls">
+          <p className="font-mono text-xs font-bold tabular-nums text-muted-foreground" aria-live="polite">
+            {String(activeTrackIndex + 1).padStart(2, "0")} / {String(tracks.length).padStart(2, "0")}
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              aria-label="Previous track"
+              disabled={activeTrackIndex === 0}
+              onClick={() => moveTrackCarousel(-1)}
+              className="inline-flex size-11 items-center justify-center rounded-full border border-border bg-card text-foreground transition-colors hover:border-secondary hover:text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <button
+              type="button"
+              aria-label="Next track"
+              disabled={activeTrackIndex === tracks.length - 1}
+              onClick={() => moveTrackCarousel(1)}
+              className="inline-flex size-11 items-center justify-center rounded-full border border-border bg-card text-foreground transition-colors hover:border-secondary hover:text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Track Atlas cards: snap-scroll on mobile, grid on larger screens. */}
+        <div
+          ref={trackCarouselRef}
+          onScroll={handleTrackCarouselScroll}
+          role="region"
+          aria-label="Track Atlas"
+          aria-roledescription="carousel"
+          className="track-card-grid track-card-carousel -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 pt-2 sm:-mx-6 sm:px-6 md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0 md:pb-0 md:snap-none lg:grid-cols-3"
+        >
+          {tracks.map((t, index) => (
             <SpotlightCard
               key={t.id}
-              className="p-6 sm:p-7 flex flex-col justify-between group"
+              role="group"
+              aria-roledescription="slide"
+              aria-label={`Track ${index + 1} of ${tracks.length}: ${t.title}`}
+              className="track-atlas-card group min-w-0 flex-[0_0_88%] snap-start rounded-2xl p-5 sm:p-6 md:flex-auto"
             >
               <Link
                 href="/problem-statements"
                 aria-label={`Explore ${t.title} problem statements`}
-                className="flex h-full flex-col justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="relative flex min-h-56 h-full flex-col justify-between overflow-hidden rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
-                <div className="space-y-3">
+                <span className="pointer-events-none absolute -right-1 -top-5 select-none font-mono text-7xl font-black leading-none tracking-[-0.08em] text-secondary/[0.08]" aria-hidden="true">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <div className="relative space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono font-bold text-secondary">{t.tag}</span>
+                    <span className="text-[10px] font-mono font-bold tracking-[0.16em] text-secondary">{t.tag}</span>
                     <span className="h-2 w-2 rounded-full bg-secondary/40 transition-colors group-hover:bg-secondary" />
                   </div>
-                  <h3 className="text-lg sm:text-xl font-bold text-foreground transition-colors group-hover:text-primary">
+                  <h3 className="max-w-[90%] text-lg font-bold leading-snug text-foreground transition-colors group-hover:text-primary sm:text-xl">
                     {t.title}
                   </h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                    {t.desc}
+                  <p className="max-w-[95%] text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                    {TRACK_SUMMARIES[t.id]}
                   </p>
                 </div>
 
-                <div className="mt-5 flex items-center justify-between border-t border-border pt-4 text-xs">
-                  <span className="text-muted-foreground">36-Hour Sprint Target</span>
+                <div className="relative mt-5 flex min-h-11 items-center justify-between border-t border-border pt-3 text-xs">
+                  <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">36-hour sprint</span>
                   <span className="flex items-center gap-1 font-semibold text-secondary">
-                    <span>Explore Briefs</span>
+                    <span>Explore</span>
                     <ArrowRight size={12} className="transition-transform duration-200 group-hover:translate-x-1" />
                   </span>
                 </div>

@@ -108,7 +108,7 @@ export function OptionWheel({ className, onSelectTrack }: OptionWheelProps) {
               onClick={() => handleSelect(idx)}
               type="button"
               className={cn(
-                "relative min-w-0 overflow-hidden px-2 py-2.5 rounded-xl text-[10px] sm:text-xs font-bold transition-[background-color,color,box-shadow,transform] duration-200 flex items-center justify-center gap-1.5 cursor-pointer select-none",
+                "relative min-h-11 min-w-0 overflow-hidden px-2 py-2.5 rounded-xl text-[10px] sm:text-xs font-bold transition-[background-color,color,box-shadow,transform] duration-200 flex items-center justify-center gap-1.5 cursor-pointer select-none",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                 isSelected
                   ? "bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/35"
