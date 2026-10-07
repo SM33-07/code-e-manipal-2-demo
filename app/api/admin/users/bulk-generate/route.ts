@@ -42,15 +42,15 @@ export const POST = withAuth(async (req, { user: adminUser }) => {
       return Errors.BAD_REQUEST('Count must be an integer between 1 and 100');
     }
 
-    const credentials = await createBulkCredentials({
+    const result = await createBulkCredentials({
       role,
       count: numericCount,
       prefix: typeof prefix === 'string' ? prefix : undefined,
       admin_id: adminUser.id,
     });
 
-    if (format === 'csv') {
-      const csvContent = formatCredentialsCSV(credentials);
+    if (format === 'csv' && result.failed.length === 0) {
+      const csvContent = formatCredentialsCSV(result.successful);
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const filename = `badge-credentials-${role}-${timestamp}.csv`;
 
@@ -66,13 +66,14 @@ export const POST = withAuth(async (req, { user: adminUser }) => {
     }
 
     const response = successResponse(
-      credentials,
+      result.failed.length === 0 ? result.successful : result,
       {
-        total_generated: credentials.length,
+        total_generated: result.successful.length,
+        total_failed: result.failed.length,
         role,
         notice: 'Zero Plaintext Persistence: Passwords returned ONCE; store or export immediately.',
       },
-      201
+      result.failed.length === 0 ? 201 : 207
     );
 
     response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');

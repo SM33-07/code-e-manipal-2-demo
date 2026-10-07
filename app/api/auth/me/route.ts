@@ -43,12 +43,14 @@ export async function GET(_req: NextRequest) {
       (profile as any).identifier ||
       emailToIdentifier(user.email || '') ||
       null;
+    const loginId = (profile as any).login_id || null;
 
     return successResponse({
       user: {
         id: user.id,
         email: user.email,
         identifier,
+        login_id: loginId,
       },
       profile: {
         id: profile.id,
@@ -56,6 +58,8 @@ export async function GET(_req: NextRequest) {
         email: profile.email,
         avatar_url: profile.avatar_url,
         role: profile.role,           // ← Authoritative (ADR-001)
+        identifier,
+        login_id: loginId,
         created_at: profile.created_at,
         updated_at: profile.updated_at,
       },

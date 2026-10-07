@@ -1,45 +1,28 @@
-import crypto from 'crypto';
 import { query } from '@/lib/db';
-import { createSupabaseAdminClient } from '@/lib/supabase/admin';
-import { UserRole } from '@/types';
+import type { UserRole } from '@/types';
 import { logger } from '@/lib/utils/logger';
-
-// Unambiguous alphanumeric alphabet strictly matching [2-9A-HJKMNP-Z] (excludes 0, 1, I, L, O)
-const EVENT_CHARSET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
-const ADMIN_CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+';
-
-/**
- * Generate a 6-character unambiguous event credential for participants and judges
- */
-export function generateEventPassword(length = 6): string {
-  let result = '';
-  const bytes = crypto.randomBytes(length);
-  for (let i = 0; i < length; i++) {
-    result += EVENT_CHARSET[bytes[i] % EVENT_CHARSET.length];
-  }
-  return result;
-}
-
-/**
- * Generate a 16+ character high-entropy administrative credential
- */
-export function generateAdminPassword(length = 18): string {
-  let result = '';
-  const bytes = crypto.randomBytes(length);
-  for (let i = 0; i < length; i++) {
-    result += ADMIN_CHARSET[bytes[i] % ADMIN_CHARSET.length];
-  }
-  return result;
-}
+import { provisionAccount } from '@/lib/admin/provisioning';
+export { generateEventPassword, generateAdminPassword } from '@/lib/admin/passwords';
 
 export interface GeneratedCredential {
   id: string;
   name: string;
   email: string;
   role: 'participant' | 'judge';
-  password: string; // Returned ONCE; never stored in plaintext
+  password: string;
   team_id?: string | null;
   team_name?: string | null;
+}
+
+export interface BulkGenerationFailure {
+  index: number;
+  name: string;
+  reason: string;
+}
+
+export interface BulkGenerationResult {
+  successful: GeneratedCredential[];
+  failed: BulkGenerationFailure[];
 }
 
 export interface BulkGenerateParams {
@@ -50,187 +33,58 @@ export interface BulkGenerateParams {
   domain?: string;
 }
 
-/**
- * Formats credential objects into RFC-4180 compliant CSV format for badge printing
- */
 export function formatCredentialsCSV(records: GeneratedCredential[]): string {
   const header = ['ID', 'Name', 'Email', 'Role', 'Temporary_Password', 'Team_ID', 'Team_Name'];
   const lines = [header.join(',')];
-
   for (const r of records) {
-    const row = [
-      `"${r.id}"`,
-      `"${(r.name || '').replace(/"/g, '""')}"`,
-      `"${(r.email || '').replace(/"/g, '""')}"`,
-      `"${r.role}"`,
-      `"${r.password}"`,
-      `"${r.team_id || ''}"`,
-      `"${(r.team_name || '').replace(/"/g, '""')}"`,
-    ];
-    lines.push(row.join(','));
+    lines.push([
+      `"${r.id}"`, `"${(r.name || '').replace(/"/g, '""')}"`, `"${(r.email || '').replace(/"/g, '""')}"`,
+      `"${r.role}"`, `"${r.password}"`, `"${r.team_id || ''}"`, `"${(r.team_name || '').replace(/"/g, '""')}"`,
+    ].join(','));
   }
-
   return lines.join('\r\n');
 }
 
-/**
- * Bulk generate credentials for participants or judges.
- *
- * Security Invariants:
- * 1. Zero Plaintext Persistence: passwords stored hashed only by Supabase Auth (bcrypt).
- * 2. Zero Telemetry Leakage: passwords never logged to application logs or audit logs.
- * 3. Strict Separation of Admin Accounts: rejects role = 'admin'.
- * 4. Audit Logged: records action in audit_logs without credentials.
- */
-export async function createBulkCredentials(
-  params: BulkGenerateParams
-): Promise<GeneratedCredential[]> {
-  // Strict Separation of Admin Accounts (Phase 6 Baseline Line 603)
-  if ((params.role as string) === 'admin') {
-    throw new Error(
-      'Strict Separation of Admin Accounts: The bulk generator produces 6-character credentials only for participants and judges. Administrative accounts must be provisioned with high-entropy credentials via secure management.'
-    );
-  }
-
-  if (!params.role || (params.role !== 'participant' && params.role !== 'judge')) {
-    throw new Error("Role must be 'participant' or 'judge'");
-  }
-
+export async function createBulkCredentials(params: BulkGenerateParams): Promise<BulkGenerationResult> {
+  if ((params.role as string) === 'admin') throw new Error('Strict Separation of Admin Accounts: administrative accounts must be provisioned individually.');
+  if (!params.role || (params.role !== 'participant' && params.role !== 'judge')) throw new Error("Role must be 'participant' or 'judge'");
   const count = Math.min(Math.max(1, Math.floor(params.count || 1)), 100);
-  const prefix = (params.prefix || params.role).trim().toUpperCase();
-  const domain = params.domain || 'codeemanipal.in';
-  const supabase = createSupabaseAdminClient();
+  const prefix = (params.prefix || (params.role === 'judge' ? 'JUDGE' : 'TEAM')).trim().toUpperCase();
+  const expectedPrefix = params.role === 'judge' ? 'JUDGE' : 'TEAM';
+  if (prefix !== expectedPrefix) throw new Error(`Prefix must be ${expectedPrefix}; canonical identifiers cannot be replaced.`);
 
-  const generatedList: GeneratedCredential[] = [];
-  const BATCH_SIZE = 10;
-  const chunkIndices: number[][] = [];
-  for (let i = 1; i <= count; i += BATCH_SIZE) {
-    const chunk: number[] = [];
-    for (let j = i; j < i + BATCH_SIZE && j <= count; j++) {
-      chunk.push(j);
+  const successful: GeneratedCredential[] = [];
+  const failed: BulkGenerationFailure[] = [];
+  for (let index = 0; index < count; index += 1) {
+    const name = `${params.role === 'judge' ? 'Judge' : 'Team Member'} ${index + 1}`;
+    try {
+      const account = await provisionAccount({ name, role: params.role }, params.admin_id);
+      successful.push({ id: account.id, name: account.name, email: account.email, role: params.role, password: account.password });
+    } catch (error) {
+      failed.push({
+        index: index + 1,
+        name,
+        reason: error instanceof Error && error.name === 'ProvisioningError' ? error.message : 'Provisioning failed',
+      });
     }
-    chunkIndices.push(chunk);
   }
 
-  for (const chunk of chunkIndices) {
-    const chunkResults = await Promise.all(
-      chunk.map(async (i) => {
-        const randomSuffix = crypto.randomBytes(4).toString('hex').toUpperCase();
-        const identifier = `${prefix}-${String(i).padStart(3, '0')}-${randomSuffix}`;
-        const email = `${identifier.toLowerCase()}@${domain}`;
-        const name = `${params.role === 'judge' ? 'Judge' : 'Team Member'} ${identifier}`;
-        const password = generateEventPassword(6);
-
-        // 1. Create Supabase Auth user (hashes password with bcrypt)
-        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-          email,
-          password,
-          email_confirm: true,
-          user_metadata: {
-            name,
-            role: params.role,
-            identifier,
-          },
-        });
-
-        if (authError || !authData.user) {
-          logger.error('Failed to create auth user in bulk generator', {
-            email,
-            error: authError?.message,
-          });
-          return null;
-        }
-
-        const userId = authData.user.id;
-
-        // 2. Sync to Azure auth.users table for schema consistency
-        try {
-          await query(
-            'INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING',
-            [userId, email, JSON.stringify({ name, role: params.role, identifier })]
-          );
-        } catch {
-          // ignore
-        }
-
-        // 3. Upsert public.profiles row
-        await query(
-          `INSERT INTO public.profiles (id, name, email, avatar_url, role, identifier)
-           VALUES ($1, $2, $3, '', $4, $5)
-           ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, name = EXCLUDED.name, identifier = EXCLUDED.identifier`,
-          [userId, name, email, params.role, identifier]
-        );
-
-        return {
-          id: userId,
-          name,
-          email,
-          role: params.role,
-          identifier,
-          password, // returned once to caller for badge printing
-        };
-      })
+  try {
+    await query(
+      `INSERT INTO public.audit_logs (user_id, action, target_table, details) VALUES ($1, 'BULK_CREDENTIALS_GENERATED', 'profiles', $2)`,
+      [params.admin_id, JSON.stringify({ role: params.role, count_requested: count, count_generated: successful.length, count_failed: failed.length, prefix })]
     );
-
-    for (const r of chunkResults) {
-      if (r) generatedList.push(r);
-    }
+  } catch (auditError) {
+    logger.error('Bulk credential audit write failed after provisioning', { adminId: params.admin_id, error: String(auditError) });
   }
-
-  // 4. Record bulk generation in audit_logs (NO passwords logged)
-  await query(
-    `INSERT INTO public.audit_logs (user_id, action, target_table, details)
-     VALUES ($1, $2, $3, $4)`,
-    [
-      params.admin_id,
-      'BULK_CREDENTIALS_GENERATED',
-      'profiles',
-      JSON.stringify({
-        role: params.role,
-        count_requested: count,
-        count_generated: generatedList.length,
-        prefix,
-      }),
-    ]
-  );
-
-  logger.info('Bulk credentials successfully generated', {
-    adminId: params.admin_id,
-    role: params.role,
-    count: generatedList.length,
-  });
-
-  return generatedList;
+  logger.info('Bulk credentials generation completed', { adminId: params.admin_id, role: params.role, count: successful.length, failed: failed.length });
+  return { successful, failed };
 }
 
-/**
- * Bulk deactivation of event credentials upon event conclusion (ENDED phase)
- */
 export async function bulkDeactivateEventAccounts(adminId: string): Promise<number> {
-  const { rows } = await query(
-    `UPDATE public.profiles
-     SET is_disabled = true, updated_at = NOW()
-     WHERE role IN ('participant', 'judge') AND is_disabled = false
-     RETURNING id`
-  );
-
+  const { rows } = await query(`UPDATE public.profiles SET is_disabled = true, updated_at = NOW() WHERE role IN ('participant', 'judge') AND is_disabled = false RETURNING id`);
   const count = rows.length;
-
-  await query(
-    `INSERT INTO public.audit_logs (user_id, action, target_table, details)
-     VALUES ($1, $2, $3, $4)`,
-    [
-      adminId,
-      'BULK_ACCOUNTS_DEACTIVATED',
-      'profiles',
-      JSON.stringify({ count, target_roles: ['participant', 'judge'] }),
-    ]
-  );
-
-  logger.info('Event accounts bulk deactivated on event conclusion', {
-    adminId,
-    deactivatedCount: count,
-  });
-
+  await query(`INSERT INTO public.audit_logs (user_id, action, target_table, details) VALUES ($1, 'BULK_ACCOUNTS_DEACTIVATED', 'profiles', $2)`, [adminId, JSON.stringify({ count, target_roles: ['participant', 'judge'] })]);
+  logger.info('Event accounts bulk deactivated on event conclusion', { adminId, deactivatedCount: count });
   return count;
 }

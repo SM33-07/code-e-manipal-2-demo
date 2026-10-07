@@ -9,6 +9,7 @@ interface Profile {
   avatar_url?: string;
   role: 'admin' | 'judge' | 'participant';
   identifier?: string;
+  login_id?: string | null;
   is_disabled: boolean;
   force_logout_before?: string;
   created_at: string;
@@ -51,6 +52,15 @@ export default function AdminUsersPage() {
   const [bulkPrefix, setBulkPrefix] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [bulkResult, setBulkResult] = useState<any[] | null>(null);
+  const [bulkFailures, setBulkFailures] = useState<Array<{ index: number; name: string; reason: string }>>([]);
+
+  // Single-account provisioning state
+  const [showProvisionModal, setShowProvisionModal] = useState(false);
+  const [provisionRole, setProvisionRole] = useState<'participant' | 'judge' | 'admin'>('participant');
+  const [provisionName, setProvisionName] = useState('');
+  const [provisionIdentifier, setProvisionIdentifier] = useState('');
+  const [isProvisioning, setIsProvisioning] = useState(false);
+  const [provisionResult, setProvisionResult] = useState<any | null>(null);
 
   // Audit Logs
   const [showAuditModal, setShowAuditModal] = useState(false);
@@ -195,9 +205,22 @@ export default function AdminUsersPage() {
           }),
         });
 
+        const contentType = res.headers.get('content-type') || '';
+        if (res.status === 207) {
+          const partial = await res.json();
+          const result = partial.data || { successful: [], failed: [] };
+          setBulkResult(result.successful || []);
+          setBulkFailures(result.failed || []);
+          setSuccessMsg(`Generated ${(result.successful || []).length} credentials; ${(result.failed || []).length} failed. Successful credentials remain available below.`);
+          fetchUsers();
+          return;
+        }
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
           throw new Error(errData.error || 'CSV generation failed');
+        }
+        if (contentType.includes('application/json')) {
+          throw new Error('Unexpected JSON response for a complete CSV export');
         }
 
         const blob = await res.blob();
@@ -224,16 +247,43 @@ export default function AdminUsersPage() {
         });
 
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Bulk generation failed');
+        if (!res.ok && res.status !== 207) throw new Error(data.error || 'Bulk generation failed');
 
-        setBulkResult(data.data);
-        setSuccessMsg(`Generated ${data.data.length} credentials successfully.`);
+        const result = Array.isArray(data.data) ? { successful: data.data, failed: [] } : data.data;
+        setBulkResult(result.successful);
+        setBulkFailures(result.failed || []);
+        setSuccessMsg(`Generated ${result.successful.length} credentials successfully${result.failed.length ? `; ${result.failed.length} failed.` : '.'}`);
         fetchUsers();
       }
     } catch (err: any) {
       setError(err.message);
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleProvision = async () => {
+    try {
+      setIsProvisioning(true);
+      setError(null);
+      const res = await fetch('/api/admin/users/provision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: provisionName,
+          role: provisionRole,
+          canonical_identifier: provisionIdentifier || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Account provisioning failed');
+      setProvisionResult(data.data);
+      setSuccessMsg(`${provisionRole} account provisioned successfully.`);
+      fetchUsers();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsProvisioning(false);
     }
   };
 
@@ -304,7 +354,22 @@ export default function AdminUsersPage() {
           <button
             type="button"
             onClick={() => {
+              setProvisionResult(null);
+              setProvisionName('');
+              setProvisionIdentifier('');
+              setShowProvisionModal(true);
+            }}
+            className="px-4 py-2 rounded-xl bg-card hover:bg-accent text-foreground border border-border font-semibold text-sm shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+          >
+            <span>＋</span>
+            <span>Provision Account</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
               setBulkResult(null);
+              setBulkFailures([]);
               setShowBulkModal(true);
             }}
             className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-sm shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
@@ -457,6 +522,9 @@ export default function AdminUsersPage() {
                     <span className="font-mono text-xs text-foreground bg-muted px-2 py-0.5 rounded-md border border-border">
                       {user.identifier || '—'}
                     </span>
+                    {user.login_id && (
+                      <div className="mt-1 text-[11px] font-mono text-muted-foreground">Login: {user.login_id}</div>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span
@@ -508,6 +576,111 @@ export default function AdminUsersPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Single Account Provisioning Modal */}
+      {showProvisionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-card border border-border rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl text-foreground">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-lg font-bold">Provision one account</h3>
+              <button
+                type="button"
+                onClick={() => setShowProvisionModal(false)}
+                className="text-muted-foreground hover:text-foreground text-sm font-bold p-1 rounded-lg hover:bg-muted cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-800 dark:text-blue-300 text-xs leading-relaxed">
+              Azure profile role is authoritative. The canonical identifier is preserved, while judges and admins also receive a deterministic name-based login ID.
+            </p>
+
+            {!provisionResult ? (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground block mb-1">Role</label>
+                    <select
+                      value={provisionRole}
+                      onChange={(e) => setProvisionRole(e.target.value as typeof provisionRole)}
+                      className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="participant">Participant</option>
+                      <option value="judge">Judge</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground block mb-1">Name</label>
+                    <input
+                      value={provisionName}
+                      onChange={(e) => setProvisionName(e.target.value)}
+                      placeholder="Rahul Sharma"
+                      className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1">Canonical identifier (optional)</label>
+                  <input
+                    value={provisionIdentifier}
+                    onChange={(e) => setProvisionIdentifier(e.target.value)}
+                    placeholder={provisionRole === 'participant' ? 'TEAM-001' : provisionRole === 'judge' ? 'JUDGE-01' : 'ADMIN-01'}
+                    className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div className="pt-2 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowProvisionModal(false)}
+                    className="px-4 py-2 rounded-xl bg-muted hover:bg-accent text-foreground border border-border text-sm font-medium transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleProvision}
+                    disabled={isProvisioning || !provisionName.trim()}
+                    className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {isProvisioning ? 'Provisioning...' : 'Provision account'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-amber-800 dark:text-amber-300 bg-amber-500/10 p-3 rounded-xl border border-amber-500/20">
+                  <strong>Credentials shown once:</strong> copy them now. Plaintext credentials are not stored, logged, or audited.
+                </p>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div><div className="text-xs text-muted-foreground">Canonical ID</div><div className="font-mono font-bold">{provisionResult.account.identifier}</div></div>
+                  <div><div className="text-xs text-muted-foreground">Login ID</div><div className="font-mono font-bold">{provisionResult.account.login_id || 'Same as canonical ID'}</div></div>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1">Temporary password</label>
+                  <div className="flex items-center gap-2">
+                    <input readOnly value={provisionResult.temporary_password} className="font-mono text-base font-bold bg-background border border-border px-3 py-2 rounded-xl text-amber-700 dark:text-amber-400 w-full focus:outline-none" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(provisionResult.temporary_password);
+                        alert('Password copied to clipboard!');
+                      }}
+                      className="px-3 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-sm transition-colors cursor-pointer shrink-0"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+                <div className="pt-2 flex justify-end">
+                  <button type="button" onClick={() => setShowProvisionModal(false)} className="px-4 py-2 rounded-xl bg-muted hover:bg-accent text-foreground border border-border text-sm font-medium transition-colors cursor-pointer">Close</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Password Reset Result Modal */}
       {resetPasswordResult && (
@@ -623,6 +796,16 @@ export default function AdminUsersPage() {
                   <div key={i} className="flex justify-between text-xs font-mono text-foreground">
                     <span>{c.email}</span>
                     <span className="text-amber-600 dark:text-amber-400 font-bold">{c.password}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {bulkFailures.length > 0 && (
+              <div className="mt-3 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 max-h-32 overflow-y-auto space-y-1">
+                <div className="text-xs font-bold text-rose-700 dark:text-rose-300 mb-2">Failed items (no credentials issued):</div>
+                {bulkFailures.map((failure) => (
+                  <div key={failure.index} className="text-xs text-rose-700 dark:text-rose-300">
+                    #{failure.index} {failure.name}: {failure.reason}
                   </div>
                 ))}
               </div>

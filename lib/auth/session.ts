@@ -117,8 +117,8 @@ export async function validateSession(): Promise<
  * Look up a profile from the Azure Postgres profiles table.
  */
 async function lookupProfile(userId: string): Promise<(Profile & SessionProfileExtensions) | null> {
-  const { rows } = await query(
-    `SELECT id, name, email, avatar_url, role, identifier,
+    const { rows } = await query(
+    `SELECT id, name, email, avatar_url, role, identifier, login_id,
             force_logout_before, is_disabled,
             created_at, updated_at
      FROM public.profiles WHERE id = $1`,
@@ -172,6 +172,7 @@ async function lazyProfileSync(user: User): Promise<(Profile & SessionProfileExt
  */
 interface SessionProfileExtensions {
   identifier?: string;
+  login_id?: string | null;
   force_logout_before?: string | null;
   is_disabled?: boolean;
 }

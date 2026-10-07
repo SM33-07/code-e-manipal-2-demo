@@ -19,7 +19,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { normalizeIdentifier, identifierToEmail } from '@/lib/auth/identifier';
+import { normalizeIdentifier, normalizeLoginId, identifierToEmail } from '@/lib/auth/identifier';
 import { evaluateLoginThrottle, serverSleep, checkEndpointRateLimit } from '@/lib/auth/throttle';
 import { validateCsrf } from '@/lib/auth/csrf';
 import { logLoginAttempt, extractClientIp, hashClientIp, summarizeUserAgent } from '@/lib/auth/telemetry';
@@ -64,16 +64,26 @@ export async function POST(req: NextRequest) {
       syntheticEmail = identityKey;
     } else {
       const normalized = normalizeIdentifier(trimmedInput);
-      identityKey = normalized ? normalized.canonical : trimmedInput.toUpperCase();
+      const normalizedLogin = normalizeLoginId(trimmedInput);
+      identityKey = normalized?.canonical || normalizedLogin?.canonical || trimmedInput.toUpperCase();
 
-      // Look up authoritative email from public.profiles for this identifier
+      // Look up the authoritative email from Azure profiles using either the
+      // canonical identifier or the separate personalized login_id.
       let profileEmail: string | null = null;
       try {
         const { rows } = await query(
-          'SELECT email FROM public.profiles WHERE UPPER(identifier) = UPPER($1) LIMIT 1',
+          `SELECT email FROM public.profiles
+           WHERE UPPER(identifier) = UPPER($1)
+              OR UPPER(login_id) = UPPER($1)
+           LIMIT 2`,
           [identityKey]
         );
-        if (rows.length > 0 && rows[0].email) {
+        if (rows.length > 1) {
+          logger.warn('Ambiguous profile identifier rejected during login', { identityKey });
+          await serverSleep(200);
+          return NextResponse.json({ error: GENERIC_AUTH_ERROR }, { status: 401 });
+        }
+        if (rows.length === 1 && rows[0].email) {
           profileEmail = rows[0].email;
         }
       } catch (dbErr) {

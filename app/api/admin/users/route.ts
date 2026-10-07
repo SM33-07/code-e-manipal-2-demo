@@ -1,13 +1,14 @@
 import { NextRequest } from 'next/server';
 import { withAuth } from '@/lib/middleware/withAuth';
 import { successResponse, Errors } from '@/lib/utils/response';
-import { getAllProfiles, setUserRole } from '@/services/profileService';
+import { getAllProfiles } from '@/services/profileService';
 import { isValidUUID } from '@/lib/utils/validate';
 import type { UserRole } from '@/types';
 import { logger } from '@/lib/utils/logger';
 import { query } from '@/lib/db';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { bulkDeactivateEventAccounts } from '@/lib/admin/credentials';
+import { provisionAccount, transitionAccountRole, ProvisioningError } from '@/lib/admin/provisioning';
 
 const VALID_ROLES: UserRole[] = ['participant', 'judge', 'admin'];
 
@@ -67,7 +68,7 @@ export const GET = withAuth(async (req) => {
 /**
  * POST /api/admin/users
  * Admin only — user account actions:
- * - action === 'create': direct individual account creation
+ * - action === 'create': legacy-compatible delegate to shared provisioning
  * - action === 'toggle-disable': account disable/enable toggle
  * - action === 'bulk-deactivate': bulk disable participant & judge accounts on event end
  * - default: promote or demote a user's role
@@ -142,87 +143,43 @@ export const POST = withAuth(async (req, { user: adminUser }) => {
     // ── Create User Account ────────────────────────────────────
     if (action === 'create') {
       if (!email?.trim()) return Errors.BAD_REQUEST('Email is required');
-      if (!password || password.length < 6) {
-        return Errors.BAD_REQUEST('Password must be at least 6 characters');
-      }
+      if (!password || password.length < 6) return Errors.BAD_REQUEST('Password must be at least 6 characters');
       if (!name?.trim()) return Errors.BAD_REQUEST('Name is required');
       if (!role || !VALID_ROLES.includes(role as UserRole)) {
         return Errors.BAD_REQUEST(`role must be one of: ${VALID_ROLES.join(', ')}`);
       }
-
-      const emailLower = email.trim().toLowerCase();
-      const nameClean = name.trim();
-
-      // Basic email format check
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLower)) {
-        return Errors.BAD_REQUEST('Invalid email format');
-      }
-
-      // Check if email already exists in profiles
-      const emailCheck = await query(
-        'SELECT id FROM public.profiles WHERE LOWER(email) = $1',
-        [emailLower]
-      );
-      if (emailCheck.rows.length > 0) {
-        return Errors.CONFLICT('A user with this email already exists');
-      }
-
-      const supabase = createSupabaseAdminClient();
-
-      // Create Supabase Auth user
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: emailLower,
-        password: password,
-        email_confirm: true,
-        user_metadata: {
-          name: nameClean,
-          role: role,
-        },
-      });
-
-      if (authError) {
-        logger.error('POST /api/admin/users (creation) — auth user creation failed', {
-          error: authError.message,
-          email: emailLower,
-        });
-        if (authError.message.includes('already') || authError.message.includes('exists')) {
-          return Errors.CONFLICT('A user with this email already exists in authentication');
-        }
-        return Errors.INTERNAL('Failed to create authentication user');
-      }
-
-      if (authData.user) {
-        try {
-          await query(
-            'INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING',
-            [authData.user.id, emailLower, JSON.stringify({ name: nameClean, role: role })]
-          );
-        } catch (e) {
-          logger.warn('auth.users sync note', { error: String(e) });
-        }
-
-        const { rows: profileRows } = await query(
-          `INSERT INTO public.profiles (id, name, email, avatar_url, role)
-           VALUES ($1, $2, $3, '', $4)
-           ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, name = EXCLUDED.name
-           RETURNING *`,
-          [authData.user.id, nameClean, emailLower, role]
+      try {
+        const account = await provisionAccount(
+          {
+            name: typeof name === 'string' ? name : '',
+            role: role as UserRole,
+            email: typeof email === 'string' ? email : undefined,
+            password: typeof password === 'string' ? password : undefined,
+          },
+          adminUser.id
         );
 
-        logger.info('POST /api/admin/users (direct create)', {
-          targetUserId: authData.user.id,
-          role,
-          createdBy: adminUser.id,
-        });
-
         return successResponse(
-          profileRows[0] ?? { id: authData.user.id, name: nameClean, email: emailLower, role },
+          {
+            id: account.id,
+            name: account.name,
+            email: account.email,
+            role: account.role,
+            identifier: account.identifier,
+            login_id: account.login_id,
+          },
           { message: 'User account created successfully' },
           201
         );
+      } catch (error) {
+        if (error instanceof ProvisioningError) {
+          if (error.status === 409) return Errors.CONFLICT(error.message);
+          if (error.status === 400) return Errors.BAD_REQUEST(error.message);
+          if (error.status === 404) return Errors.NOT_FOUND('User profile');
+          return Errors.INTERNAL(error.message);
+        }
+        throw error;
       }
-
-      return Errors.INTERNAL('User creation failed');
     }
 
     // ── Update Existing Role ───────────────────────────────────
@@ -239,45 +196,38 @@ export const POST = withAuth(async (req, { user: adminUser }) => {
       return Errors.BAD_REQUEST('Admins cannot remove their own admin role');
     }
 
-    // Update the authoritative Azure profile first.
-    const updated = await setUserRole(user_id, role as UserRole);
-
-    await query(
-      `INSERT INTO public.audit_logs (user_id, action, target_table, target_id, details)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [
-        adminUser.id,
-        'USER_ROLE_CHANGED',
-        'profiles',
-        user_id,
-        JSON.stringify({ new_role: role }),
-      ]
-    );
-
-    const supabase = createSupabaseAdminClient();
-    const { error: metadataUpdateError } = await supabase.auth.admin.updateUserById(user_id, {
-      user_metadata: { role },
-    });
-    if (metadataUpdateError) {
-      logger.error('Supabase Auth role mirror update failed after Azure profile role change', {
-        targetUserId: user_id,
-        role,
-        error: metadataUpdateError.message,
-      });
-      return Errors.INTERNAL(
-        'Azure profile role was updated, but the Supabase Auth role mirror could not be synchronized. Verify both role sources before considering the repair complete.'
-      );
+    // Update role, canonical identifier, login_id, Auth mirror, and audit
+    // trail together inside the shared Azure transaction.
+    let updated;
+    try {
+      updated = await transitionAccountRole(user_id, role as UserRole, adminUser.id);
+    } catch (error) {
+      if (error instanceof ProvisioningError) {
+        if (error.status === 409) return Errors.CONFLICT(error.message);
+        if (error.status === 404) return Errors.NOT_FOUND('User profile');
+        if (error.status === 400) return Errors.BAD_REQUEST(error.message);
+        return Errors.INTERNAL(error.message);
+      }
+      throw error;
     }
 
+    const supabase = createSupabaseAdminClient();
     const { data: verifiedAuthUser, error: metadataReadError } =
       await supabase.auth.admin.getUserById(user_id);
     const verifiedMetadataRole = verifiedAuthUser?.user?.user_metadata?.role;
-    if (metadataReadError || verifiedMetadataRole !== role || updated.role !== role) {
+    const verifiedMetadataLoginId = verifiedAuthUser?.user?.user_metadata?.login_id ?? null;
+    const metadataLoginIdMatches = updated.login_id
+      ? verifiedMetadataLoginId === updated.login_id
+      : !Object.prototype.hasOwnProperty.call(verifiedAuthUser?.user?.user_metadata || {}, 'login_id');
+    if (metadataReadError || verifiedMetadataRole !== role || !metadataLoginIdMatches || updated.role !== role) {
       logger.error('Role repair verification failed', {
         targetUserId: user_id,
         azureProfileRole: updated.role,
         expectedRole: role,
         authMetadataRole: verifiedMetadataRole ?? null,
+        authMetadataLoginId: verifiedMetadataLoginId,
+        azureIdentifier: updated.identifier,
+        azureLoginId: updated.login_id ?? null,
         error: metadataReadError?.message,
       });
       return Errors.INTERNAL(
@@ -292,11 +242,14 @@ export const POST = withAuth(async (req, { user: adminUser }) => {
     });
 
     return successResponse(updated, {
-      roleVerification: {
-        azureProfileRole: updated.role,
-        authMetadataRole: verifiedMetadataRole,
-        verified: true,
-      },
+        roleVerification: {
+          azureProfileRole: updated.role,
+          authMetadataRole: verifiedMetadataRole,
+          authMetadataLoginId: verifiedMetadataLoginId,
+          azureIdentifier: updated.identifier,
+          azureLoginId: updated.login_id,
+          verified: true,
+        },
     });
   } catch (err) {
     logger.error('POST /api/admin/users', { error: String(err) });
