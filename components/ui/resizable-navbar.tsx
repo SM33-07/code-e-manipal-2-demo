@@ -71,7 +71,7 @@ export const Navbar = ({ children, className, isSubmissionForm }: NavbarProps) =
       ref={ref}
       className={cn(
         "fixed inset-x-0 top-0 z-50 w-full flex flex-col items-center transition-all duration-300 pointer-events-none",
-        visible ? "py-2 sm:py-3" : "py-3 sm:py-4",
+        visible ? "py-2 sm:py-2.5" : "py-3 sm:py-4",
         className
       )}
     >
@@ -93,8 +93,8 @@ export const NavBody = ({ children, className, visible, isSubmissionForm }: NavB
       className={cn(
         "relative z-[60] mx-auto hidden lg:flex w-[calc(100%-2rem)] flex-row items-center justify-between transition-all duration-300 pointer-events-auto",
         visible
-          ? "max-w-6xl rounded-full bg-card text-card-foreground px-6 py-2 border border-secondary/40 shadow-xl"
-          : "max-w-7xl rounded-2xl bg-card text-card-foreground px-5 py-2.5 border border-border shadow-md",
+          ? "max-w-6xl xl:max-w-7xl rounded-2xl bg-surface-elevated text-card-foreground px-5 xl:px-6 py-2 border border-border shadow-[0_8px_24px_rgba(36,33,29,0.12)]"
+          : "max-w-7xl rounded-2xl bg-transparent text-foreground px-5 py-2.5 border border-transparent shadow-none",
         className,
       )}
     >
@@ -107,15 +107,17 @@ export const NavItems = ({ items, className, onItemClick, pathname }: NavItemsPr
   const [hovered, setHovered] = useState<number | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
 
-  // Show up to 7 primary items directly so Dashboard, Timeline, Challenges, Team, Submit, Gallery, FAQ all fit!
-  const primaryItems = items.slice(0, 7);
-  const overflowItems = items.slice(7);
+  // Responsive item slicing: show 5 primary items directly, overflow the rest cleanly into More.
+  // This guarantees brand logo and status actions never collide across any screen width or zoom factor.
+  const primaryCount = 5;
+  const primaryItems = items.slice(0, primaryCount);
+  const overflowItems = items.slice(primaryCount);
 
   return (
     <div
       onMouseLeave={() => setHovered(null)}
       className={cn(
-        "flex min-w-0 flex-1 flex-row items-center justify-center gap-1.5 text-sm font-medium transition duration-200 lg:flex",
+        "flex min-w-0 flex-1 flex-row items-center justify-center gap-1 xl:gap-1.5 text-xs xl:text-sm font-medium transition duration-200 lg:flex",
         className,
       )}
     >
@@ -127,8 +129,9 @@ export const NavItems = ({ items, className, onItemClick, pathname }: NavItemsPr
           <Link
             onMouseEnter={() => setHovered(idx)}
             onClick={onItemClick}
+            aria-current={isActive ? "page" : undefined}
             className={cn(
-              "relative whitespace-nowrap px-3.5 py-1.5 transition-colors duration-150 rounded-lg inline-flex items-center text-sm font-medium cursor-pointer",
+              "relative whitespace-nowrap px-2.5 xl:px-3.5 py-1.5 transition-colors duration-150 rounded-lg inline-flex items-center text-xs xl:text-sm font-medium cursor-pointer shrink-0",
               isSubmit
                 ? "bg-primary text-primary-foreground font-semibold shadow-sm hover:bg-primary/90"
                 : isActive
@@ -181,8 +184,8 @@ export const MobileNav = ({ children, className, visible, isSubmissionForm }: Mo
   return (
     <div
       className={cn(
-        "relative z-[60] mx-auto flex w-[calc(100%-1.5rem)] flex-row items-center justify-between rounded-2xl bg-card text-card-foreground px-4 py-2 lg:hidden transition-all duration-300 border border-border shadow-md pointer-events-auto",
-        visible && "border-secondary/40 shadow-xl",
+        "relative z-[60] mx-auto flex w-[calc(100%-1.5rem)] flex-row items-center justify-between rounded-xl bg-transparent text-foreground px-4 py-2 lg:hidden transition-all duration-300 border border-transparent shadow-none pointer-events-auto",
+        visible && "bg-surface-elevated text-card-foreground border-border shadow-[0_8px_24px_rgba(36,33,29,0.12)]",
         className,
       )}
     >
@@ -219,7 +222,7 @@ export const MobileNavMenu = ({
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.18 }}
           className={cn(
-            "absolute inset-x-0 top-16 z-50 flex w-full flex-col items-start justify-start gap-3 rounded-2xl bg-card text-card-foreground px-6 py-6 shadow-2xl border border-border",
+            "absolute inset-x-0 top-16 z-50 flex w-full flex-col items-start justify-start gap-3 rounded-xl bg-surface-elevated text-card-foreground px-6 py-6 shadow-lg border border-border",
             className,
           )}
         >
@@ -237,10 +240,18 @@ export const MobileNavToggle = ({
   isOpen: boolean;
   onClick: () => void;
 }) => {
-  return isOpen ? (
-    <X className="text-foreground cursor-pointer size-6 hover:text-primary transition-colors" onClick={onClick} />
-  ) : (
-    <Menu className="text-foreground cursor-pointer size-6 hover:text-primary transition-colors" onClick={onClick} />
+  const Icon = isOpen ? X : Menu;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={isOpen ? "Close navigation menu" : "Open navigation menu"}
+      aria-expanded={isOpen}
+      className="inline-flex size-10 items-center justify-center text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <Icon aria-hidden="true" className="size-5" />
+    </button>
   );
 };
 
@@ -253,7 +264,7 @@ export const NavbarLogo = () => {
       <img
         src="/logo.png"
         alt="Code-e-Manipal 2.0"
-        className="h-9 w-auto object-contain"
+        className="h-9 w-auto object-contain bg-transparent"
       />
     </Link>
   );

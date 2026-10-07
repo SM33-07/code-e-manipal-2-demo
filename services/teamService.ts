@@ -83,11 +83,11 @@ export async function joinTeamByInviteCode(inviteCode: string, userId: string): 
   const team = teamRes.rows[0];
   if (!team) throw new Error('INVALID_INVITE_CODE');
 
-  // Verify member capacity (limit to 4)
+  // Verify member capacity (limit to 6 per official Code-e-Manipal specification)
   const membersRes = await query('SELECT user_id FROM public.team_members WHERE team_id = $1', [team.id]);
   const members = membersRes.rows;
 
-  if (members && members.length >= 4) {
+  if (members && members.length >= 6) {
     throw new Error('TEAM_FULL');
   }
 

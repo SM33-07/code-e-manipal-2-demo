@@ -50,10 +50,10 @@ export const Timeline = ({ data }: { data: TimelineEntry[] }) => {
         {data.map((item, index) => (
           <div
             key={index}
-            className="flex justify-start pt-8 md:pt-16 md:gap-10"
+            className="flex min-w-0 flex-col justify-start pt-8 sm:pt-10 md:flex-row md:pt-16 md:gap-10"
           >
             {/* Sticky Header / Date Node (Desktop left column) */}
-            <div className="sticky flex flex-col md:flex-row z-40 items-center top-28 self-start max-w-xs lg:max-w-sm md:w-full">
+            <div className="relative flex min-h-9 flex-col md:sticky md:flex-row z-40 items-start md:items-center top-28 self-start max-w-xs lg:max-w-sm md:w-full">
               <div className="h-9 absolute left-3 md:left-3 w-9 rounded-full bg-card border-2 border-secondary/50 flex items-center justify-center shadow-sm">
                 <div className="h-3.5 w-3.5 rounded-full bg-primary ring-2 ring-primary/20" />
               </div>
@@ -75,7 +75,7 @@ export const Timeline = ({ data }: { data: TimelineEntry[] }) => {
             </div>
 
             {/* Content Column (Right on desktop, below left rail on mobile) */}
-            <div className="relative pl-14 pr-4 md:pl-4 w-full">
+            <div className="relative min-w-0 pl-14 pr-0 md:pl-4 w-full">
               {/* Mobile Phase Header */}
               <div className="md:hidden block mb-4">
                 {item.badge && (
@@ -103,7 +103,7 @@ export const Timeline = ({ data }: { data: TimelineEntry[] }) => {
           style={{
             height: height + "px",
           }}
-          className="absolute md:left-7 left-7 top-0 overflow-hidden w-[2px] bg-[linear-gradient(to_bottom,var(--tw-gradient-stops))] from-transparent from-[0%] via-border to-transparent to-[99%] [mask-image:linear-gradient(to_bottom,transparent_0%,black_5%,black_95%,transparent_100%)]"
+          className="absolute md:left-7 left-7 top-0 overflow-hidden w-[2px] bg-[linear-gradient(to_bottom,var(--tw-gradient-stops))] from-transparent from-[0%] via-secondary to-transparent to-[99%] [mask-image:linear-gradient(to_bottom,transparent_0%,black_5%,black_95%,transparent_100%)]"
         >
           {prefersReducedMotion ? (
             <div

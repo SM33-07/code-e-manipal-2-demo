@@ -16,7 +16,6 @@ const portalNavigation: Record<PortalRole, NavigationItem[]> = {
     { name: "Problem Statements", link: "/problem-statements" },
     { name: "Submit", link: "/submit" },
     { name: "Team", link: "/team" },
-    { name: "Gallery", link: "/gallery" },
     { name: "Results", link: "/results" },
   ],
   judge: [
@@ -32,7 +31,6 @@ const portalNavigation: Record<PortalRole, NavigationItem[]> = {
     { name: "Team", link: "/team" },
     { name: "Submit", link: "/submit" },
     { name: "Judge", link: "/judge" },
-    { name: "Gallery", link: "/gallery" },
     { name: "Results", link: "/results" },
   ],
 };
@@ -45,7 +43,5 @@ export const publicNavigation: NavigationItem[] = [
   { name: "Home", link: "/" },
   { name: "Problem Statements", link: "/problem-statements" },
   { name: "Timeline", link: "/timeline" },
-  { name: "Gallery", link: "/gallery" },
   { name: "FAQ", link: "/faq" },
-  { name: "Register", link: "/register" },
 ];

@@ -11,6 +11,8 @@ export interface EventConfigState {
   active_release_id: string | null;
   start_time: string | null;
   end_time: string | null;
+  /** Explicit release gate for challenge content; intentionally independent of event_phase. */
+  problem_statements_published: boolean;
   updated_at: string;
   // Computed legacy compatibility fields
   hackathon_is_started: string;
@@ -39,6 +41,7 @@ export interface PublicEventConfig {
     created_at: string;
   }>;
   active_round: string;
+  problem_statements_published: boolean;
 }
 
 /**
@@ -77,6 +80,7 @@ export async function getEventConfigState(): Promise<EventConfigState> {
         active_release_id: row.active_release_id || null,
         start_time: row.start_time ? new Date(row.start_time).toISOString() : null,
         end_time: row.end_time ? new Date(row.end_time).toISOString() : null,
+        problem_statements_published: row.problem_statements_published === true,
         updated_at: new Date(row.updated_at).toISOString(),
         // Legacy computed fields
         hackathon_is_started: isStarted ? 'true' : 'false',
@@ -124,6 +128,7 @@ export async function getEventConfigState(): Promise<EventConfigState> {
       active_release_id: null,
       start_time: kv.hackathon_start_time || null,
       end_time: null,
+      problem_statements_published: kv.problem_statements_published === 'true',
       updated_at: new Date().toISOString(),
       hackathon_is_started: kv.hackathon_is_started || 'false',
       hackathon_start_time: kv.hackathon_start_time || null,
@@ -142,6 +147,7 @@ export async function getEventConfigState(): Promise<EventConfigState> {
       active_release_id: null,
       start_time: null,
       end_time: null,
+      problem_statements_published: false,
       updated_at: new Date().toISOString(),
       hackathon_is_started: 'false',
       hackathon_start_time: null,
@@ -156,7 +162,8 @@ export async function getEventConfigState(): Promise<EventConfigState> {
  * Returns the strictly allowlisted public representation of the event configuration.
  *
  * Conforms 100% to IMPLEMENTATION_BASELINE_v4_FINAL.md:
- * Exactly 8 allowed fields:
+ * Exactly the public operational fields required by the portal, including the
+ * explicit challenge-publication gate (which contains no challenge content).
  * - event_phase
  * - results_release
  * - start_time
@@ -208,5 +215,6 @@ export async function getPublicEventConfig(): Promise<PublicEventConfig> {
     countdown_target: countdownTarget,
     announcements,
     active_round: '1',
+    problem_statements_published: fullConfig.problem_statements_published,
   };
 }

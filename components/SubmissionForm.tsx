@@ -7,6 +7,8 @@ import {
   BookOpen, Lightbulb, AlertTriangle, GraduationCap,
   Map, Lock, Plus, X, Cpu, GitBranch, Layers, Zap,
 } from "lucide-react";
+import { BorderGlow } from "@/components/ui/BorderGlow";
+import { OFFICIAL_TRACKS } from "@/lib/event/eventConstants";
 
 // ─── Submission Interface ─────────────────────────────────────────────────────
 export interface Submission {
@@ -45,7 +47,7 @@ const TECH_STACK_OPTIONS = [
   "GraphQL", "Rust", "Go", "Java", "C++",
 ];
 
-const CATEGORIES = ["AI/ML", "Web Dev", "Mobile", "Blockchain", "IoT", "Cybersecurity", "Other"];
+const CATEGORIES = [...OFFICIAL_TRACKS];
 
 // ─── Word Counter ─────────────────────────────────────────────────────────────
 function wordCount(text: string) {
@@ -613,31 +615,33 @@ export function SubmissionForm({ onSubmit, disabled = false }: SubmissionFormPro
 
         {/* ── Submit Button ── */}
         <div className="pt-2">
-          <button
-            type="submit"
-            disabled={isSubmitting || disabled}
-            className={`w-full h-13 px-8 rounded-xl text-base font-bold flex items-center justify-center gap-2.5 transition-all duration-300 shadow-md ${
-              disabled
-                ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
-                : submitted
-                ? "bg-emerald-600 text-white shadow-emerald-500/20"
-                : "bg-primary text-primary-foreground hover:opacity-95 active:scale-[0.99] shadow-primary/25 cursor-pointer"
-            }`}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Submitting all 5 sections...
-              </>
-            ) : submitted ? (
-              <>✓ Successfully Submitted!</>
-            ) : (
-              <>
-                <Send className="w-4 h-4" />
-                Submit Hackathon Project
-              </>
-            )}
-          </button>
+          <BorderGlow active={!disabled && !isSubmitting && !submitted}>
+            <button
+              type="submit"
+              disabled={isSubmitting || disabled}
+              className={`w-full h-13 px-8 rounded-xl text-base font-bold flex items-center justify-center gap-2.5 transition-all duration-300 shadow-md ${
+                disabled
+                  ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                  : submitted
+                  ? "bg-emerald-600 text-white shadow-emerald-500/20"
+                  : "bg-primary text-primary-foreground hover:opacity-95 active:scale-[0.99] shadow-primary/25 cursor-pointer"
+              }`}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Submitting all 5 sections...
+                </>
+              ) : submitted ? (
+                <>✓ Successfully Submitted!</>
+              ) : (
+                <>
+                  <Send className="w-4 h-4" />
+                  Submit Hackathon Project
+                </>
+              )}
+            </button>
+          </BorderGlow>
 
           <p className="text-center text-xs text-muted-foreground mt-3">
             All 5 sections will be saved · Submissions are visible to all participants

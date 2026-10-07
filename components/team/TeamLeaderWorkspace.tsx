@@ -164,9 +164,9 @@ export function TeamLeaderWorkspace() {
     : "not_started";
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-8 pb-16">
+    <div className="mx-auto max-w-7xl space-y-7 px-4 pb-16 sm:px-6">
       {/* 1. Command Center Hero & Identity */}
-      <div className="rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-sm relative overflow-hidden">
+      <div className="relative overflow-hidden border-y border-border bg-surface-elevated p-5 sm:p-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2.5">
@@ -291,10 +291,10 @@ export function TeamLeaderWorkspace() {
             <Users size={16} className="text-secondary" />
           </div>
           <div className="text-xl font-black font-mono text-foreground">
-            {teamInfo.members.length} <span className="text-xs font-normal text-muted-foreground">/ 4 Members</span>
+            {teamInfo.members.length} <span className="text-xs font-normal text-muted-foreground">/ 6 Members</span>
           </div>
           <p className="text-[11px] text-muted-foreground mt-1">
-            {teamInfo.members.length >= 4 ? "Team is at full limit." : "Slots available for collaborators."}
+            {teamInfo.members.length >= 6 ? "Team is at full limit." : "Slots available for collaborators."}
           </p>
         </div>
 

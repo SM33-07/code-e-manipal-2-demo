@@ -16,6 +16,7 @@ import {
   ExternalLink,
   Sparkles,
 } from "lucide-react";
+import { SpotlightCard } from "@/components/ui/SpotlightCard";
 
 interface FAQItem {
   id: string;
@@ -30,9 +31,9 @@ const FAQS: FAQItem[] = [
   {
     id: "acc-1",
     category: "account",
-    question: "How do I receive my Code-e-Manipal 2.0 portal credentials?",
+    question: "How do I register and receive my Code-e-Manipal 2.0 credentials?",
     answer:
-      "All participating team accounts, judge credentials, and administrator accesses are provisioned directly by the LearnIT & E-Cell organizing committee. Public registration/signup is not open. Team Leaders receive their unique identifier and password via the official registration email.",
+      "Official registration takes place exclusively through Unstop until the registration deadline of 11 October 2026, 11:59 PM IST. All teams participate in the Round 1 Online Assessment on Unstop. Shortlisted finalists who qualify for Round 2 receive provisioned portal credentials directly from the LearnIT organizing committee to manage their squad workspace, review problem statements, and submit their project.",
   },
   {
     id: "acc-2",
@@ -53,7 +54,7 @@ const FAQS: FAQItem[] = [
     category: "team",
     question: "What is the allowed team size for Code-e-Manipal 2.0?",
     answer:
-      "Teams must comprise between 2 and 4 members. Every team has exactly one designated Team Leader. Changes to team composition after the registration freeze must be authorized by the Admin Operations Desk.",
+      "Teams can comprise between 1 and 6 members. Both solo builders and squads of up to 6 members are eligible. Inter-college and interdisciplinary collaborations are welcome. Every team has exactly one designated Team Leader.",
     linkText: "View Team Workspace",
     linkHref: "/team",
   },
@@ -62,9 +63,16 @@ const FAQS: FAQItem[] = [
     category: "team",
     question: "How do I invite or add team members to my portal roster?",
     answer:
-      "Navigate to your Team Workspace (/team). Your team code is displayed at the top. Share this code with your teammates so they can be registered on your roster before the team freeze deadline.",
+      "Navigate to your Team Workspace (/team). Your team invite code is displayed at the top. Share this code with your teammates so they can join your roster (up to 6 members) before the team freeze deadline.",
     linkText: "Go to Team Workspace",
     linkHref: "/team",
+  },
+  {
+    id: "team-3",
+    category: "team",
+    question: "What are the registration fees for Code-e-Manipal 2.0?",
+    answer:
+      "Registration fees are structured per phase: Round 1 (Online Assessment on Unstop) is ₹59/person for MUJ students and ₹89/person for non-MUJ students. If shortlisted for the Round 2 Offline Finale at MUJ, fees are ₹219/person for MUJ students and ₹250/person for non-MUJ students. All fees are strictly non-refundable.",
   },
   {
     id: "prob-1",
@@ -80,14 +88,14 @@ const FAQS: FAQItem[] = [
     category: "problem",
     question: "Can our team work on an Open Innovation idea?",
     answer:
-      "Yes! In addition to specific curated industry tracks (such as AI & Intelligent Systems, Web3, and FinTech/Healthcare), Code-e-Manipal 2.0 includes an Open Innovation track allowing original problem definitions. Select 'Open Innovation' during project submission.",
+      "Yes! In addition to specific curated tracks (AI/ML, HealthTech, FinTech/EdTech, Cybersecurity, Generative AI & LLMs, Multi-Agent Systems, Gaming & Immersive Tech, Smart City and Infrastructure), Code-e-Manipal 2.0 includes an Open Innovation track allowing original problem definitions. Select 'Open Innovation' during project submission.",
   },
   {
     id: "sub-1",
     category: "submission",
     question: "What materials are required for final submission?",
     answer:
-      "A complete submission requires: (1) Project Title, (2) Category/Track selection, (3) Public GitHub / Git repository URL, (4) Hosted live demonstration link or video pitch URL, and (5) Project summary detailing architecture, tech stack, and impact.",
+      "A complete submission requires: (1) Project Title, (2) Official Track selection, (3) Public GitHub / Git repository URL, (4) Hosted live demonstration link or video pitch URL, and (5) Project summary detailing architecture, tech stack, and impact.",
     linkText: "Review Submission Form",
     linkHref: "/submit",
   },
@@ -110,7 +118,7 @@ const FAQS: FAQItem[] = [
     category: "judging",
     question: "How are projects evaluated by the jury?",
     answer:
-      "Judges evaluate submissions across four authoritative criteria on a 1-to-10 scale: Innovation & Originality (30%), Technical Execution & Architecture (30%), Presentation & Demo (20%), and Practical Impact & Feasibility (20%). The final score is normalized to a 100-point composite.",
+      "Judges evaluate project submissions based on core evaluation pillars: Technical Execution, Innovation & Originality, Real-World Feasibility, and Presentation & Demo during the in-person jury pitching and Q&A session.",
     linkText: "Read Technical Guidelines",
     linkHref: "/guidelines",
   },
@@ -126,18 +134,25 @@ const FAQS: FAQItem[] = [
     category: "schedule",
     question: "Where is Code-e-Manipal 2.0 taking place?",
     answer:
-      "The on-campus 36-hour hackathon takes place at Manipal University Jaipur (MUJ), Dehmi Kalan, Jaipur, Rajasthan. Details on specific lab and hall allocations are posted in the Event Timeline.",
+      "Round 1 is conducted online on Unstop. The Round 2 on-campus 36-hour hackathon finale takes place at Manipal University Jaipur (MUJ), Dehmi Kalan, Jaipur, Rajasthan on 15–16 October 2026. Physical presence of all team members is mandatory.",
     linkText: "View 36-Hour Timeline",
     linkHref: "/timeline",
   },
   {
     id: "sched-2",
     category: "schedule",
-    question: "What are the key milestones during the 36 hours?",
+    question: "What is the format of the Round 1 Online Qualifier?",
     answer:
-      "The hackathon includes: (1) Opening Ceremony & Keynote, (2) Problem Statement release & hacking commencement, (3) Mentorship Round 1 (Architecture check), (4) Mentorship Round 2 (Polish & Pitch check), (5) Hard Code Freeze & Portal Submission, and (6) Final Jury Demos & Valedictory Ceremony.",
+      "Round 1 is a 10-question online MCQ test on Unstop with a 10-minute duration and 10 marks maximum (no negative marking). Topics include Programming Fundamentals, Logical Reasoning, Computer Science Fundamentals, and Problem Solving / Output Prediction.",
     linkText: "See Detailed Schedule",
     linkHref: "/timeline",
+  },
+  {
+    id: "sched-3",
+    category: "schedule",
+    question: "What facilities are provided to participants on campus?",
+    answer:
+      "MUJ provides continuous electricity and power sockets at workstations, high-speed Wi-Fi, classrooms and work desks, Day 1 Lunch & Dinner for all participants, Day 2 Breakfast for finalists, basic overnight sleeping arrangements (mattresses), 24/7 campus security, and emergency medical assistance.",
   },
 ];
 
@@ -184,8 +199,7 @@ export default function FAQPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-8 py-4 sm:py-8 px-4 sm:px-6">
       {/* Header */}
-      <header className="rounded-2xl border border-border bg-card p-6 sm:p-10 shadow-sm relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+      <SpotlightCard className="rounded-2xl border border-border bg-card p-6 sm:p-10 shadow-sm relative overflow-hidden">
         <div className="relative z-10">
           <div className="inline-flex items-center gap-2 rounded-full border border-secondary/30 bg-secondary/15 px-3 py-1 text-xs font-bold text-secondary">
             <HelpCircle size={14} />
@@ -214,7 +228,7 @@ export default function FAQPage() {
             />
           </div>
         </div>
-      </header>
+      </SpotlightCard>
 
       {/* Category Pills */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
@@ -310,7 +324,7 @@ export default function FAQPage() {
       </div>
 
       {/* Support Banner */}
-      <div className="rounded-2xl border border-border bg-card p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+      <SpotlightCard className="rounded-2xl border border-border bg-card p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
         <div>
           <h3 className="text-base font-bold text-foreground">Still have questions?</h3>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1 max-w-xl">
@@ -332,7 +346,7 @@ export default function FAQPage() {
             Event Schedule
           </Link>
         </div>
-      </div>
+      </SpotlightCard>
     </div>
   );
 }

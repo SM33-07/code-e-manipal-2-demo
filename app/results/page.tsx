@@ -15,6 +15,8 @@ import {
   Loader2,
   AlertCircle
 } from "lucide-react";
+import { BorderGlow } from "@/components/ui/BorderGlow";
+import { SpotlightCard } from "@/components/ui/SpotlightCard";
 
 interface RankedResult {
   id: string;
@@ -88,14 +90,14 @@ export default function ResultsPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-8 py-6 sm:py-10 px-4 sm:px-6">
       {/* ── Ceremonial Header ── */}
-      <header className="rounded-3xl border border-border bg-card p-6 sm:p-10 shadow-sm relative overflow-hidden text-center sm:text-left">
+      <header className="surface-panel relative overflow-hidden border-y border-border bg-surface-elevated/90 p-5 sm:p-9 text-left">
         <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6">
           <div className="space-y-3 max-w-2xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-secondary/30 bg-secondary/15 px-3.5 py-1 text-xs font-bold text-secondary">
+            <div className="inline-flex items-center gap-2 border-b border-secondary/50 pb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-secondary">
               {isPublished ? <Trophy size={14} className="text-secondary" /> : <Lock size={14} />}
               <span>{isPublished ? "OFFICIAL AWARDS ANNOUNCEMENT" : "RESULTS CEREMONY EMBARGO"}</span>
             </div>
-            <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground">
+            <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-foreground">
               Official Results
             </h1>
             <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
@@ -106,7 +108,7 @@ export default function ResultsPage() {
           </div>
 
           {/* Status Badge Box */}
-          <div className="shrink-0 rounded-2xl border border-border bg-card p-5 text-center min-w-[220px] shadow-sm">
+          <div className="min-w-[220px] shrink-0 border-l-2 border-primary bg-background/70 p-4 text-left sm:text-center">
             <div className="flex items-center justify-center gap-2 text-xs font-bold text-secondary uppercase tracking-wider mb-1">
               <Calendar size={14} />
               <span>Release Status</span>
@@ -215,7 +217,7 @@ export default function ResultsPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
                 {/* 2nd Place */}
-                <div className="order-2 md:order-1 rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col justify-between">
+                <SpotlightCard className="order-2 md:order-1 p-6 flex flex-col justify-between">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-500/10 text-slate-700 dark:text-slate-300 border border-slate-400/30 text-xs font-bold">
@@ -232,33 +234,37 @@ export default function ResultsPage() {
                     <span className="text-muted-foreground">Category: {topThree[1].category || "General"}</span>
                     <span className="font-mono font-bold text-foreground text-sm">{topThree[1].computed.total_score} pts</span>
                   </div>
-                </div>
+                </SpotlightCard>
 
-                {/* 1st Place */}
-                <div className="order-1 md:order-2 rounded-2xl border-2 border-secondary bg-card p-6 sm:p-7 shadow-md flex flex-col justify-between relative">
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-secondary text-secondary-foreground text-[10px] font-black uppercase tracking-widest px-3 py-0.5 rounded-full shadow-sm">
-                    Grand Champion
-                  </div>
-                  <div className="space-y-3 pt-1">
-                    <div className="flex items-center justify-between">
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary/20 text-secondary border border-secondary/30 text-xs font-bold">
-                        <Trophy size={14} />
-                        <span>Winner</span>
+                {/* 1st Place (Grand Champion) */}
+                <div className="order-1 md:order-2">
+                  <BorderGlow active={true}>
+                    <div className="p-6 sm:p-7 flex flex-col justify-between relative bg-card">
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-secondary text-secondary-foreground text-[10px] font-black uppercase tracking-widest px-3 py-0.5 rounded-full shadow-sm">
+                        Grand Champion
                       </div>
-                      <span className="text-xs font-mono font-bold text-secondary">RANK #1</span>
+                      <div className="space-y-3 pt-1">
+                        <div className="flex items-center justify-between">
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary/20 text-secondary border border-secondary/30 text-xs font-bold">
+                            <Trophy size={14} />
+                            <span>Winner</span>
+                          </div>
+                          <span className="text-xs font-mono font-bold text-secondary">RANK #1</span>
+                        </div>
+                        <h3 className="text-xl font-black text-foreground">{topThree[0].title}</h3>
+                        <p className="text-xs text-primary font-bold uppercase tracking-wider">{topThree[0].team_name}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">{topThree[0].summary}</p>
+                      </div>
+                      <div className="mt-5 pt-4 border-t border-border flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Category: {topThree[0].category || "General"}</span>
+                        <span className="font-mono font-black text-primary text-base">{topThree[0].computed.total_score} pts</span>
+                      </div>
                     </div>
-                    <h3 className="text-xl font-black text-foreground">{topThree[0].title}</h3>
-                    <p className="text-xs text-primary font-bold uppercase tracking-wider">{topThree[0].team_name}</p>
-                    <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">{topThree[0].summary}</p>
-                  </div>
-                  <div className="mt-5 pt-4 border-t border-border flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Category: {topThree[0].category || "General"}</span>
-                    <span className="font-mono font-black text-primary text-base">{topThree[0].computed.total_score} pts</span>
-                  </div>
+                  </BorderGlow>
                 </div>
 
                 {/* 3rd Place */}
-                <div className="order-3 rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col justify-between">
+                <SpotlightCard className="order-3 p-6 flex flex-col justify-between">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-600/10 text-amber-700 dark:text-amber-400 border border-amber-600/30 text-xs font-bold">
@@ -275,7 +281,7 @@ export default function ResultsPage() {
                     <span className="text-muted-foreground">Category: {topThree[2].category || "General"}</span>
                     <span className="font-mono font-bold text-foreground text-sm">{topThree[2].computed.total_score} pts</span>
                   </div>
-                </div>
+                </SpotlightCard>
               </div>
             </section>
           )}
@@ -369,12 +375,6 @@ export default function ResultsPage() {
           className="text-muted-foreground hover:text-foreground transition-colors font-medium"
         >
           ← Return to Workspace
-        </Link>
-        <Link
-          href="/gallery"
-          className="text-primary hover:text-primary/80 transition-colors font-semibold"
-        >
-          Explore Previous Editions Gallery →
         </Link>
       </div>
     </div>

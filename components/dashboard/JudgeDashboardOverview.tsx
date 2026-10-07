@@ -316,13 +316,6 @@ export function JudgeDashboardOverview() {
                 <span>Judging Rules & Guidelines</span>
                 <ChevronRight size={14} className="text-muted-foreground" />
               </Link>
-              <Link
-                href="/gallery"
-                className="flex items-center justify-between p-2.5 rounded-xl border border-border hover:bg-accent text-xs font-semibold text-foreground transition-colors"
-              >
-                <span>Public Project Archive</span>
-                <ExternalLink size={14} className="text-muted-foreground" />
-              </Link>
             </div>
           </div>
         </div>

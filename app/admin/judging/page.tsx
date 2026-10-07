@@ -36,6 +36,16 @@ interface JudgeAssignment {
     email: string;
     avatar_url?: string;
   };
+  review?: {
+    id: string;
+    is_complete: boolean;
+    score_innovation?: number;
+    score_technical?: number;
+    score_presentation?: number;
+    score_impact?: number;
+    version?: number;
+    feedback?: string;
+  } | null;
 }
 
 export default function AdminJudgingPage() {
@@ -47,6 +57,11 @@ export default function AdminJudgingPage() {
   // Review Correction modal state
   const [reopenReviewId, setReopenReviewId] = useState("");
   const [reopenReason, setReopenReason] = useState("");
+  const [expectedVersion, setExpectedVersion] = useState<number | undefined>(undefined);
+  const [scoreInnovation, setScoreInnovation] = useState<number | "">("");
+  const [scoreTechnical, setScoreTechnical] = useState<number | "">("");
+  const [scorePresentation, setScorePresentation] = useState<number | "">("");
+  const [scoreImpact, setScoreImpact] = useState<number | "">("");
   const [correcting, setCorrecting] = useState(false);
   const [showCorrectionModal, setShowCorrectionModal] = useState(false);
 
@@ -76,7 +91,7 @@ export default function AdminJudgingPage() {
       const res = await fetch("/api/admin/assignments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ auto: true }),
+        body: JSON.stringify({ action: "auto_assign" }),
       });
       if (!res.ok) throw new Error("Auto-assignment failed");
       toast.success("Automated judge distribution completed");
@@ -88,6 +103,17 @@ export default function AdminJudgingPage() {
     }
   };
 
+  const openCorrectionForReview = (rev: any) => {
+    setReopenReviewId(rev.id);
+    setExpectedVersion(rev.version);
+    setScoreInnovation(rev.score_innovation ?? "");
+    setScoreTechnical(rev.score_technical ?? "");
+    setScorePresentation(rev.score_presentation ?? "");
+    setScoreImpact(rev.score_impact ?? "");
+    setReopenReason("");
+    setShowCorrectionModal(true);
+  };
+
   const handleReopenReview = async () => {
     if (!reopenReviewId || reopenReason.trim().length < 5) {
       toast.error("Valid review ID and justification reason (min 5 characters) are required.");
@@ -95,20 +121,35 @@ export default function AdminJudgingPage() {
     }
     setCorrecting(true);
     try {
+      const payload: any = {
+        reason: reopenReason.trim(),
+      };
+      if (expectedVersion !== undefined) payload.expected_version = expectedVersion;
+      if (scoreInnovation !== "") payload.score_innovation = Number(scoreInnovation);
+      if (scoreTechnical !== "") payload.score_technical = Number(scoreTechnical);
+      if (scorePresentation !== "") payload.score_presentation = Number(scorePresentation);
+      if (scoreImpact !== "") payload.score_impact = Number(scoreImpact);
+
       const res = await fetch(`/api/admin/reviews/${reopenReviewId}/reopen`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: reopenReason.trim() }),
+        body: JSON.stringify(payload),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error?.message || "Failed to reopen review");
 
-      toast.success("Review score unlocked for re-evaluation");
+      toast.success("Review score correction committed successfully");
       setShowCorrectionModal(false);
       setReopenReviewId("");
       setReopenReason("");
+      setExpectedVersion(undefined);
+      setScoreInnovation("");
+      setScoreTechnical("");
+      setScorePresentation("");
+      setScoreImpact("");
+      await fetchAssignments();
     } catch (err: any) {
-      toast.error(err.message || "Failed to reopen review");
+      toast.error(err.message || "Failed to execute score correction");
     } finally {
       setCorrecting(false);
     }
@@ -208,6 +249,7 @@ export default function AdminJudgingPage() {
                   <th className="py-3 px-4">Judge</th>
                   <th className="py-3 px-4">Assigned Submission</th>
                   <th className="py-3 px-4">Category</th>
+                  <th className="py-3 px-4">Evaluation Status</th>
                   <th className="py-3 px-4">Assigned At</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
@@ -235,6 +277,24 @@ export default function AdminJudgingPage() {
                       </span>
                     </td>
 
+                    <td className="py-3.5 px-4">
+                      {a.review ? (
+                        a.review.is_complete ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                            <CheckCircle2 size={11} />
+                            <span>Completed (v{a.review.version})</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                            <Clock size={11} />
+                            <span>In Progress</span>
+                          </span>
+                        )
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Pending</span>
+                      )}
+                    </td>
+
                     <td className="py-3.5 px-4 text-xs text-muted-foreground">
                       {new Date(a.assigned_at).toLocaleString([], {
                         month: "short",
@@ -245,14 +305,27 @@ export default function AdminJudgingPage() {
                     </td>
 
                     <td className="py-3.5 px-4 text-right">
-                      <Link
-                        href={`/judge/evaluate/${a.submission_id}`}
-                        target="_blank"
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-                      >
-                        <span>Preview Rubric</span>
-                        <ExternalLink size={12} />
-                      </Link>
+                      <div className="flex items-center justify-end gap-2">
+                        {a.review && (
+                          <button
+                            type="button"
+                            onClick={() => openCorrectionForReview(a.review)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-amber-600/30 bg-amber-600/10 text-amber-600 dark:text-amber-400 text-xs font-semibold hover:bg-amber-600/20 transition-colors cursor-pointer"
+                            title="Execute audited score correction"
+                          >
+                            <RotateCcw size={11} />
+                            <span>Correct</span>
+                          </button>
+                        )}
+                        <Link
+                          href={`/judge/evaluate/${a.submission_id}`}
+                          target="_blank"
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                        >
+                          <span>Rubric</span>
+                          <ExternalLink size={12} />
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -265,7 +338,7 @@ export default function AdminJudgingPage() {
       {/* Score Correction / Reopen Modal */}
       {showCorrectionModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl space-y-4">
+          <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-xl bg-amber-600/15 text-amber-600 dark:text-amber-400 border border-amber-600/25">
                 <RotateCcw size={20} />
@@ -275,7 +348,7 @@ export default function AdminJudgingPage() {
                   Audited Score Correction
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  Unlock a completed review for score re-entry or correction.
+                  Update rubric values or unlock review with mandatory audit justification.
                 </p>
               </div>
             </div>
@@ -292,6 +365,66 @@ export default function AdminJudgingPage() {
                   placeholder="Paste review UUID (e.g. from results or audit logs)..."
                   className="w-full p-2.5 rounded-xl border border-border bg-background text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary font-mono"
                 />
+              </div>
+
+              {/* Rubric Score Inputs (1–10) */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+                <div>
+                  <label className="block text-[11px] font-semibold text-foreground mb-1">
+                    Innovation
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={scoreInnovation}
+                    onChange={(e) => setScoreInnovation(e.target.value === "" ? "" : Number(e.target.value))}
+                    placeholder="1–10"
+                    className="w-full p-2 rounded-xl border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-mono text-center"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-foreground mb-1">
+                    Technical
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={scoreTechnical}
+                    onChange={(e) => setScoreTechnical(e.target.value === "" ? "" : Number(e.target.value))}
+                    placeholder="1–10"
+                    className="w-full p-2 rounded-xl border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-mono text-center"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-foreground mb-1">
+                    Presentation
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={scorePresentation}
+                    onChange={(e) => setScorePresentation(e.target.value === "" ? "" : Number(e.target.value))}
+                    placeholder="1–10"
+                    className="w-full p-2 rounded-xl border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-mono text-center"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-foreground mb-1">
+                    Impact
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={scoreImpact}
+                    onChange={(e) => setScoreImpact(e.target.value === "" ? "" : Number(e.target.value))}
+                    placeholder="1–10"
+                    className="w-full p-2 rounded-xl border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-mono text-center"
+                  />
+                </div>
               </div>
 
               <div>
@@ -323,7 +456,9 @@ export default function AdminJudgingPage() {
                 className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
               >
                 {correcting && <Loader2 size={13} className="animate-spin" />}
-                <span>Unlock for Correction</span>
+                <span>
+                  {scoreInnovation !== "" || scoreTechnical !== "" ? "Commit Correction" : "Unlock for Correction"}
+                </span>
               </button>
             </div>
           </div>

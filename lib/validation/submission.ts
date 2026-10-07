@@ -12,14 +12,32 @@
  * 5. Pre-flight finalization validation.
  */
 
+import { OFFICIAL_TRACKS } from '@/lib/event/eventConstants';
+
 export const ALLOWED_CATEGORIES = [
+  // Official 9 Reconciled Code-e-Manipal 2.0 Tracks (lowercased)
+  'ai/ml',
+  'healthtech',
+  'fintech/edtech',
+  'cybersecurity',
+  'generative ai & llms',
+  'multi-agent systems',
+  'gaming & immersive tech',
+  'smart city and infrastructure',
+  'open innovation',
+  // Normalized slugs
+  'ai-ml',
+  'fintech-edtech',
+  'genai-llms',
+  'multi-agent',
+  'gaming-immersive',
+  'smart-city',
+  // Backward-compatible legacy categories
   'web',
   'mobile',
-  'ai-ml',
   'blockchain',
   'iot',
   'game',
-  'cybersecurity',
   'cloud',
   'other',
 ] as const;

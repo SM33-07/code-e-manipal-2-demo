@@ -8,13 +8,13 @@ export function Header() {
       <div className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-black p-2 flex items-center justify-center">
+            <div className="h-10 flex items-center justify-center bg-transparent">
               <Image
                 src="/logo.png"
-                alt="LearnIT Logo"
-                width={40}
-                height={40}
-                className="object-contain"
+                alt="Code-e-Manipal Logo"
+                width={80}
+                height={34}
+                className="object-contain bg-transparent"
               />
             </div>
 

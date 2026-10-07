@@ -20,21 +20,21 @@ export function BrandLogo({
 }: BrandLogoProps) {
   const logoHeights = {
     sm: "h-7 sm:h-8",
-    md: "h-8 sm:h-9",
+    md: "h-8 sm:h-[38px]",
     lg: "h-10 sm:h-11",
   }[size];
 
   const content = (
     <div className={`flex items-center gap-3 select-none ${className}`}>
-      {/* Official Brand Lockup (full aspect ratio, zero distortion, spread out and visible) */}
+      {/* Official Brand Lockup (full aspect ratio, transparent background, zero white box on dark mode) */}
       <div className="relative flex items-center shrink-0">
-        <div className={`flex items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-[1.02]`}>
+        <div className="flex items-center justify-center transition-transform duration-200 group-hover:scale-[1.02]">
           <Image
-            src="/logo-2.0-full.png"
+            src="/logo.png"
             alt="Code-e-Manipal 2.0"
-            width={130}
-            height={50}
-            className={`${logoHeights} w-auto object-contain dark:bg-[#FAF7F2]/95 dark:px-2 dark:py-1 dark:rounded-lg dark:shadow-xs`}
+            width={160}
+            height={68}
+            className={`${logoHeights} w-auto object-contain bg-transparent transition-opacity hover:opacity-90 dark:brightness-110`}
             priority
           />
         </div>
@@ -62,7 +62,7 @@ export function BrandLogo({
   }
 
   return (
-    <Link href={href} className="group inline-flex items-center no-underline focus:outline-none">
+    <Link href={href} className="group inline-flex items-center no-underline focus:outline-none shrink-0">
       {content}
     </Link>
   );

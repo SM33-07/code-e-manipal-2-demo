@@ -9,7 +9,6 @@ import {
   FileText,
   BarChart3,
   LogOut,
-  ClipboardList,
   Radio,
   Users,
   ShieldAlert,
@@ -17,9 +16,6 @@ import {
   Menu,
   FileCode,
   Gavel,
-  Megaphone,
-  Sparkles,
-  ShieldCheck,
   FileQuestion,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
@@ -31,10 +27,7 @@ const sideNav = [
   { label: "Teams & Roster",    icon: Users,           href: "/admin/teams" },
   { label: "Submissions",       icon: FileCode,        href: "/admin/submissions" },
   { label: "Judging Operations",icon: Gavel,           href: "/admin/judging" },
-  { label: "Announcements",     icon: Megaphone,       href: "/admin/announcements" },
   { label: "Results & Awards",  icon: Trophy,          href: "/admin/results" },
-  { label: "Grand Ceremony",    icon: Sparkles,        href: "/admin/ceremony" },
-  { label: "Audit & Security",  icon: ShieldCheck,     href: "/admin/audit" },
   { label: "Report & Export",   icon: FileText,        href: "/admin/report" },
   { label: "Live Analytics",    icon: BarChart3,       href: "/admin/analytics" },
   { label: "Users & Access",    icon: ShieldAlert,     href: "/admin/users" },
@@ -79,9 +72,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] bg-background text-foreground flex flex-col">
+    <div className="min-h-[calc(100vh-5rem)] bg-transparent text-foreground flex flex-col">
       {/* Mobile Operations Sub-bar beneath global Navbar */}
-      <div className="md:hidden sticky top-16 z-30 bg-card border-b border-border px-4 py-2.5 flex items-center justify-between shadow-sm">
+      <div className="md:hidden sticky top-16 z-30 bg-surface-elevated border-b border-border px-4 py-2.5 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ShieldAlert size={16} className="text-secondary" />
           <span className="text-xs font-bold tracking-wide uppercase text-foreground truncate">
@@ -101,7 +94,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       {/* Workspace Body: Sidebar + Main Content */}
       <div className="flex-1 flex w-full relative">
         {/* Desktop Sidebar */}
-        <aside className="hidden md:flex w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border p-5 flex-col shrink-0 sticky top-20 h-[calc(100vh-5rem)] z-20">
+        <aside className="hidden md:flex w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border p-4 flex-col shrink-0 sticky top-20 h-[calc(100vh-5rem)] z-20">
           <div className="mb-4 px-2">
             <h2 className="text-secondary font-bold tracking-widest text-[11px] uppercase opacity-90 flex items-center gap-1.5">
               Operations Navigation
@@ -117,6 +110,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   key={label}
                   type="button"
                   onClick={() => handleNavClick(href)}
+                  aria-current={isActive ? "page" : undefined}
+                  data-admin-nav-item
                   className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-colors text-sm font-medium text-left cursor-pointer ${
                     isActive
                       ? "bg-primary text-primary-foreground font-semibold shadow-sm"

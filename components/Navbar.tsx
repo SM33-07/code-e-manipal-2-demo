@@ -195,14 +195,18 @@ export default function Navbar({ className, portal = false }: { className?: stri
     <ResizableNavbar isSubmissionForm={isSubmissionForm} className={className}>
       {/* ── Desktop Navigation ── */}
       <NavBody>
-        {/* Logo */}
-        <BrandLogo size="md" />
+        {/* Brand / Logo Region with deterministic boundary */}
+        <div className="flex items-center shrink-0 min-w-max mr-3 xl:mr-6">
+          <BrandLogo size="md" />
+        </div>
 
-        {/* Dynamic Navigation Links */}
-        <NavItems items={navItems} pathname={pathname} />
+        {/* Dynamic Navigation Links Region */}
+        <div className="flex-1 flex items-center justify-center min-w-0 px-1 xl:px-3">
+          <NavItems items={navItems} pathname={pathname} />
+        </div>
 
-        {/* Desktop Actions */}
-        <div className="flex items-center gap-3 flex-shrink-0 z-20">
+        {/* Desktop Actions Region */}
+        <div className="flex items-center gap-2 xl:gap-3 shrink-0 min-w-max ml-3 xl:ml-6 z-20">
           {/* Role Badge */}
           {portal && role && (
             <span className="hidden xl:inline-block text-xs px-2.5 py-0.5 rounded-full bg-secondary/15 border border-secondary/30 text-secondary font-medium capitalize">

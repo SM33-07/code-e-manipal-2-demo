@@ -1,44 +1,49 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  color-scheme: light;
   --font-size: 16px;
-  /* Light Theme: Warm Ivory, Sandstone, Terracotta, Jaipur Pink, Antique Brass, Ink */
+  /* Light Theme: Warm Ivory Canvas, Sandstone, Terracotta, Jaipur Pink, Antique Brass, Technical Sapphire & Emerald */
   --background: #F4EBDD;
   --foreground: #24211D;
-  --card: #FFFDF9;
+  --card: #FBF7EF;
   --card-foreground: #24211D;
-  --surface: #FFFDF9;
-  --surface-elevated: #FFFFFF;
+  --surface: #FBF7EF;
+  --surface-elevated: #FFFCF6;
   --surface-muted: #E5D0B2;
   --surface-inset: #E5D0B2;
-  --popover: #FFFDF9;
+  --popover: #FBF7EF;
   --popover-foreground: #24211D;
   --primary: #B95745;
   --primary-foreground: #FFFFFF;
   --secondary: #B08A45;
-  --secondary-foreground: #FFFFFF;
+  --secondary-foreground: #24211D;
   --muted: #E5D0B2;
-  --muted-foreground: #5C5349;
+  --muted-foreground: #61584E;
   --accent: #E5D0B2;
   --accent-foreground: #24211D;
   --destructive: #AE3E3C;
   --destructive-foreground: #FFFFFF;
   --success: #17664F;
   --warning: #C18A32;
-  --border: #D0BEA7;
-  --border-subtle: #EFE5D7;
-  --input: #FFFDF9;
-  --input-background: #FFFDF9;
+  --border: #CBB79A;
+  --border-subtle: #E5D0B2;
+  --input: #FFFCF6;
+  --input-background: #FFFCF6;
   --switch-background: #cbced4;
   --ring: #B95745;
-  --radius: 0.625rem;
-  --sidebar: #FFFDF9;
+  --radius: 1rem;
+  --surface-radius-large: 1.5rem;
+  --surface-radius-primary: 1.125rem;
+  --surface-radius-secondary: 0.875rem;
+  --surface-radius-compact: 0.75rem;
+  --sidebar: #FBF7EF;
   --sidebar-foreground: #24211D;
   --sidebar-primary: #B95745;
   --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: #E5D0B2;
   --sidebar-accent-foreground: #24211D;
-  --sidebar-border: #D0BEA7;
+  --sidebar-border: #CBB79A;
   --sidebar-ring: #B95745;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
@@ -50,7 +55,7 @@
   --jaipur-secondary-light: #D2AC68;
   --jaipur-gold: #B08A45;
   --jaipur-gold-light: #D2AC68;
-  --jaipur-card: #FFFDF9;
+  --jaipur-card: #FBF7EF;
   --jaipur-pink: #C97878;
   --jaipur-terracotta: #B95745;
   --royal-blue: #174A86;
@@ -58,67 +63,74 @@
   --emerald: #17664F;
   --ochre: #C18A32;
   --ink: #24211D;
+  --featured-partner-bg: #C56552;
+  --featured-partner-border: #D7826F;
 }
 
 .dark {
-  /* Dark Theme: Deep Espresso, Dark Brown, Royal Brown, Warm Charcoal, Antique Brass, Terracotta, Warm Ivory, Muted Sand */
-  --background: #17110E;
-  --foreground: #E9DDC8;
-  --card: #211713;
-  --card-foreground: #E9DDC8;
-  --surface: #211713;
-  --surface-elevated: #2B1D17;
-  --surface-muted: #211713;
-  --surface-inset: #17110E;
-  --popover: #211713;
-  --popover-foreground: #E9DDC8;
-  --primary: #A85346;
+  color-scheme: dark;
+  /* Dark Theme: deep charcoal with restrained wine undertones, not espresso brown. */
+  --background: #151617;
+  --foreground: #F4EBDD;
+  --card: #1E1C1D;
+  --card-foreground: #F4EBDD;
+  --surface: #1E1C1D;
+  --surface-elevated: #282225;
+  --surface-muted: #282225;
+  --surface-inset: #151617;
+  --popover: #1E1C1D;
+  --popover-foreground: #F4EBDD;
+  --primary: #B95745;
   --primary-foreground: #FFFFFF;
-  --secondary: #B88A45;
-  --secondary-foreground: #17110E;
-  --muted: #2B1D17;
-  --muted-foreground: #B9A58A;
-  --accent: #30231D;
-  --accent-foreground: #E9DDC8;
+  --secondary: #B08A45;
+  --secondary-foreground: #151617;
+  --muted: #282225;
+  --muted-foreground: #B9ADA4;
+  --accent: #32272B;
+  --accent-foreground: #F4EBDD;
   --destructive: #AE3E3C;
   --destructive-foreground: #FFF5E7;
-  --success: #17604D;
-  --warning: #B88A45;
-  --border: #3D2D24;
-  --border-subtle: #2B1D17;
-  --input: #211713;
-  --input-background: #211713;
-  --switch-background: #3D2D24;
-  --ring: #B88A45;
-  --sidebar: #17110E;
-  --sidebar-foreground: #E9DDC8;
-  --sidebar-primary: #A85346;
+  --success: #17664F;
+  --warning: #C18A32;
+  --border: #40363A;
+  --border-subtle: #282225;
+  --input: #1E1C1D;
+  --input-background: #1E1C1D;
+  --switch-background: #40363A;
+  --ring: #C97878;
+  --sidebar: #151617;
+  --sidebar-foreground: #F4EBDD;
+  --sidebar-primary: #B95745;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #211713;
-  --sidebar-accent-foreground: #E9DDC8;
-  --sidebar-border: #3D2D24;
-  --sidebar-ring: #B88A45;
+  --sidebar-accent: #282225;
+  --sidebar-accent-foreground: #F4EBDD;
+  --sidebar-border: #40363A;
+  --sidebar-ring: #C97878;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
 
   /* Heritage tokens */
-  --jaipur-primary: #A85346;
+  --jaipur-primary: #B95745;
   --jaipur-primary-light: #C97878;
-  --jaipur-secondary: #B88A45;
+  --jaipur-secondary: #B08A45;
   --jaipur-secondary-light: #D2AC68;
-  --jaipur-gold: #B88A45;
+  --jaipur-gold: #B08A45;
   --jaipur-gold-light: #D2AC68;
-  --jaipur-card: #211713;
+  --jaipur-card: #1E1C1D;
   --jaipur-pink: #C97878;
-  --jaipur-terracotta: #A85346;
+  --jaipur-terracotta: #B95745;
   --royal-blue: #174A86;
-  --sapphire: #123D73;
-  --emerald: #17604D;
-  --ochre: #B88A45;
-  --ink: #17110E;
+  --sapphire: #0F3570;
+  --emerald: #17664F;
+  --ochre: #C18A32;
+  --ink: #151617;
+  --featured-partner-bg: #8F463A;
+  --featured-partner-border: #B76858;
 }
 
 @theme inline {
+  --font-sans: Inter, "Segoe UI", Arial, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -173,6 +185,8 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
 }
 
 @layer base {

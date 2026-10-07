@@ -129,8 +129,8 @@ export function Leaderboard({ submissions, scores }: LeaderboardProps) {
           <div className="flex items-start gap-2.5">
             <div className="w-1.5 h-1.5 bg-primary rounded-full mt-1.5 shrink-0" />
             <p className="m-0">
-              <span className="font-semibold text-foreground">Weighted Criteria:</span> Innovation (30%),
-              Technical (30%), Presentation (20%), Impact (20%)
+              <span className="font-semibold text-foreground">Core Evaluation Pillars:</span> Technical Execution,
+              Innovation &amp; Originality, Real-World Feasibility, and Presentation &amp; Demo
             </p>
           </div>
           <div className="flex items-start gap-2.5">

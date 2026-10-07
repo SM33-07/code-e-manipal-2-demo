@@ -31,7 +31,7 @@ interface TeamInfo {
 const HACKATHON_CONFIG = {
   name: "Code-e-Manipal 2.0",
   minTeamSize: 1,
-  maxTeamSize: 4,
+  maxTeamSize: 6,
   phase: 1,
 };
 

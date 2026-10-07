@@ -32,7 +32,22 @@ export const GET = withAuth(async (req) => {
           'name', p.name,
           'email', p.email,
           'avatar_url', p.avatar_url
-        ) AS profiles
+        ) AS profiles,
+        (
+          SELECT json_build_object(
+            'id', jr.id,
+            'is_complete', jr.is_complete,
+            'score_innovation', jr.score_innovation,
+            'score_technical', jr.score_technical,
+            'score_presentation', jr.score_presentation,
+            'score_impact', jr.score_impact,
+            'version', jr.version,
+            'feedback', jr.feedback
+          )
+          FROM public.judge_reviews jr
+          WHERE jr.judge_id = ja.judge_id AND jr.submission_id = ja.submission_id
+          LIMIT 1
+        ) AS review
       FROM public.judge_assignments ja
       JOIN public.submissions s ON s.id = ja.submission_id
       JOIN public.profiles p ON p.id = ja.judge_id
@@ -68,7 +83,7 @@ export const POST = withAuth(async (req) => {
     const action = body.action as string;
 
     // ── Auto assign ───────────────────────────────────────────
-    if (action === 'auto_assign') {
+    if (action === 'auto_assign' || body.auto) {
       const count = await autoAssignAllJudges();
 
       logger.info('POST /api/admin/assignments (auto_assign)', { assigned: count });

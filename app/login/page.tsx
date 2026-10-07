@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Images, Sparkles } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Sparkles } from "lucide-react";
 import clsx from "clsx";
 import { useAuth } from "@/components/AuthProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { BrandLogo } from "@/components/BrandLogo";
+
+import { SpecularButton } from "@/components/ui/SpecularButton";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -36,7 +38,17 @@ export default function LoginPage() {
       const authResult = await login(cleanIdentifier, password);
       const userRole = authResult?.role || "participant";
 
-      if (userRole === "judge") {
+      const searchParams = new URLSearchParams(window.location.search);
+      const requestedNextUrl = searchParams.get("next");
+      const nextUrl = requestedNextUrl?.startsWith("/")
+        ? new URL(requestedNextUrl, window.location.origin)
+        : null;
+
+      if (nextUrl?.origin === window.location.origin) {
+        router.push(`${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
+      } else if (userRole === "admin") {
+        router.push("/admin");
+      } else if (userRole === "judge") {
         router.push("/judge");
       } else {
         router.push("/dashboard");
@@ -49,36 +61,35 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-background">
-      {/* Heritage Photographic Atmosphere with directional vignette veil */}
-      <div className="absolute inset-0 login-background opacity-85 dark:opacity-45 pointer-events-none" />
-      <div className="absolute inset-0 bg-gradient-to-r from-background/35 via-background/65 to-background/95 dark:from-background/60 dark:via-background/85 dark:to-background/95 pointer-events-none" />
+    <div className="relative min-h-svh overflow-hidden bg-transparent">
+      {/* Subtle directional vignette veil for right-docked login card contrast */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-background/15 via-background/55 to-background/90 dark:from-background/20 dark:via-background/65 dark:to-background/95" />
 
       {/* Top Bar with Brand & Theme Toggle */}
-      <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between px-6 py-4">
+      <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between px-4 py-4 sm:px-6">
         <BrandLogo size="md" subtitle="Technical Hackathon Console" />
         <ThemeToggle />
       </div>
 
       {/* Main Login Viewport */}
-      <div className="relative z-10 w-full h-full flex items-center justify-center px-4 lg:justify-end lg:px-20 pt-16">
+      <div className="relative z-10 flex min-h-svh w-full items-center justify-center px-4 py-24 sm:px-8 lg:justify-end lg:px-[10vw]">
         <div
           className={clsx(
-            "w-full max-w-[440px] bg-card text-card-foreground border border-border rounded-2xl p-8 sm:p-10 shadow-2xl transition-all duration-200",
+            "w-full max-w-[440px] border border-border border-l-4 border-l-primary bg-surface-elevated text-card-foreground p-6 shadow-xl transition-all duration-200 animate-entrance sm:p-9",
             shake && "animate-shake"
           )}
         >
           {/* Header */}
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-secondary/15 border border-secondary/30 text-secondary mb-3">
-              <Sparkles size={12} />
-              <span>Technical Console Login</span>
+          <div className="mb-6 text-left">
+          <div className="mb-4 inline-flex items-center gap-2 border-b border-secondary/50 pb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-secondary">
+            <Sparkles size={13} />
+            <span>Code-e-Manipal · Secure portal</span>
             </div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
-              Welcome Back
+          <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+            Sign in to build.
             </h1>
-            <p className="text-xs text-muted-foreground mt-1.5 tracking-wide">
-              Sign in with your participant, judge, or admin identifier
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            Use your provisioned participant, judge, or administrator credentials.
             </p>
           </div>
 
@@ -103,11 +114,11 @@ export default function LoginPage() {
                   autoComplete="username"
                   autoCapitalize="none"
                   spellCheck={false}
-                  placeholder="e.g. TEAM-001"
+                  placeholder="e.g. TEAM-001 or judge identifier"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value.toLowerCase())}
                   required
-                  className="w-full h-11 pl-10 pr-4 text-sm bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-secondary focus:ring-1 focus:ring-secondary transition-colors"
+                  className="w-full h-11 pl-10 pr-4 text-sm bg-input border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                 />
               </div>
             </div>
@@ -126,7 +137,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full h-11 pl-10 pr-11 text-sm bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-secondary focus:ring-1 focus:ring-secondary transition-colors"
+                  className="w-full h-11 pl-10 pr-11 text-sm bg-input border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                 />
                 <button
                   type="button"
@@ -140,8 +151,13 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Remember me & Forgot */}
-            <div className="flex items-center justify-between text-xs pt-1">
+            {/* Helper pill */}
+            <div className="p-2.5 rounded-xl bg-accent/40 border border-border text-[11px] text-muted-foreground leading-snug">
+              Credentials provisioned by Organizing Committee: Team Leaders use team ID, Judges use assigned judge badge ID.
+            </div>
+
+            {/* Remember me & Venue Help Desk */}
+            <div className="flex items-center justify-between text-xs pt-0.5">
               <label className="flex items-center gap-2 cursor-pointer select-none text-muted-foreground hover:text-foreground">
                 <input
                   type="checkbox"
@@ -151,40 +167,29 @@ export default function LoginPage() {
                 />
                 <span>Remember session</span>
               </label>
-              <span className="text-muted-foreground hover:text-secondary transition-colors cursor-pointer font-medium">
-                Forgot password?
-              </span>
+              <Link
+                href="/faq"
+                className="text-muted-foreground hover:text-secondary transition-colors font-medium"
+              >
+                Need help?
+              </Link>
             </div>
 
             {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="mt-2 w-full h-11 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm cursor-pointer"
-            >
-              <span>{loading ? "Authenticating..." : "Access Console"}</span>
-              {!loading && <ArrowRight size={16} />}
-            </button>
+            <div className="mt-2 w-full">
+              <SpecularButton
+                type="submit"
+                disabled={loading}
+                variant="primary"
+                size="md"
+                className="w-full h-11"
+              >
+                <span>{loading ? "Authenticating..." : "Access Console"}</span>
+                {!loading && <ArrowRight size={16} />}
+              </SpecularButton>
+            </div>
           </form>
 
-          {/* Divider */}
-          <div className="relative my-6 text-center">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-border" />
-            </div>
-            <span className="relative bg-card px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              Public Portal
-            </span>
-          </div>
-
-          {/* Public Gallery Link */}
-          <Link
-            href="/gallery"
-            className="flex items-center justify-center gap-2 text-xs font-semibold text-muted-foreground hover:text-primary transition-colors py-1"
-          >
-            <Images size={15} className="text-secondary" />
-            <span>Explore Public Project Gallery</span>
-          </Link>
         </div>
       </div>
     </div>

@@ -41,6 +41,7 @@ export const PATCH = withAuth(async (req, { user }) => {
       hackathon_is_started,
       results_published,
       results_release,
+      problem_statements_published,
       start_time,
       end_time,
       buffer_minutes,
@@ -57,6 +58,12 @@ export const PATCH = withAuth(async (req, { user }) => {
     if (results_release !== undefined || results_published !== undefined) {
       return Errors.BAD_REQUEST(
         'Results publishing state cannot be modified via PATCH /api/event-config. Use POST /api/admin/event-config/publish to initiate results release.'
+      );
+    }
+
+    if (problem_statements_published !== undefined) {
+      return Errors.BAD_REQUEST(
+        'Problem-statement publication can only be changed through POST /api/admin/event-config/problem-statements.'
       );
     }
 

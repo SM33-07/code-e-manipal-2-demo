@@ -22,7 +22,6 @@ export async function proxy(req: NextRequest) {
     pathname === '/gallery' ||
     pathname === '/faq' ||
     pathname === '/contact' ||
-    pathname === '/register' ||
     pathname === '/enter' ||
     pathname === '/results' ||
     pathname.startsWith('/project/');
@@ -96,7 +95,7 @@ export async function proxy(req: NextRequest) {
 
     // Prevent authenticated users from staying on /login
     if (isLoginRoute) {
-      if (role === 'admin') return NextResponse.redirect(new URL('/dashboard', req.url));
+      if (role === 'admin') return NextResponse.redirect(new URL('/admin', req.url));
       if (role === 'judge') return NextResponse.redirect(new URL('/judge', req.url));
       return NextResponse.redirect(new URL('/dashboard', req.url));
     }

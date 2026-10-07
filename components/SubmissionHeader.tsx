@@ -22,10 +22,10 @@ export default function SubmissionHeader({ teamName, hackathonName, submittedAt 
       <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
         <Image
           src="/logo.png"
-          alt="LearnIT Club Logo"
-          width={40}
-          height={40}
-          className="rounded-md"
+          alt="Code-e-Manipal Logo"
+          width={48}
+          height={24}
+          className="object-contain bg-transparent"
         />
         <div className="flex-1">
           <p className="text-sm font-medium tracking-widest uppercase text-muted-foreground mb-1">

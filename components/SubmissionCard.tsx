@@ -134,25 +134,43 @@ const darkPalette = {
 /* ── Category colours ─────────────────────────────────────────────────────── */
 
 const LIGHT_CATEGORY_COLORS: Record<string, { bg: string; text: string; glow: string }> = {
-  "AI/ML":          { bg: "rgba(139,92,246,0.12)",  text: "#7c3aed", glow: "rgba(139,92,246,0.35)" },
-  "Mobile":         { bg: "rgba(16,185,129,0.12)",  text: "#059669", glow: "rgba(16,185,129,0.35)" },
-  "Blockchain":     { bg: "rgba(245,158,11,0.12)",  text: "#b45309", glow: "rgba(245,158,11,0.35)" },
-  "Web Dev":        { bg: "rgba(59,130,246,0.12)",  text: "#2563eb", glow: "rgba(59,130,246,0.35)" },
-  "Cybersecurity":  { bg: "rgba(239,68,68,0.12)",   text: "#dc2626", glow: "rgba(239,68,68,0.35)"  },
-  "IoT":            { bg: "rgba(20,184,166,0.12)",  text: "#0d9488", glow: "rgba(20,184,166,0.35)" },
-  "Other":          { bg: "rgba(100,116,139,0.12)", text: "#64748b", glow: "rgba(100,116,139,0.35)"},
-  "default":        { bg: "rgba(143,16,42,0.1)",    text: "#8F102A", glow: "rgba(143,16,42,0.3)" },
+  // 9 Official Tracks
+  "AI/ML":                         { bg: "rgba(139,92,246,0.12)",  text: "#7c3aed", glow: "rgba(139,92,246,0.35)" },
+  "HealthTech":                    { bg: "rgba(236,72,153,0.12)",  text: "#db2777", glow: "rgba(236,72,153,0.35)" },
+  "FinTech/EdTech":                { bg: "rgba(245,158,11,0.12)",  text: "#b45309", glow: "rgba(245,158,11,0.35)" },
+  "Cybersecurity":                 { bg: "rgba(239,68,68,0.12)",   text: "#dc2626", glow: "rgba(239,68,68,0.35)"  },
+  "Generative AI & LLMs":          { bg: "rgba(168,85,247,0.12)",  text: "#9333ea", glow: "rgba(168,85,247,0.35)" },
+  "Multi-Agent Systems":           { bg: "rgba(99,102,241,0.12)",  text: "#4f46e5", glow: "rgba(99,102,241,0.35)" },
+  "Gaming & Immersive Tech":       { bg: "rgba(16,185,129,0.12)",  text: "#059669", glow: "rgba(16,185,129,0.35)" },
+  "Smart City and Infrastructure": { bg: "rgba(20,184,166,0.12)",  text: "#0d9488", glow: "rgba(20,184,166,0.35)" },
+  "Open Innovation":               { bg: "rgba(234,88,12,0.12)",   text: "#c2410c", glow: "rgba(234,88,12,0.35)"  },
+  // Legacy / Fallback
+  "Mobile":                        { bg: "rgba(16,185,129,0.12)",  text: "#059669", glow: "rgba(16,185,129,0.35)" },
+  "Blockchain":                    { bg: "rgba(245,158,11,0.12)",  text: "#b45309", glow: "rgba(245,158,11,0.35)" },
+  "Web Dev":                       { bg: "rgba(59,130,246,0.12)",  text: "#2563eb", glow: "rgba(59,130,246,0.35)" },
+  "IoT":                           { bg: "rgba(20,184,166,0.12)",  text: "#0d9488", glow: "rgba(20,184,166,0.35)" },
+  "Other":                         { bg: "rgba(100,116,139,0.12)", text: "#64748b", glow: "rgba(100,116,139,0.35)"},
+  "default":                       { bg: "rgba(143,16,42,0.1)",    text: "#8F102A", glow: "rgba(143,16,42,0.3)" },
 };
 
 const DARK_CATEGORY_COLORS: Record<string, { bg: string; text: string; glow: string }> = {
-  "AI/ML":          { bg: "rgba(139,92,246,0.15)",  text: "#c4b5fd", glow: "rgba(139,92,246,0.4)" },
-  "Mobile":         { bg: "rgba(16,185,129,0.15)",  text: "#6ee7b7", glow: "rgba(16,185,129,0.4)" },
-  "Blockchain":     { bg: "rgba(245,158,11,0.15)",  text: "#fcd34d", glow: "rgba(245,158,11,0.4)" },
-  "Web Dev":        { bg: "rgba(59,130,246,0.15)",  text: "#93c5fd", glow: "rgba(59,130,246,0.4)" },
-  "Cybersecurity":  { bg: "rgba(239,68,68,0.15)",   text: "#fca5a5", glow: "rgba(239,68,68,0.4)"  },
-  "IoT":            { bg: "rgba(20,184,166,0.15)",  text: "#5eead4", glow: "rgba(20,184,166,0.4)" },
-  "Other":          { bg: "rgba(100,116,139,0.15)", text: "#cbd5e1", glow: "rgba(100,116,139,0.4)"},
-  "default":        { bg: "rgba(212,115,42,0.15)",  text: "#E8924A", glow: "rgba(212,115,42,0.4)" },
+  // 9 Official Tracks
+  "AI/ML":                         { bg: "rgba(139,92,246,0.15)",  text: "#c4b5fd", glow: "rgba(139,92,246,0.4)" },
+  "HealthTech":                    { bg: "rgba(236,72,153,0.15)",  text: "#f472b6", glow: "rgba(236,72,153,0.4)" },
+  "FinTech/EdTech":                { bg: "rgba(245,158,11,0.15)",  text: "#fcd34d", glow: "rgba(245,158,11,0.4)" },
+  "Cybersecurity":                 { bg: "rgba(239,68,68,0.15)",   text: "#fca5a5", glow: "rgba(239,68,68,0.4)"  },
+  "Generative AI & LLMs":          { bg: "rgba(168,85,247,0.15)",  text: "#d8b4fe", glow: "rgba(168,85,247,0.4)" },
+  "Multi-Agent Systems":           { bg: "rgba(99,102,241,0.15)",  text: "#a5b4fc", glow: "rgba(99,102,241,0.4)" },
+  "Gaming & Immersive Tech":       { bg: "rgba(16,185,129,0.15)",  text: "#6ee7b7", glow: "rgba(16,185,129,0.4)" },
+  "Smart City and Infrastructure": { bg: "rgba(20,184,166,0.15)",  text: "#5eead4", glow: "rgba(20,184,166,0.4)" },
+  "Open Innovation":               { bg: "rgba(234,88,12,0.15)",   text: "#fdba74", glow: "rgba(234,88,12,0.4)"  },
+  // Legacy / Fallback
+  "Mobile":                        { bg: "rgba(16,185,129,0.15)",  text: "#6ee7b7", glow: "rgba(16,185,129,0.4)" },
+  "Blockchain":                    { bg: "rgba(245,158,11,0.15)",  text: "#fcd34d", glow: "rgba(245,158,11,0.4)" },
+  "Web Dev":                       { bg: "rgba(59,130,246,0.15)",  text: "#93c5fd", glow: "rgba(59,130,246,0.4)" },
+  "IoT":                           { bg: "rgba(20,184,166,0.15)",  text: "#5eead4", glow: "rgba(20,184,166,0.4)" },
+  "Other":                         { bg: "rgba(100,116,139,0.15)", text: "#cbd5e1", glow: "rgba(100,116,139,0.4)"},
+  "default":                       { bg: "rgba(212,115,42,0.15)",  text: "#E8924A", glow: "rgba(212,115,42,0.4)" },
 };
 
 /* ── Detail Row ───────────────────────────────────────────────────────────── */

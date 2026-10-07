@@ -28,9 +28,10 @@ import {
   FileText,
   BookOpen,
   MessageSquare,
-  Images,
 } from "lucide-react";
 import { toast } from "sonner";
+import { SpotlightCard } from "@/components/ui/SpotlightCard";
+import { SpecularButton } from "@/components/ui/SpecularButton";
 
 interface Member {
   userId: string;
@@ -277,9 +278,9 @@ export function ParticipantDashboard() {
   ];
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-8 pb-16">
+    <div className="mx-auto max-w-7xl space-y-7 px-4 pb-16 animate-entrance sm:px-6">
       {/* ── 1. Team Identity & Workspace Header ── */}
-      <div className="rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-sm relative overflow-hidden">
+      <SpotlightCard className="relative overflow-hidden border-y border-border bg-surface-elevated p-5 sm:p-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2.5">
@@ -306,7 +307,7 @@ export function ParticipantDashboard() {
                   <span>&bull;</span>
                   <span>Leader: <strong className="text-foreground">{team?.leaderName || displayName}</strong></span>
                   <span>&bull;</span>
-                  <span>Roster: <strong className="text-foreground">{membersList.length}/4 Members</strong></span>
+                  <span>Roster: <strong className="text-foreground">{membersList.length}/6 Members</strong></span>
                 </>
               ) : (
                 <span>Form or join a team to activate your project workspace and unlock submission controls.</span>
@@ -338,12 +339,11 @@ export function ParticipantDashboard() {
             )}
 
             {hasTeam ? (
-              <Link
-                href="/submit"
-                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-primary text-primary-foreground font-bold text-xs sm:text-sm shadow-md hover:bg-primary/90 transition-all cursor-pointer"
-              >
-                <span>{isFinalized ? "View Submission" : hasSubmission ? "Continue Submission" : "Start Submission"}</span>
-                <ArrowRight size={15} />
+              <Link href="/submit">
+                <SpecularButton variant="primary" size="md">
+                  <span>{isFinalized ? "View Submission" : hasSubmission ? "Continue Submission" : "Start Submission"}</span>
+                  <ArrowRight size={15} />
+                </SpecularButton>
               </Link>
             ) : (
               <div className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-muted text-muted-foreground font-semibold text-xs sm:text-sm border border-border">
@@ -372,11 +372,11 @@ export function ParticipantDashboard() {
             <span className="truncate">{announcement.content}</span>
           </div>
         )}
-      </div>
+      </SpotlightCard>
 
       {/* ── Onboarding / Team Formation (When no team registered) ── */}
       {!hasTeam && (
-        <div id="team-formation" className="rounded-3xl border border-secondary/40 bg-card p-6 sm:p-8 shadow-sm space-y-6">
+        <div id="team-formation" className="space-y-6 border-y border-secondary/40 bg-surface-elevated p-5 sm:p-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-border">
             <div className="space-y-1">
               <div className="inline-flex items-center gap-2 text-xs font-bold text-secondary uppercase tracking-wider">
@@ -472,7 +472,7 @@ export function ParticipantDashboard() {
       {/* ── 2. Primary Status Row: Event Phase & Submission Status ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         {/* Phase Card */}
-        <div className="p-5 rounded-2xl border border-border bg-card shadow-sm flex flex-col justify-between">
+        <SpotlightCard className="p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between text-muted-foreground mb-2">
             <span className="text-xs font-bold uppercase tracking-wider">Event Phase</span>
             <Clock size={16} className="text-secondary" />
@@ -486,10 +486,10 @@ export function ParticipantDashboard() {
               <span>36-Hour Continuous Sprint</span>
             </div>
           </div>
-        </div>
+        </SpotlightCard>
 
         {/* Submission Status Card */}
-        <div className="p-5 rounded-2xl border border-border bg-card shadow-sm flex flex-col justify-between">
+        <SpotlightCard className="p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between text-muted-foreground mb-2">
             <span className="text-xs font-bold uppercase tracking-wider">Project State</span>
             <FileCheck size={16} className="text-secondary" />
@@ -512,10 +512,10 @@ export function ParticipantDashboard() {
                 : "Awaiting initial write-up"}
             </div>
           </div>
-        </div>
+        </SpotlightCard>
 
         {/* Team Capacity Meter */}
-        <div className="p-5 rounded-2xl border border-border bg-card shadow-sm flex flex-col justify-between">
+        <SpotlightCard className="p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between text-muted-foreground mb-2">
             <span className="text-xs font-bold uppercase tracking-wider">Roster Capacity</span>
             <Users size={16} className="text-secondary" />
@@ -523,19 +523,19 @@ export function ParticipantDashboard() {
           <div>
             <div className="flex items-baseline gap-1.5">
               <span className="text-2xl font-black text-foreground">{membersList.length}</span>
-              <span className="text-sm font-semibold text-muted-foreground">/ 4 members</span>
+              <span className="text-sm font-semibold text-muted-foreground">/ 6 members</span>
             </div>
             <div className="w-full bg-accent/60 h-2 rounded-full mt-2 overflow-hidden">
               <div
                 className="bg-primary h-full rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(100, (membersList.length / 4) * 100)}%` }}
+                style={{ width: `${Math.min(100, (membersList.length / 6) * 100)}%` }}
               />
             </div>
           </div>
-        </div>
+        </SpotlightCard>
 
         {/* Next Hard Checkpoint */}
-        <div className="p-5 rounded-2xl border border-border bg-card shadow-sm flex flex-col justify-between">
+        <SpotlightCard className="p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between text-muted-foreground mb-2">
             <span className="text-xs font-bold uppercase tracking-wider">Code Freeze</span>
             <Flame size={16} className="text-primary" />
@@ -548,7 +548,7 @@ export function ParticipantDashboard() {
               Submission window closes sharp
             </div>
           </div>
-        </div>
+        </SpotlightCard>
       </div>
 
       {/* ── 3. Central Two-Column Grid: Team Roster & Project Submission ── */}
@@ -813,7 +813,6 @@ export function ParticipantDashboard() {
                 { title: "Event Schedule", desc: "Detailed 36-hour timeline", href: "/timeline", icon: Calendar },
                 { title: "Participant FAQ", desc: "Support & common queries", href: "/faq", icon: HelpCircle },
                 { title: "Rules & Rubrics", desc: "Judging criteria specs", href: "/guidelines", icon: BookOpen },
-                { title: "Event Gallery", desc: "Previous editions archive", href: "/gallery", icon: Images },
               ].map((res, i) => {
                 const Icon = res.icon;
                 return (

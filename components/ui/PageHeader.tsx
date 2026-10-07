@@ -25,9 +25,9 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   className = '',
 }) => {
   return (
-    <div className={`border-b border-[var(--jaipur-secondary-light)] pb-6 mb-8 ${className}`}>
+    <div className={`border-b border-border pb-6 mb-8 ${className}`}>
       {breadcrumbs && breadcrumbs.length > 0 && (
-        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-[var(--muted)] mb-3">
+        <nav aria-label="Breadcrumb" className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
           {breadcrumbs.map((crumb, idx) => {
             const isLast = idx === breadcrumbs.length - 1;
             return (
@@ -54,13 +54,13 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[var(--foreground)] font-mono">
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[var(--foreground)]">
               {title}
             </h1>
             {badge && <div>{badge}</div>}
           </div>
           {description && (
-            <p className="mt-1.5 text-sm sm:text-base text-[var(--muted)] max-w-2xl">
+            <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground sm:text-base">
               {description}
             </p>
           )}

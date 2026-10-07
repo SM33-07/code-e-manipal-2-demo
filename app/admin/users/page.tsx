@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useTransition } from 'react';
-import { useTheme } from 'next-themes';
+import React, { useState, useEffect } from 'react';
 
 interface Profile {
   id: string;
@@ -28,7 +27,6 @@ interface AuditLog {
 }
 
 export default function AdminUsersPage() {
-  const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -256,8 +254,6 @@ export default function AdminUsersPage() {
 
   if (!mounted) return null;
 
-  const isDark = resolvedTheme === 'dark';
-
   // Filter profiles
   const filteredProfiles = profiles.filter((p) => {
     const matchesRole = roleFilter === 'all' || p.role === roleFilter;
@@ -282,34 +278,36 @@ export default function AdminUsersPage() {
   return (
     <div className="space-y-6">
       {/* Title & Action Dock */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <span>Admin Governance & Credential Issuance</span>
-            <span className="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            <span className="text-xs px-2 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 font-semibold">
               ADR-001 / ADR-010
             </span>
           </h1>
-          <p className="text-sm text-gray-400 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Bulk event provisioning, credential generation, session invalidation, and badge CSV exports.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <button
+            type="button"
             onClick={() => fetchAuditLogs()}
-            className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10 text-sm font-medium transition flex items-center gap-1.5"
+            className="px-3.5 py-2 rounded-xl bg-card hover:bg-accent text-foreground border border-border text-sm font-medium transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
           >
             <span>📜</span>
             <span>Audit Log</span>
           </button>
 
           <button
+            type="button"
             onClick={() => {
               setBulkResult(null);
               setShowBulkModal(true);
             }}
-            className="px-4 py-2 rounded-lg bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-medium text-sm shadow-lg shadow-amber-900/30 transition flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-sm shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <span>⚡</span>
             <span>Bulk Credentials</span>
@@ -319,18 +317,18 @@ export default function AdminUsersPage() {
 
       {/* Notifications */}
       {error && (
-        <div className="p-4 rounded-lg bg-red-950/50 border border-red-500/50 text-red-200 text-sm flex items-center justify-between">
+        <div className="p-4 rounded-xl bg-destructive/15 border border-destructive/30 text-destructive text-sm font-medium flex items-center justify-between shadow-xs">
           <span>❌ {error}</span>
-          <button onClick={() => setError(null)} className="text-xs underline text-red-300">
+          <button type="button" onClick={() => setError(null)} className="text-xs font-semibold underline text-destructive hover:opacity-80 cursor-pointer">
             Dismiss
           </button>
         </div>
       )}
 
       {successMsg && (
-        <div className="p-4 rounded-lg bg-emerald-950/50 border border-emerald-500/50 text-emerald-200 text-sm flex items-center justify-between">
+        <div className="p-4 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-sm font-medium flex items-center justify-between shadow-xs">
           <span>✅ {successMsg}</span>
-          <button onClick={() => setSuccessMsg(null)} className="text-xs underline text-emerald-300">
+          <button type="button" onClick={() => setSuccessMsg(null)} className="text-xs font-semibold underline text-emerald-700 dark:text-emerald-300 hover:opacity-80 cursor-pointer">
             Dismiss
           </button>
         </div>
@@ -338,46 +336,46 @@ export default function AdminUsersPage() {
 
       {/* Metric Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10">
-          <div className="text-xs font-medium text-gray-400">Total Users</div>
-          <div className="text-2xl font-bold text-white mt-1">{totalUsers}</div>
+        <div className="p-4 rounded-2xl bg-card border border-border shadow-xs">
+          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Users</div>
+          <div className="text-2xl font-extrabold text-foreground mt-1">{totalUsers}</div>
         </div>
-        <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10">
-          <div className="text-xs font-medium text-gray-400">Participants</div>
-          <div className="text-2xl font-bold text-blue-400 mt-1">{participantCount}</div>
+        <div className="p-4 rounded-2xl bg-card border border-border shadow-xs">
+          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Participants</div>
+          <div className="text-2xl font-extrabold text-blue-600 dark:text-blue-400 mt-1">{participantCount}</div>
         </div>
-        <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10">
-          <div className="text-xs font-medium text-gray-400">Judges</div>
-          <div className="text-2xl font-bold text-purple-400 mt-1">{judgeCount}</div>
+        <div className="p-4 rounded-2xl bg-card border border-border shadow-xs">
+          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Judges</div>
+          <div className="text-2xl font-extrabold text-purple-600 dark:text-purple-400 mt-1">{judgeCount}</div>
         </div>
-        <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10">
-          <div className="text-xs font-medium text-gray-400">Admins</div>
-          <div className="text-2xl font-bold text-amber-400 mt-1">{adminCount}</div>
+        <div className="p-4 rounded-2xl bg-card border border-border shadow-xs">
+          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Admins</div>
+          <div className="text-2xl font-extrabold text-amber-600 dark:text-amber-400 mt-1">{adminCount}</div>
         </div>
-        <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10">
-          <div className="text-xs font-medium text-gray-400">Disabled</div>
-          <div className="text-2xl font-bold text-rose-400 mt-1">{disabledCount}</div>
+        <div className="p-4 rounded-2xl bg-card border border-border shadow-xs">
+          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Disabled</div>
+          <div className="text-2xl font-extrabold text-rose-600 dark:text-rose-400 mt-1">{disabledCount}</div>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col md:flex-row gap-3 items-center justify-between bg-white/[0.02] p-3 rounded-xl border border-white/10">
+      <div className="flex flex-col md:flex-row gap-3 items-center justify-between bg-card p-3.5 rounded-2xl border border-border shadow-xs">
         <div className="relative w-full md:w-80">
           <input
             type="text"
             placeholder="Search by name, email, or badge ID..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-black/40 border border-white/10 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-amber-500/50"
+            className="w-full pl-9 pr-3.5 py-2 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
-          <span className="absolute left-3 top-2 text-xs text-gray-500">🔍</span>
+          <span className="absolute left-3 top-2.5 text-xs text-muted-foreground pointer-events-none">🔍</span>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
-            className="px-3 py-1.5 rounded-lg bg-black/40 border border-white/10 text-gray-300 text-sm focus:outline-none"
+            className="px-3 py-2 rounded-xl bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="all">All Roles</option>
             <option value="participant">Participants</option>
@@ -388,7 +386,7 @@ export default function AdminUsersPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="px-3 py-1.5 rounded-lg bg-black/40 border border-white/10 text-gray-300 text-sm focus:outline-none"
+            className="px-3 py-2 rounded-xl bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="all">All Status</option>
             <option value="active">Active Only</option>
@@ -396,8 +394,9 @@ export default function AdminUsersPage() {
           </select>
 
           <button
+            type="button"
             onClick={fetchUsers}
-            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 text-sm transition"
+            className="p-2 rounded-xl bg-background hover:bg-accent text-foreground border border-border text-sm transition-colors cursor-pointer"
             title="Refresh Users"
           >
             🔄
@@ -406,47 +405,47 @@ export default function AdminUsersPage() {
       </div>
 
       {/* Users Table */}
-      <div className="overflow-x-auto rounded-xl border border-white/10 bg-black/30">
-        <table className="w-full text-left text-sm text-gray-300">
-          <thead className="bg-white/[0.04] text-xs font-semibold uppercase text-gray-400 border-b border-white/10">
+      <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-xs">
+        <table className="w-full text-left text-sm text-foreground">
+          <thead className="bg-muted/50 text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
             <tr>
-              <th className="px-4 py-3">User</th>
-              <th className="px-4 py-3">Role</th>
-              <th className="px-4 py-3">Identifier / Badge</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3 text-right">Actions</th>
+              <th className="px-4 py-3.5">User</th>
+              <th className="px-4 py-3.5">Role</th>
+              <th className="px-4 py-3.5">Identifier / Badge</th>
+              <th className="px-4 py-3.5">Status</th>
+              <th className="px-4 py-3.5 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5">
+          <tbody className="divide-y divide-border">
             {loading ? (
               <tr>
-                <td colSpan={5} className="p-8 text-center text-gray-500">
+                <td colSpan={5} className="p-8 text-center text-muted-foreground font-medium">
                   Loading users...
                 </td>
               </tr>
             ) : filteredProfiles.length === 0 ? (
               <tr>
-                <td colSpan={5} className="p-8 text-center text-gray-500">
+                <td colSpan={5} className="p-8 text-center text-muted-foreground font-medium">
                   No users found matching filters.
                 </td>
               </tr>
             ) : (
               filteredProfiles.map((user) => (
-                <tr key={user.id} className="hover:bg-white/[0.02] transition">
+                <tr key={user.id} className="hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-3">
-                    <div className="font-medium text-white">{user.name || 'Unnamed'}</div>
-                    <div className="text-xs text-gray-500">{user.email}</div>
+                    <div className="font-semibold text-foreground">{user.name || 'Unnamed'}</div>
+                    <div className="text-xs text-muted-foreground">{user.email}</div>
                   </td>
                   <td className="px-4 py-3">
                     <select
                       value={user.role}
                       onChange={(e) => handleRoleChange(user, e.target.value)}
-                      className={`text-xs font-semibold px-2 py-1 rounded border focus:outline-none ${
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-lg border focus:outline-none ${
                         user.role === 'admin'
-                          ? 'bg-amber-950/40 text-amber-300 border-amber-500/30'
+                          ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
                           : user.role === 'judge'
-                          ? 'bg-purple-950/40 text-purple-300 border-purple-500/30'
-                          : 'bg-blue-950/40 text-blue-300 border-blue-500/30'
+                          ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30'
+                          : 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30'
                       }`}
                     >
                       <option value="participant">Participant</option>
@@ -455,16 +454,16 @@ export default function AdminUsersPage() {
                     </select>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="font-mono text-xs text-gray-400 bg-white/5 px-2 py-0.5 rounded">
+                    <span className="font-mono text-xs text-foreground bg-muted px-2 py-0.5 rounded-md border border-border">
                       {user.identifier || '—'}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${
                         user.is_disabled
-                          ? 'bg-red-950/60 text-red-400 border border-red-500/30'
-                          : 'bg-emerald-950/60 text-emerald-400 border border-emerald-500/30'
+                          ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30'
+                          : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
                       }`}
                     >
                       {user.is_disabled ? 'Disabled' : 'Active'}
@@ -473,27 +472,30 @@ export default function AdminUsersPage() {
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1.5">
                       <button
+                        type="button"
                         onClick={() => handleResetPassword(user)}
                         disabled={isResetting}
-                        className="px-2.5 py-1 text-xs rounded bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10 transition"
+                        className="px-2.5 py-1 text-xs font-medium rounded-lg bg-card hover:bg-accent text-foreground border border-border transition-colors cursor-pointer shadow-xs disabled:opacity-50"
                         title="Reset password and invalidate sessions"
                       >
                         Reset PW
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleForceLogout(user)}
                         disabled={isLoggingOut}
-                        className="px-2.5 py-1 text-xs rounded bg-white/5 hover:bg-white/10 text-amber-300 border border-white/10 transition"
+                        className="px-2.5 py-1 text-xs font-medium rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 transition-colors cursor-pointer disabled:opacity-50"
                         title="Force logout and revoke sessions"
                       >
                         Kick
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleToggleDisable(user)}
-                        className={`px-2.5 py-1 text-xs rounded border transition ${
+                        className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors cursor-pointer ${
                           user.is_disabled
-                            ? 'bg-emerald-950/40 text-emerald-300 border-emerald-500/30 hover:bg-emerald-950/60'
-                            : 'bg-rose-950/40 text-rose-300 border-rose-500/30 hover:bg-rose-950/60'
+                            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20'
+                            : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30 hover:bg-rose-500/20'
                         }`}
                       >
                         {user.is_disabled ? 'Enable' : 'Disable'}
@@ -509,33 +511,34 @@ export default function AdminUsersPage() {
 
       {/* Password Reset Result Modal */}
       {resetPasswordResult && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-          <div className="bg-card border border-border rounded-xl max-w-md w-full p-6 space-y-4 shadow-2xl text-foreground">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-card border border-border rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl text-foreground">
+            <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
               <span>🔐 Temporary Password Generated</span>
             </h3>
-            <p className="text-xs text-amber-400/90 bg-amber-500/10 p-3 rounded border border-amber-500/20">
+            <p className="text-xs text-amber-800 dark:text-amber-300 bg-amber-500/10 p-3 rounded-xl border border-amber-500/20">
               <strong>Notice:</strong> Zero Plaintext Persistence. This password will never be shown again and is not stored in plaintext in the database.
             </p>
             <div className="space-y-1">
-              <label className="text-xs text-gray-400">User Email</label>
-              <div className="text-sm font-medium text-white">{resetPasswordResult.user.email}</div>
+              <label className="text-xs font-semibold text-muted-foreground">User Email</label>
+              <div className="text-sm font-medium text-foreground">{resetPasswordResult.user.email}</div>
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-gray-400">Temporary Password</label>
+              <label className="text-xs font-semibold text-muted-foreground">Temporary Password</label>
               <div className="flex items-center gap-2">
                 <input
                   type="text"
                   readOnly
                   value={resetPasswordResult.password}
-                  className="font-mono text-lg font-bold bg-black/60 border border-white/20 px-3 py-2 rounded text-amber-300 w-full"
+                  className="font-mono text-base font-bold bg-background border border-border px-3 py-2 rounded-xl text-amber-700 dark:text-amber-400 w-full focus:outline-none"
                 />
                 <button
+                  type="button"
                   onClick={() => {
                     navigator.clipboard.writeText(resetPasswordResult.password);
                     alert('Password copied to clipboard!');
                   }}
-                  className="px-3 py-2 rounded bg-amber-600 hover:bg-amber-500 text-white font-medium text-sm"
+                  className="px-3 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-sm transition-colors cursor-pointer shrink-0"
                 >
                   Copy
                 </button>
@@ -543,8 +546,9 @@ export default function AdminUsersPage() {
             </div>
             <div className="pt-2 flex justify-end">
               <button
+                type="button"
                 onClick={() => setResetPasswordResult(null)}
-                className="px-4 py-2 rounded bg-white/10 hover:bg-white/20 text-white text-sm"
+                className="px-4 py-2 rounded-xl bg-muted hover:bg-accent text-foreground border border-border text-sm font-medium transition-colors cursor-pointer"
               >
                 Close
               </button>
@@ -555,89 +559,96 @@ export default function AdminUsersPage() {
 
       {/* Bulk Generator Modal */}
       {showBulkModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-          <div className="bg-card border border-border rounded-xl max-w-xl w-full p-6 space-y-4 shadow-2xl text-foreground">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-card border border-border rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl text-foreground">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
                 <span>⚡ Bulk Credential Generator & Badge Export</span>
               </h3>
-              <button onClick={() => setShowBulkModal(false)} className="text-gray-400 hover:text-white">
+              <button
+                type="button"
+                onClick={() => setShowBulkModal(false)}
+                className="text-muted-foreground hover:text-foreground text-sm font-bold p-1 rounded-lg hover:bg-muted cursor-pointer"
+              >
                 ✕
               </button>
             </div>
 
-            <div className="p-3 rounded bg-blue-950/30 border border-blue-500/20 text-blue-200 text-xs leading-relaxed">
+            <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-800 dark:text-blue-300 text-xs leading-relaxed">
               <strong>Strict Separation of Admin Accounts (Baseline Line 603):</strong> The bulk generator produces 6-character credentials strictly for participants and judges. Administrative accounts must be provisioned individually with 16+ character high-entropy credentials.
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Target Role</label>
+                <label className="text-xs font-semibold text-muted-foreground block mb-1">Target Role</label>
                 <select
                   value={bulkRole}
                   onChange={(e) => setBulkRole(e.target.value as any)}
-                  className="w-full px-3 py-2 rounded bg-black/60 border border-white/10 text-white text-sm"
+                  className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="participant">Participant</option>
                   <option value="judge">Judge</option>
                 </select>
               </div>
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Quantity (1–100)</label>
+                <label className="text-xs font-semibold text-muted-foreground block mb-1">Quantity (1–100)</label>
                 <input
                   type="number"
                   min={1}
                   max={100}
                   value={bulkCount}
                   onChange={(e) => setBulkCount(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded bg-black/60 border border-white/10 text-white text-sm"
+                  className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-xs text-gray-400 block mb-1">Prefix (Optional)</label>
+              <label className="text-xs font-semibold text-muted-foreground block mb-1">Prefix (Optional)</label>
               <input
                 type="text"
                 placeholder={bulkRole === 'judge' ? 'JUDGE' : 'TEAM'}
                 value={bulkPrefix}
                 onChange={(e) => setBulkPrefix(e.target.value)}
-                className="w-full px-3 py-2 rounded bg-black/60 border border-white/10 text-white text-sm"
+                className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
 
             {bulkResult && (
-              <div className="mt-3 p-3 rounded bg-black/40 border border-white/10 max-h-48 overflow-y-auto space-y-1">
-                <div className="text-xs font-semibold text-gray-400 mb-2">
+              <div className="mt-3 p-3 rounded-xl bg-muted/60 border border-border max-h-48 overflow-y-auto space-y-1">
+                <div className="text-xs font-bold text-muted-foreground mb-2">
                   Generated {bulkResult.length} Credentials:
                 </div>
                 {bulkResult.map((c, i) => (
-                  <div key={i} className="flex justify-between text-xs font-mono text-gray-300">
+                  <div key={i} className="flex justify-between text-xs font-mono text-foreground">
                     <span>{c.email}</span>
-                    <span className="text-amber-400 font-bold">{c.password}</span>
+                    <span className="text-amber-600 dark:text-amber-400 font-bold">{c.password}</span>
                   </div>
                 ))}
               </div>
             )}
 
-            <div className="pt-3 border-t border-white/10 flex justify-end gap-2">
+            <div className="pt-3 border-t border-border flex justify-end gap-2">
               <button
+                type="button"
                 onClick={() => setShowBulkModal(false)}
-                className="px-4 py-2 rounded bg-white/10 hover:bg-white/20 text-white text-sm"
+                className="px-4 py-2 rounded-xl bg-muted hover:bg-accent text-foreground border border-border text-sm font-medium transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={() => handleBulkGenerate(false)}
                 disabled={isGenerating}
-                className="px-4 py-2 rounded bg-white/20 hover:bg-white/30 text-white text-sm font-medium"
+                className="px-4 py-2 rounded-xl bg-card hover:bg-accent text-foreground border border-border text-sm font-semibold transition-colors cursor-pointer disabled:opacity-50"
               >
                 {isGenerating ? 'Generating...' : 'Preview in Console'}
               </button>
               <button
+                type="button"
                 onClick={() => handleBulkGenerate(true)}
                 disabled={isGenerating}
-                className="px-4 py-2 rounded bg-amber-600 hover:bg-amber-500 text-white text-sm font-medium"
+                className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold transition-colors cursor-pointer disabled:opacity-50"
               >
                 {isGenerating ? 'Exporting...' : 'Export Badge CSV'}
               </button>
@@ -648,34 +659,38 @@ export default function AdminUsersPage() {
 
       {/* Audit Log Viewer Modal */}
       {showAuditModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-          <div className="bg-card border border-border rounded-xl max-w-3xl w-full p-6 space-y-4 shadow-2xl max-h-[85vh] flex flex-col text-foreground">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-card border border-border rounded-2xl max-w-3xl w-full p-6 space-y-4 shadow-2xl max-h-[85vh] flex flex-col text-foreground">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
                 <span>📜 Security Audit Logs (Append-Only)</span>
               </h3>
-              <button onClick={() => setShowAuditModal(false)} className="text-gray-400 hover:text-white">
+              <button
+                type="button"
+                onClick={() => setShowAuditModal(false)}
+                className="text-muted-foreground hover:text-foreground text-sm font-bold p-1 rounded-lg hover:bg-muted cursor-pointer"
+              >
                 ✕
               </button>
             </div>
 
-            <div className="overflow-y-auto flex-1 divide-y divide-white/5 pr-1">
+            <div className="overflow-y-auto flex-1 divide-y divide-border pr-1">
               {loadingAudit ? (
-                <div className="p-8 text-center text-gray-500">Loading audit trail...</div>
+                <div className="p-8 text-center text-muted-foreground font-medium">Loading audit trail...</div>
               ) : auditLogs.length === 0 ? (
-                <div className="p-8 text-center text-gray-500">No audit events recorded.</div>
+                <div className="p-8 text-center text-muted-foreground font-medium">No audit events recorded.</div>
               ) : (
                 auditLogs.map((log) => (
                   <div key={log.id} className="py-2.5 space-y-1">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold text-amber-400">{log.action}</span>
-                      <span className="text-gray-500">{new Date(log.created_at).toLocaleString()}</span>
+                      <span className="font-semibold text-amber-700 dark:text-amber-400">{log.action}</span>
+                      <span className="text-muted-foreground">{new Date(log.created_at).toLocaleString()}</span>
                     </div>
-                    <div className="text-xs text-gray-400">
-                      Actor: <span className="text-white">{log.actor_email || log.user_id}</span>
+                    <div className="text-xs text-muted-foreground">
+                      Actor: <span className="font-medium text-foreground">{log.actor_email || log.user_id}</span>
                     </div>
                     {log.details && (
-                      <pre className="text-[11px] font-mono text-gray-500 bg-black/40 p-2 rounded overflow-x-auto">
+                      <pre className="text-[11px] font-mono text-muted-foreground bg-muted p-2.5 rounded-lg border border-border overflow-x-auto">
                         {JSON.stringify(log.details, null, 2)}
                       </pre>
                     )}
@@ -684,10 +699,11 @@ export default function AdminUsersPage() {
               )}
             </div>
 
-            <div className="pt-2 border-t border-white/10 flex justify-end">
+            <div className="pt-2 border-t border-border flex justify-end">
               <button
+                type="button"
                 onClick={() => setShowAuditModal(false)}
-                className="px-4 py-2 rounded bg-white/10 hover:bg-white/20 text-white text-sm"
+                className="px-4 py-2 rounded-xl bg-muted hover:bg-accent text-foreground border border-border text-sm font-medium transition-colors cursor-pointer"
               >
                 Close
               </button>

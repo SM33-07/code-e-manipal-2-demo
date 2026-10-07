@@ -72,11 +72,11 @@ export default function ProjectDetail() {
         <div className="relative z-10">
           <div className="container mx-auto px-4 py-8">
             <motion.button
-              onClick={() => router.push("/gallery")}
+              onClick={() => router.back()}
               className="flex items-center gap-2 text-muted-foreground hover:text-primary mb-6 transition-colors font-medium text-sm"
             >
               <ArrowLeft className="w-4 h-4" />
-              Back to Gallery
+              Back
             </motion.button>
 
             <div className="grid lg:grid-cols-3 gap-8">

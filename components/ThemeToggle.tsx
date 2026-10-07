@@ -1,71 +1,47 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 
 export function ThemeToggle({ className = "" }: { className?: string }) {
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    if (mounted && theme === "system") setTheme("light");
+  }, [mounted, setTheme, theme]);
+
   if (!mounted) {
     return (
       <div
-        className={`w-[102px] h-8 rounded-lg border border-border bg-card ${className}`}
+        className={`size-9 rounded-xl border border-border bg-card ${className}`}
         aria-hidden="true"
       />
     );
   }
 
-  const options = [
-    { value: "system", icon: Monitor, label: "System default" },
-    { value: "light", icon: Sun, label: "Light mode" },
-    { value: "dark", icon: Moon, label: "Dark mode" },
-  ] as const;
+  const isDark = resolvedTheme === "dark";
+  const Icon = isDark ? Sun : Moon;
+  const label = isDark ? "Switch to light mode" : "Switch to dark mode";
 
   return (
-    <div
-      role="group"
-      aria-label="Theme selector"
-      className={`relative inline-flex items-center p-0.5 rounded-lg border border-border bg-card text-foreground shadow-sm h-8 select-none ${className}`}
+    <button
+      type="button"
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+      aria-label={label}
+      title={label}
+      className={`inline-flex size-9 items-center justify-center rounded-xl border border-border bg-card text-foreground shadow-sm transition-[background-color,border-color,color,transform] duration-200 hover:border-secondary/70 hover:bg-accent hover:text-secondary active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transform-none motion-reduce:transition-none ${className}`}
     >
-      {options.map((option) => {
-        const Icon = option.icon;
-        const isActive = theme === option.value;
-
-        return (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => setTheme(option.value)}
-            aria-pressed={isActive}
-            aria-label={option.label}
-            title={option.label}
-            className="relative size-7 rounded-md text-muted-foreground hover:text-foreground transition-colors duration-150 outline-none focus-visible:ring-1 focus-visible:ring-primary flex items-center justify-center cursor-pointer"
-          >
-            {isActive && (
-              <motion.div
-                layoutId="activeThemeHighlight"
-                className="absolute inset-0 rounded-md bg-secondary/15 border border-secondary/30 dark:bg-white/10 dark:border-white/15"
-                transition={{ type: "spring", stiffness: 450, damping: 35 }}
-              />
-            )}
-            <Icon
-              size={15}
-              className={`relative z-10 transition-colors duration-150 ${
-                isActive
-                  ? "text-secondary dark:text-foreground stroke-[2.2px]"
-                  : "text-muted-foreground/70 hover:text-foreground stroke-[1.7px]"
-              }`}
-            />
-          </button>
-        );
-      })}
-    </div>
+      <Icon
+        size={17}
+        aria-hidden="true"
+        className="transition-[transform,opacity] duration-200 motion-reduce:transition-none"
+      />
+    </button>
   );
 }
