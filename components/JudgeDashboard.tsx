@@ -13,6 +13,33 @@ import { Confetti } from "./ui/Confetti";
 import { Score } from "@/types/judging";
 import { calculateWeightedScore } from "@/utils/scoring";
 
+interface AssignedSubmissionResponse {
+  submission_id: string;
+  reviewed: boolean;
+  submissions: {
+    id: string;
+    title: string;
+    summary?: string | null;
+    description?: string | null;
+    category?: string | null;
+    status?: string;
+    demo_url?: string | null;
+    demo_video_url?: string | null;
+    track?: string | null;
+    teams?: { name?: string; track?: string } | null;
+  };
+  review: {
+    id: string;
+    is_complete: boolean;
+    version: number;
+    score_innovation: number | null;
+    score_technical: number | null;
+    score_presentation: number | null;
+    score_impact: number | null;
+    feedback: string | null;
+  } | null;
+}
+
 interface Props {
   judgeId: string;
   judgeName: string;
@@ -26,6 +53,7 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
   const [allScores, setAllScores] = useState<Score[]>([]);
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState("");
@@ -39,6 +67,16 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
 
   useEffect(() => {
     setMounted(true);
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("status");
+    if (status === "all" || status === "pending" || status === "graded") {
+      setStatusFilter(status);
+    }
+    setSearchQuery(params.get("q")?.slice(0, 100) ?? "");
+    const page = Number.parseInt(params.get("page") || "", 10);
+    if (Number.isInteger(page) && page > 0 && page <= 1000) {
+      setCurrentPage(page);
+    }
     loadAssignments();
   }, []);
 
@@ -50,42 +88,62 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
         throw new Error(`Failed to fetch assignments: ${res.status} ${res.statusText}`);
       }
       const json = await res.json();
-      const data = Array.isArray(json.data) ? json.data : [];
+      if (!Array.isArray(json.data)) {
+        throw new Error("Assignment response was invalid.");
+      }
 
-      const mapped: JudgeSubmission[] = data.map((a: any, idx: number) => {
-        const sub = a.submissions ?? {};
-        const label = `Project ${String.fromCharCode(65 + idx)}`;
+      const data = json.data as AssignedSubmissionResponse[];
+      const mapped: JudgeSubmission[] = data.map((assignment) => {
+        const sub = assignment.submissions;
+        const reviewStatus = !assignment.review
+          ? "not_started"
+          : assignment.review.is_complete
+            ? "submitted"
+            : "in_progress";
         return {
-          id: sub.id ?? a.submission_id,
-          title: label,
+          id: sub.id ?? assignment.submission_id,
+          title: sub.title || "Untitled submission",
           description: sub.description ?? sub.summary ?? "",
           writeup: sub.description ?? "",
-          reflection: sub.technical_challenges ?? "",
+          reflection: "",
           demoUrl: sub.demo_video_url ?? sub.demo_url ?? "",
-          teamSize: 1,
-          judged: a.reviewed ?? false,
+          teamName: sub.teams?.name || "Assigned team",
+          track: sub.teams?.track || sub.track || sub.category || "",
+          reviewStatus,
+          reviewVersion: assignment.review?.version ?? null,
         };
       });
 
       setSubmissions(mapped);
-
-      const reviewsRes = await fetch("/api/judging/reviews");
-      if (!reviewsRes.ok) {
-        throw new Error(`Failed to fetch reviews: ${reviewsRes.status} ${reviewsRes.statusText}`);
-      }
-      const reviewsJson = await reviewsRes.json();
-      const reviewsData = Array.isArray(reviewsJson.data) ? reviewsJson.data : [];
-      setAllScores(reviewsData);
+      setAllScores(data.flatMap((assignment): Score[] => {
+        const review = assignment.review;
+        if (!review) return [];
+        return [{
+          submissionId: assignment.submission_id,
+          judgeId,
+          criteria: {
+            innovation: review.score_innovation ?? 0,
+            technical: review.score_technical ?? 0,
+            presentation: review.score_presentation ?? 0,
+            impact: review.score_impact ?? 0,
+          },
+          feedback: review.feedback ?? "",
+          isComplete: review.is_complete,
+          version: review.version,
+        }];
+      }));
+      setError(null);
 
     } catch (err) {
       console.error("Failed to load assignments or reviews:", err);
+      setError("Could not refresh assigned teams. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   const allCount = submissions.length;
-  const gradedCount = submissions.filter((s) => s.judged).length;
+  const gradedCount = submissions.filter((s) => s.reviewStatus === "submitted").length;
   const pendingCount = allCount - gradedCount;
   const progressPercent = allCount > 0 ? (gradedCount / allCount) * 100 : 0;
   const isAllGraded = allCount > 0 && gradedCount === allCount;
@@ -96,12 +154,14 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
       const matchesSearch =
         query === "" ||
         s.title.toLowerCase().includes(query) ||
+        s.teamName.toLowerCase().includes(query) ||
+        s.track.toLowerCase().includes(query) ||
         s.description.toLowerCase().includes(query);
 
       const matchesStatus =
         statusFilter === "all" ||
-        (statusFilter === "graded" && s.judged) ||
-        (statusFilter === "pending" && !s.judged);
+        (statusFilter === "graded" && s.reviewStatus === "submitted") ||
+        (statusFilter === "pending" && s.reviewStatus !== "submitted");
 
       return matchesSearch && matchesStatus;
     });
@@ -127,7 +187,7 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
         const sub = submissions.find((subItem) => subItem.id === s.submissionId);
         return {
           id: s.submissionId,
-          title: sub?.title ?? "Untitled Project",
+          title: sub ? `${sub.teamName} — ${sub.title}` : "Untitled Project",
           score: calculateWeightedScore(s.criteria),
         };
       })
@@ -165,45 +225,17 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
     ? allScores.find((s) => s.submissionId === selectedSubmissionId)
     : undefined;
 
-  const handleSaveScore = async (score: Score, navigateToNext = false) => {
-    try {
-      const res = await fetch("/api/judging/reviews", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          submission_id: score.submissionId,
-          score_innovation: score.criteria.innovation,
-          score_technical: score.criteria.technical,
-          score_presentation: score.criteria.presentation,
-          score_impact: score.criteria.impact,
-          feedback: score.feedback,
-          is_complete: score.isComplete,
-        }),
-      });
-
-      if (!res.ok) throw new Error("Save failed");
-
-      setSubmissions((prev) =>
-        prev.map((s) =>
-          s.id === score.submissionId ? { ...s, judged: true } : s
-        )
-      );
-      setAllScores((prev) => [
-        ...prev.filter((s) => s.submissionId !== score.submissionId),
-        score,
-      ]);
-
-      if (navigateToNext && hasNext) {
-        handleNextSubmission();
-      } else {
-        setSelectedSubmissionId(null);
-      }
-    } catch (err) {
-      console.error("Save score error:", err);
-    }
-  };
-
   const router = useRouter();
+
+  const openEvaluation = (id: string) => {
+    const returnParams = new URLSearchParams({
+      status: statusFilter,
+      q: searchQuery,
+      page: String(currentPage),
+    });
+    const returnTo = `/judge?${returnParams.toString()}`;
+    router.push(`/judge/evaluate/${encodeURIComponent(id)}?returnTo=${encodeURIComponent(returnTo)}`);
+  };
 
   if (!mounted) return null;
 
@@ -229,7 +261,7 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
               All Evaluations Complete!
             </h3>
             <p className="text-xs sm:text-sm text-muted-foreground mb-6 leading-relaxed">
-              You have successfully reviewed and scored all {allCount} assigned projects. You can continue reviewing or adjusting your score notes below until the evaluation phase concludes.
+              You have submitted reviews for all {allCount} assigned projects. Submitted reviews are locked; contact an administrator if a correction is required.
             </p>
             <Button
               onClick={() => setDismissedCelebration(true)}
@@ -265,7 +297,8 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
             <button
               type="button"
               onClick={loadAssignments}
-              className="px-3.5 py-2 rounded-xl border border-border bg-card text-foreground hover:bg-muted text-xs font-semibold transition-colors cursor-pointer"
+              disabled={loading}
+              className="min-h-11 px-3.5 py-2 rounded-xl border border-border bg-card text-foreground hover:bg-muted text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
             >
               Refresh Queue
             </button>
@@ -343,8 +376,8 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
               <div className="flex flex-wrap items-center gap-2">
                 {([
                   { key: "all", label: "All Projects", count: allCount },
-                  { key: "pending", label: "Pending", count: pendingCount },
-                  { key: "graded", label: "Graded", count: gradedCount },
+                  { key: "pending", label: "Needs Review", count: pendingCount },
+                  { key: "graded", label: "Submitted", count: gradedCount },
                 ] as const).map((filter) => {
                   const isActive = statusFilter === filter.key;
                   return (
@@ -373,9 +406,17 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
             </div>
 
             {/* Submission Grid Cards */}
+            {error && (
+              <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+                <p>{error}</p>
+                <button type="button" onClick={loadAssignments} className="mt-3 min-h-11 rounded-lg border border-current px-3 font-semibold">
+                  Retry
+                </button>
+              </div>
+            )}
             <SubmissionList
               submissions={activePageSubmissions}
-              onSelectSubmission={(id) => router.push(`/judge/evaluate/${id}`)}
+              onSelectSubmission={openEvaluation}
             />
 
             {/* Grid Pagination Actions */}

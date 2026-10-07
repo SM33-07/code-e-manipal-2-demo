@@ -22,7 +22,9 @@ interface JudgeSubmission {
   id: string;
   title: string;
   description: string;
-  judged: boolean;
+  teamName: string;
+  track: string;
+  reviewStatus: 'not_started' | 'in_progress' | 'submitted';
 }
 
 export function JudgeDashboardOverview() {
@@ -41,14 +43,15 @@ export function JudgeDashboardOverview() {
       const json = await res.json();
       const data = Array.isArray(json.data) ? json.data : [];
 
-      const mapped: JudgeSubmission[] = data.map((a: any, idx: number) => {
+      const mapped: JudgeSubmission[] = data.map((a: any) => {
         const sub = a.submissions ?? {};
-        const label = `Project ${String.fromCharCode(65 + idx)}`;
         return {
           id: sub.id ?? a.submission_id,
-          title: label,
+          title: sub.title || 'Untitled submission',
           description: sub.description ?? sub.summary ?? '',
-          judged: a.reviewed ?? false,
+          teamName: sub.teams?.name || 'Assigned team',
+          track: sub.teams?.track || sub.track || sub.category || '',
+          reviewStatus: !a.review ? 'not_started' : a.review.is_complete ? 'submitted' : 'in_progress',
         };
       });
 
@@ -68,10 +71,10 @@ export function JudgeDashboardOverview() {
   }, []);
 
   const totalAssigned = submissions.length;
-  const completedCount = submissions.filter((s) => s.judged).length;
+  const completedCount = submissions.filter((s) => s.reviewStatus === 'submitted').length;
   const pendingCount = totalAssigned - completedCount;
   const progressPercent = totalAssigned > 0 ? Math.round((completedCount / totalAssigned) * 100) : 0;
-  const nextPending = submissions.find((s) => !s.judged);
+  const nextPending = submissions.find((s) => s.reviewStatus !== 'submitted');
 
   const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'Judge';
 
@@ -184,14 +187,14 @@ export function JudgeDashboardOverview() {
                 <span>Next Project in Your Queue</span>
               </div>
               <h3 className="text-xl font-bold text-foreground mb-1">
-                {nextPending.title}
+                {nextPending.teamName}: {nextPending.title}
               </h3>
               <p className="text-xs text-muted-foreground line-clamp-2 mb-4">
                 {nextPending.description || 'No detailed summary provided. Open evaluation rubric to review code, links, and presentation.'}
               </p>
               <Link
                 href={`/judge/evaluate/${nextPending.id}`}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground font-semibold text-xs hover:bg-primary/90 transition-colors shadow-sm"
+                className="inline-flex min-h-11 items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground font-semibold text-xs hover:bg-primary/90 transition-colors shadow-sm"
               >
                 <span>Evaluate This Project</span>
                 <ArrowRight size={14} />
@@ -241,26 +244,29 @@ export function JudgeDashboardOverview() {
                   <div key={sub.id} className="py-3.5 flex items-center justify-between gap-4 group">
                     <Link href={`/judge/evaluate/${sub.id}`} className="flex-1 min-w-0">
                       <h4 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                        {sub.title}
+                        {sub.teamName}: {sub.title}
                       </h4>
                       <p className="text-xs text-muted-foreground truncate max-w-sm mt-0.5">
-                        {sub.description || 'Evaluation assignment'}
+                        {[sub.track, sub.reviewStatus === 'submitted' ? 'Submitted' : sub.reviewStatus === 'in_progress' ? 'Draft in progress' : 'Not started', sub.description]
+                          .filter(Boolean)
+                          .join(' · ')}
                       </p>
                     </Link>
                     <div className="flex items-center gap-3 shrink-0">
-                      {sub.judged ? (
+                      {sub.reviewStatus === 'submitted' ? (
                         <span className="px-2.5 py-0.5 rounded-full bg-success/15 text-success text-[10px] font-bold uppercase tracking-wider border border-success/30">
-                          Evaluated
+                          Submitted
                         </span>
                       ) : (
                         <span className="px-2.5 py-0.5 rounded-full bg-warning/15 text-warning text-[10px] font-bold uppercase tracking-wider border border-warning/30">
-                          Pending
+                          {sub.reviewStatus === 'in_progress' ? 'In progress' : 'Not started'}
                         </span>
                       )}
                       <Link
                         href={`/judge/evaluate/${sub.id}`}
-                        className="p-2 rounded-lg bg-accent/60 text-foreground hover:bg-primary hover:text-primary-foreground transition-colors cursor-pointer"
-                        title="Evaluate Project"
+                        className="min-h-11 min-w-11 flex items-center justify-center rounded-lg bg-accent/60 text-foreground hover:bg-primary hover:text-primary-foreground transition-colors cursor-pointer"
+                        title={sub.reviewStatus === 'submitted' ? 'View submitted review' : 'Continue evaluation'}
+                        aria-label={sub.reviewStatus === 'submitted' ? `View submitted review for ${sub.teamName}` : `Continue evaluation for ${sub.teamName}`}
                       >
                         <ArrowRight size={14} />
                       </Link>

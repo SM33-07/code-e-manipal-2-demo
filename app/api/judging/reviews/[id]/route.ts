@@ -49,7 +49,8 @@ export const GET = withAuth(async (_req, { user, profile, params }) => {
  *
  * Rules:
  * - Admins cannot use this generic update path; must use /api/admin/reviews/[id]/reopen
- * - Once is_complete is true the review is locked; subsequent PUT returns 403
+ * - The owning judge may revise a completed review during JUDGING
+ * - Review writes are frozen outside JUDGING
  * - Optimistic concurrency via expected_version returns 409 Conflict on mismatch
  * - Atomic phase lock prevents updates outside of JUDGING phase
  * - Archives previous review state into review_history
@@ -85,6 +86,14 @@ export const PUT = withAuth(async (req, { user, profile, params }) => {
       reason,
     } = body;
 
+    if (
+      typeof expected_version !== 'number' ||
+      !Number.isSafeInteger(expected_version) ||
+      expected_version < 0
+    ) {
+      return Errors.BAD_REQUEST('A valid expected_version is required');
+    }
+
     const scoreFields: Record<string, unknown> = {
       score_innovation,
       score_technical,
@@ -109,7 +118,7 @@ export const PUT = withAuth(async (req, { user, profile, params }) => {
       scores: sanitizedScores,
       feedback: typeof feedback === 'string' ? feedback.trim() : undefined,
       is_complete: is_complete !== undefined ? Boolean(is_complete) : undefined,
-      expected_version: typeof expected_version === 'number' ? expected_version : undefined,
+      expected_version,
       reason: typeof reason === 'string' ? reason.trim() : undefined,
     });
 

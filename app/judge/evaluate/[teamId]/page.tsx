@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, use } from "react";
+import React, { useState, useEffect, use, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
@@ -28,6 +28,35 @@ interface RubricCriterion {
   weight: string;
   description: string;
   color: string;
+}
+
+interface AssignedSubmission {
+  id: string;
+  title: string;
+  description?: string | null;
+  summary?: string | null;
+  track?: string | null;
+  category?: string | null;
+  github_url?: string | null;
+  demo_url?: string | null;
+  docs_url?: string | null;
+  demo_video_url?: string | null;
+  video_url?: string | null;
+  teams?: { name?: string; track?: string } | null;
+}
+
+interface AssignedEvaluation {
+  submission_id: string;
+  submissions: AssignedSubmission;
+  review: {
+    is_complete: boolean;
+    version: number;
+    score_innovation: number | null;
+    score_technical: number | null;
+    score_presentation: number | null;
+    score_impact: number | null;
+    feedback: string | null;
+  } | null;
 }
 
 const RUBRIC: RubricCriterion[] = [
@@ -61,6 +90,33 @@ const RUBRIC: RubricCriterion[] = [
   },
 ];
 
+function getSafeQueueReturnHref(): string {
+  const candidate = new URLSearchParams(window.location.search).get("returnTo");
+  if (!candidate || !candidate.startsWith("/") || candidate.startsWith("//") || candidate.includes("\\")) {
+    return "/judge";
+  }
+
+  const url = new URL(candidate, window.location.origin);
+  if (url.origin !== window.location.origin || url.pathname !== "/judge") {
+    return "/judge";
+  }
+
+  const params = new URLSearchParams();
+  const status = url.searchParams.get("status");
+  if (status === "all" || status === "pending" || status === "graded") {
+    params.set("status", status);
+  }
+  const query = url.searchParams.get("q")?.slice(0, 100);
+  if (query) params.set("q", query);
+  const page = Number.parseInt(url.searchParams.get("page") || "", 10);
+  if (Number.isInteger(page) && page > 0 && page <= 1000) {
+    params.set("page", String(page));
+  }
+
+  const search = params.toString();
+  return search ? `/judge?${search}` : "/judge";
+}
+
 export default function JudgeEvaluatePage({
   params,
 }: {
@@ -74,8 +130,9 @@ export default function JudgeEvaluatePage({
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [submission, setSubmission] = useState<any>(null);
+  const [submission, setSubmission] = useState<AssignedSubmission | null>(null);
   const [submissionId, setSubmissionId] = useState<string>("");
+  const [teamName, setTeamName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   // Rubric Scores (1 - 10)
@@ -92,7 +149,15 @@ export default function JudgeEvaluatePage({
   });
 
   const [feedback, setFeedback] = useState("");
-  const [isCompletedBefore, setIsCompletedBefore] = useState(false);
+  const [isSubmittedReview, setIsSubmittedReview] = useState(false);
+  const [reviewVersion, setReviewVersion] = useState(0);
+  const [isDirty, setIsDirty] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"saved" | "unsaved" | "saving" | "error">("saved");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [queueReturnHref, setQueueReturnHref] = useState("/judge");
+  const revisionRef = useRef(0);
+  const lastAttemptedRevisionRef = useRef<number | null>(null);
+  const saveInFlightRef = useRef(false);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -101,6 +166,7 @@ export default function JudgeEvaluatePage({
       return;
     }
 
+    setQueueReturnHref(getSafeQueueReturnHref());
     loadSubmissionData();
   }, [teamId, isAuthenticated, role]);
 
@@ -108,94 +174,78 @@ export default function JudgeEvaluatePage({
     setLoading(true);
     setError(null);
     try {
-      // 1. Fetch judge assignments to find the matching submission
-      const assignRes = await fetch("/api/judging/assignments");
-      let matchedSubId = teamId;
-      let assignmentData: any = null;
-
-      if (assignRes.ok) {
-        const assignJson = await assignRes.json();
-        const assignments: any[] = Array.isArray(assignJson.data) ? assignJson.data : [];
-
-        // Match by submission_id OR team_id
-        assignmentData = assignments.find(
-          (a) =>
-            a.submission_id === teamId ||
-            a.submissions?.id === teamId ||
-            a.submissions?.team_id === teamId
-        );
-
-        if (assignmentData) {
-          matchedSubId = assignmentData.submission_id || assignmentData.submissions?.id;
-        }
+      const assignRes = await fetch(`/api/judging/assignments?submission_id=${encodeURIComponent(teamId)}`, {
+        cache: "no-store",
+      });
+      const assignJson = await assignRes.json();
+      if (!assignRes.ok) {
+        throw new Error(assignJson.error || `Assignment lookup failed (${assignRes.status})`);
       }
 
-      setSubmissionId(matchedSubId);
-
-      // 2. Fetch submission details
-      const subRes = await fetch(`/api/submissions/${matchedSubId}`);
-      if (subRes.ok) {
-        const subJson = await subRes.json();
-        setSubmission(subJson.data || assignmentData?.submissions || null);
-      } else if (assignmentData?.submissions) {
-        setSubmission(assignmentData.submissions);
-      } else {
-        // Fallback placeholder structure if mock
-        setSubmission({
-          id: matchedSubId,
-          title: `Assigned Project (${teamId.slice(0, 8)})`,
-          description: "Technical prototype submission for Code-e-Manipal 2.0 evaluation.",
-          track: "AI & Intelligent Systems",
-          github_url: "https://github.com",
-          demo_url: "https://demo.app",
-        });
+      const assignment: AssignedEvaluation | undefined =
+        Array.isArray(assignJson.data) ? assignJson.data[0] : undefined;
+      if (
+        !assignment?.submission_id ||
+        !assignment.submissions ||
+        assignment.submissions.id !== assignment.submission_id
+      ) {
+        throw new Error("This submission is not in your assigned queue.");
       }
 
-      // 3. Fetch existing review if already graded
-      const reviewsRes = await fetch("/api/judging/reviews");
-      if (reviewsRes.ok) {
-        const reviewsJson = await reviewsRes.json();
-        const reviews = Array.isArray(reviewsJson.data) ? reviewsJson.data : [];
-        const existing = reviews.find(
-          (r: any) =>
-            r.submissionId === matchedSubId ||
-            r.submission_id === matchedSubId ||
-            r.id === matchedSubId
-        );
-
-        if (existing) {
-          setIsCompletedBefore(existing.isComplete || existing.is_complete || false);
-          setScores({
-            innovation: existing.criteria?.innovation ?? existing.score_innovation ?? 7,
-            technical: existing.criteria?.technical ?? existing.score_technical ?? 7,
-            presentation: existing.criteria?.presentation ?? existing.score_presentation ?? 7,
-            impact: existing.criteria?.impact ?? existing.score_impact ?? 7,
-          });
-          setFeedback(existing.feedback || "");
-        }
-      }
-    } catch (err: any) {
-      console.error("Failed to load evaluation data:", err);
-      setError("Unable to load submission details. Please verify assignment queue.");
+      const existing = assignment.review;
+      setSubmissionId(assignment.submission_id);
+      setSubmission(assignment.submissions);
+      setTeamName(assignment.submissions.teams?.name || "Assigned team");
+      setIsSubmittedReview(existing?.is_complete === true);
+      setReviewVersion(existing?.version ?? 0);
+      setScores({
+        innovation: existing?.score_innovation ?? 7,
+        technical: existing?.score_technical ?? 7,
+        presentation: existing?.score_presentation ?? 7,
+        impact: existing?.score_impact ?? 7,
+      });
+      setFeedback(existing?.feedback || "");
+      setIsDirty(false);
+      setSaveStatus("saved");
+      revisionRef.current = 0;
+      lastAttemptedRevisionRef.current = null;
+    } catch (err: unknown) {
+      console.error("Failed to load assigned evaluation data:", err);
+      setError(err instanceof Error ? err.message : "Unable to load assigned submission details.");
+      setSubmission(null);
     } finally {
       setLoading(false);
     }
   };
 
+  const markDirty = () => {
+    revisionRef.current += 1;
+    setIsDirty(true);
+    setSaveStatus("unsaved");
+    setSaveError(null);
+  };
+
   const handleScoreChange = (key: keyof typeof scores, value: number) => {
     setScores((prev) => ({ ...prev, [key]: value }));
+    markDirty();
   };
 
   // Authoritative weighted score (0-100)
   const weightedScore = calculateWeightedScore(scores);
 
-  const handleSubmitEvaluation = async (isDraft = false) => {
+  const handleSubmitEvaluation = async (isDraft = false, isAutosave = false) => {
     if (!submissionId) {
-      toast.error("Invalid submission reference.");
+      if (!isAutosave) toast.error("Invalid submission reference.");
       return;
     }
+    if (saveInFlightRef.current) return;
 
+    const savedRevision = revisionRef.current;
+    lastAttemptedRevisionRef.current = savedRevision;
+    saveInFlightRef.current = true;
     setSubmitting(true);
+    setSaveStatus("saving");
+    setSaveError(null);
     try {
       const payload = {
         submission_id: submissionId,
@@ -204,7 +254,8 @@ export default function JudgeEvaluatePage({
         score_presentation: scores.presentation,
         score_impact: scores.impact,
         feedback: feedback.trim(),
-        is_complete: !isDraft,
+        is_complete: !isDraft || isSubmittedReview,
+        expected_version: reviewVersion,
       };
 
       const res = await fetch("/api/judging/reviews", {
@@ -214,25 +265,63 @@ export default function JudgeEvaluatePage({
       });
 
       if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.message || `Evaluation submission failed (${res.status})`);
+        const errJson = await res.json().catch(() => null);
+        throw new Error(
+          (typeof errJson?.error === "string" && errJson.error) ||
+          `Evaluation save failed (${res.status})`
+        );
       }
 
-      toast.success(
-        isDraft
-          ? "Evaluation draft saved successfully."
-          : "Evaluation submitted! Returning to assignments queue."
-      );
+      const result = await res.json();
+      const savedReview = result.data;
+      if (typeof savedReview?.version === "number") {
+        setReviewVersion(savedReview.version);
+      }
 
-      // Return to dedicated /judge assignment queue as required
-      router.push("/judge");
-    } catch (err: any) {
+      if (isDraft) {
+        if (savedRevision === revisionRef.current) {
+          setIsDirty(false);
+          setSaveStatus("saved");
+        } else {
+          setSaveStatus("unsaved");
+        }
+        if (!isAutosave) toast.success(isSubmittedReview ? "Review changes saved." : "Draft saved.");
+        return;
+      }
+
+      setIsSubmittedReview(true);
+      setIsDirty(false);
+      setSaveStatus("saved");
+      toast.success("Review submitted. Returning to your assigned queue.");
+      router.push(queueReturnHref);
+    } catch (err: unknown) {
       console.error("Evaluation submission error:", err);
-      toast.error(err.message || "Could not save review. Please check connection.");
+      setSaveStatus("error");
+      setSaveError(err instanceof Error ? err.message : "Could not save the review.");
+      if (!isAutosave) {
+        toast.error(err instanceof Error ? err.message : "Could not save review. Please check connection.");
+      } else {
+        toast.error("Draft autosave failed. Your latest changes are not saved.");
+      }
     } finally {
+      saveInFlightRef.current = false;
       setSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    if (
+      !isDirty ||
+      loading ||
+      !submissionId ||
+      lastAttemptedRevisionRef.current === revisionRef.current
+    ) return;
+
+    const timer = window.setTimeout(() => {
+      void handleSubmitEvaluation(true, true);
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [scores, feedback, isDirty, loading, submissionId, submitting]);
 
   if (loading) {
     return (
@@ -255,7 +344,7 @@ export default function JudgeEvaluatePage({
           {error || "This submission could not be found or you are not currently assigned to evaluate it."}
         </p>
         <Link
-          href="/judge"
+          href={queueReturnHref}
           className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold text-xs shadow-sm hover:bg-primary/90 transition-colors"
         >
           <ArrowLeft size={14} />
@@ -270,17 +359,17 @@ export default function JudgeEvaluatePage({
       {/* Back & Breadcrumb Header */}
       <div className="flex items-center justify-between gap-4 mb-6">
         <Link
-          href="/judge"
+          href={queueReturnHref}
           className="inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors group"
         >
           <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-1" />
           <span>Back to Assignment Queue</span>
         </Link>
 
-        {isCompletedBefore && (
+        {isSubmittedReview && (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-success/15 border border-success/30 text-success text-[11px] font-bold uppercase tracking-wider">
             <CheckCircle2 size={13} />
-            <span>Graded & Recorded</span>
+            <span>Submitted · Editable During JUDGING</span>
           </span>
         )}
       </div>
@@ -293,7 +382,7 @@ export default function JudgeEvaluatePage({
               Project Evaluation Target
             </span>
             <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
-              {submission.title || `Team Submission #${teamId.slice(0, 6)}`}
+              {teamName}: {submission.title || `Submission #${teamId.slice(0, 6)}`}
             </h1>
           </div>
 
@@ -307,7 +396,7 @@ export default function JudgeEvaluatePage({
         <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed mt-4">
           {submission.description ||
             submission.summary ||
-            "Technical hackathon prototype submitted for jury scoring."}
+            "No project description was provided."}
         </p>
 
         {/* Submission Material Links (Large touch targets for phones) */}
@@ -338,9 +427,22 @@ export default function JudgeEvaluatePage({
             </a>
           )}
 
-          {submission.video_url && (
+          {submission.docs_url && (
             <a
-              href={submission.video_url}
+              href={submission.docs_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-accent text-accent-foreground border border-border text-xs font-semibold hover:border-secondary transition-colors"
+            >
+              <FileText size={15} />
+              <span>Project Documentation</span>
+              <ExternalLink size={12} className="opacity-70" />
+            </a>
+          )}
+
+          {(submission.demo_video_url || submission.video_url) && (
+            <a
+              href={submission.demo_video_url ?? submission.video_url ?? undefined}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-accent text-accent-foreground border border-border text-xs font-semibold hover:border-secondary transition-colors"
@@ -408,12 +510,13 @@ export default function JudgeEvaluatePage({
                       <button
                         key={val}
                         type="button"
+                        disabled={submitting}
                         onClick={() => handleScoreChange(item.key, val)}
                         className={`h-11 sm:h-10 rounded-xl font-mono text-sm font-bold transition-all cursor-pointer flex items-center justify-center ${
                           isSelected
                             ? "bg-primary text-primary-foreground shadow-md scale-102 ring-2 ring-primary/30"
                             : "bg-accent/50 text-foreground hover:bg-accent border border-border"
-                        }`}
+                        } disabled:cursor-not-allowed disabled:opacity-60`}
                         aria-label={`Score ${val} for ${item.title}`}
                       >
                         {val}
@@ -439,9 +542,13 @@ export default function JudgeEvaluatePage({
         <textarea
           rows={4}
           value={feedback}
-          onChange={(e) => setFeedback(e.target.value)}
+          onChange={(e) => {
+            setFeedback(e.target.value);
+            markDirty();
+          }}
+          readOnly={submitting}
           placeholder="e.g. Solid full-stack architecture. Smart utilization of vector embeddings. Frontend UI could benefit from clearer error states on mobile..."
-          className="w-full rounded-xl border border-border bg-background p-3 text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-y"
+          className="w-full min-h-28 rounded-xl border border-border bg-background p-3 text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-y read-only:opacity-75"
         />
       </div>
 
@@ -462,27 +569,51 @@ export default function JudgeEvaluatePage({
                 <span className="text-xs font-normal text-muted-foreground ml-1">/100</span>
               </div>
             </div>
+            {saveError && (
+              <p role="alert" className="mx-auto mt-2 max-w-4xl text-xs text-destructive">
+                {saveError}
+              </p>
+            )}
           </div>
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={() => handleSubmitEvaluation(true)}
-              className="px-3 sm:px-4 py-2.5 rounded-xl border border-border text-foreground font-semibold text-xs hover:bg-accent transition-colors cursor-pointer disabled:opacity-50"
-            >
-              <span className="hidden sm:inline">Save </span>Draft
-            </button>
+            <span aria-live="polite" className="hidden sm:inline text-[11px] text-muted-foreground">
+              {isSubmittedReview
+                ? "Submitted · editable during judging"
+                : saveStatus === "saving"
+                  ? "Saving…"
+                  : saveStatus === "saved"
+                    ? "All changes saved"
+                    : saveStatus === "error"
+                      ? "Save failed"
+                      : "Unsaved changes"}
+            </span>
+            {!isSubmittedReview && (
+              <button
+                type="button"
+                disabled={submitting || !isDirty}
+                onClick={() => handleSubmitEvaluation(true)}
+                className="min-h-11 px-3 sm:px-4 py-2.5 rounded-xl border border-border text-foreground font-semibold text-xs hover:bg-accent transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <span className="hidden sm:inline">Save </span>Draft
+              </button>
+            )}
 
             <button
               type="button"
-              disabled={submitting}
-              onClick={() => handleSubmitEvaluation(false)}
-              className="flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs sm:text-sm shadow-md hover:bg-primary/90 transition-all cursor-pointer disabled:opacity-50 active:scale-98"
+              disabled={submitting || (isSubmittedReview && !isDirty)}
+              onClick={() => handleSubmitEvaluation(isSubmittedReview)}
+              className="min-h-11 flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs sm:text-sm shadow-md hover:bg-primary/90 transition-all cursor-pointer disabled:opacity-50 active:scale-98"
             >
               <Send size={15} />
-              <span>{submitting ? "Submitting..." : "Submit Evaluation"}</span>
+              <span>
+                {submitting
+                  ? "Saving..."
+                  : isSubmittedReview
+                    ? "Save Changes"
+                    : "Submit Evaluation"}
+              </span>
             </button>
           </div>
         </div>

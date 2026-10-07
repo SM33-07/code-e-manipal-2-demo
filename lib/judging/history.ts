@@ -18,7 +18,7 @@ export interface ReviewSaveParams {
   scores: ScorePayload;
   feedback?: string | null;
   is_complete?: boolean;
-  expected_version?: number;
+  expected_version: number;
   reason?: string;
 }
 
@@ -29,7 +29,7 @@ export interface ReviewUpdateByIdParams {
   scores: ScorePayload;
   feedback?: string | null;
   is_complete?: boolean;
-  expected_version?: number;
+  expected_version: number;
   reason?: string;
 }
 
@@ -198,19 +198,18 @@ export async function saveReviewTransactional(params: ReviewSaveParams): Promise
     const existing = existingRes.rows[0];
 
     if (existing) {
-      // Review is already finalised/locked
-      if (existing.is_complete) {
+      // Judges may revise their own submitted review during JUDGING; admins use the audited reopen path.
+      if (existing.is_complete && params.actor_role === 'admin') {
         throw new ReviewLockedError(
           'This review is finalised and locked. Contact an admin to re-open it.'
         );
       }
+      if (existing.is_complete && params.actor_role !== 'admin' && params.is_complete === false) {
+        throw new ForbiddenReviewError('A submitted review cannot be reverted to a draft');
+      }
 
       // Optimistic Concurrency Check
-      if (
-        params.expected_version !== undefined &&
-        params.expected_version !== null &&
-        existing.version !== params.expected_version
-      ) {
+      if (existing.version !== params.expected_version) {
         throw new ConcurrencyError(
           'Review was modified elsewhere. Please refresh to load latest scores.'
         );
@@ -239,7 +238,13 @@ export async function saveReviewTransactional(params: ReviewSaveParams): Promise
           JSON.stringify(previousScores),
           existing.feedback || null,
           params.actor_id,
-          params.reason || (params.is_complete ? 'Judge evaluation submission' : 'Judge evaluation autosave'),
+          params.reason || (
+            existing.is_complete
+              ? 'Judge review revision'
+              : params.is_complete
+                ? 'Judge evaluation submission'
+                : 'Judge evaluation autosave'
+          ),
         ]
       );
 
@@ -289,10 +294,7 @@ export async function saveReviewTransactional(params: ReviewSaveParams): Promise
     } else {
       // First review record creation
       if (
-        params.expected_version !== undefined &&
-        params.expected_version !== null &&
-        params.expected_version !== 0 &&
-        params.expected_version !== 1
+        params.expected_version !== 0
       ) {
         throw new ConcurrencyError(
           'Review was modified elsewhere. Please refresh to load latest scores.'
@@ -379,19 +381,20 @@ export async function updateReviewByIdTransactional(
       throw new ForbiddenReviewError("Cannot modify another judge's review");
     }
 
-    // Lock guard: finalised reviews cannot be modified via generic PUT
-    if (existing.is_complete) {
-      throw new ReviewLockedError(
-        'This review is finalised and locked. Contact an admin to re-open it.'
-      );
+    if (existing.is_complete && params.is_complete === false) {
+      throw new ForbiddenReviewError('A submitted review cannot be reverted to a draft');
+    }
+
+    const assignmentRes = await client.query(
+      'SELECT 1 FROM public.judge_assignments WHERE judge_id = $1 AND submission_id = $2 LIMIT 1 FOR KEY SHARE',
+      [params.actor_id, existing.submission_id]
+    );
+    if (assignmentRes.rows.length === 0) {
+      throw new ForbiddenReviewError('Judge is not assigned to this submission');
     }
 
     // Optimistic Concurrency Check
-    if (
-      params.expected_version !== undefined &&
-      params.expected_version !== null &&
-      existing.version !== params.expected_version
-    ) {
+    if (existing.version !== params.expected_version) {
       throw new ConcurrencyError(
         'Review was modified elsewhere. Please refresh to load latest scores.'
       );
@@ -420,7 +423,13 @@ export async function updateReviewByIdTransactional(
         JSON.stringify(previousScores),
         existing.feedback || null,
         params.actor_id,
-        params.reason || (params.is_complete ? 'Judge evaluation submission' : 'Judge evaluation update'),
+        params.reason || (
+          existing.is_complete
+            ? 'Judge review revision'
+            : params.is_complete
+              ? 'Judge evaluation submission'
+              : 'Judge evaluation update'
+        ),
       ]
     );
 

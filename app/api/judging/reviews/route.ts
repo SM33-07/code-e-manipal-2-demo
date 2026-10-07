@@ -22,7 +22,8 @@ import {
  * - Atomic Phase verification (JUDGING phase only)
  * - Assignment check (requireJudgeAssignment)
  * - Optimistic concurrency lock via expected_version
- * - Review locking upon completion (is_complete = true)
+ * - Completed reviews remain editable by their assigned judge during JUDGING
+ * - The event phase lock freezes all reviews outside JUDGING
  * - Archiving previous state to review_history
  * - Server-side score calculation (client totals ignored)
  */
@@ -52,6 +53,14 @@ export const POST = withAuth(async (req, { user, profile }) => {
       return Errors.BAD_REQUEST('A valid submission_id is required');
     }
 
+    if (
+      typeof expected_version !== 'number' ||
+      !Number.isSafeInteger(expected_version) ||
+      expected_version < 0
+    ) {
+      return Errors.BAD_REQUEST('A valid expected_version is required');
+    }
+
     // Validate scores if provided
     const scoreFields: Record<string, unknown> = {
       score_innovation,
@@ -78,7 +87,7 @@ export const POST = withAuth(async (req, { user, profile }) => {
       scores: sanitizedScores,
       feedback: typeof feedback === 'string' ? feedback.trim() : undefined,
       is_complete: is_complete !== undefined ? Boolean(is_complete) : undefined,
-      expected_version: typeof expected_version === 'number' ? expected_version : undefined,
+      expected_version,
       reason: typeof reason === 'string' ? reason.trim() : undefined,
     });
 

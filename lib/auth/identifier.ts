@@ -37,6 +37,23 @@ export function normalizeIdentifier(rawInput: string): NormalizedIdentifier | nu
     return null;
   }
 
+  /**
+   * Normalize a personalized role login ID while retaining its encoded role.
+   */
+  export function normalizeLoginId(rawInput: string): NormalizedIdentifier | null {
+    const canonical = rawInput.trim().toUpperCase();
+    const normalizedIdentifier = normalizeIdentifier(canonical);
+    if (normalizedIdentifier) return normalizedIdentifier;
+
+    const match = /^(JUDGE|ADMIN)-([A-Z0-9]+(?:-[A-Z0-9]+)*)$/.exec(canonical);
+    if (!match) return null;
+
+    return {
+      canonical,
+      role: match[1] === 'JUDGE' ? 'judge' : 'admin',
+    };
+  }
+
   // Step 1: Trim whitespace
   const trimmed = rawInput.trim();
   if (!trimmed) return null;

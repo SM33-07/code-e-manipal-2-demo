@@ -8,12 +8,22 @@ import { logger } from '@/lib/utils/logger';
 
 /**
  * GET /api/teams/:id
- * Public — returns team details with members.
+ * Authenticated — returns details only to team members or admins.
  */
-export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const { id } = await ctx.params;
+export const GET = withAuth(async (_req, { user, profile, params }) => {
+  const id = params?.id;
   try {
+    if (!id) return Errors.BAD_REQUEST('Invalid team ID');
     if (!isValidUUID(id)) return Errors.BAD_REQUEST('Invalid team ID');
+
+    if (profile.role !== 'admin') {
+      if (profile.role !== 'participant') return Errors.NOT_FOUND('Team');
+      const membershipRes = await query(
+        'SELECT 1 FROM public.team_members WHERE team_id = $1 AND user_id = $2 LIMIT 1',
+        [id, user.id]
+      );
+      if (membershipRes.rows.length === 0) return Errors.NOT_FOUND('Team');
+    }
 
     const team = await getTeamById(id);
 
@@ -24,7 +34,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     logger.error('GET /api/teams/[id]', { error: String(err), id });
     return Errors.INTERNAL();
   }
-}
+}, 'participant');
 
 /**
  * PUT /api/teams/:id
