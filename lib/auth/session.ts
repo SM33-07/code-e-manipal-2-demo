@@ -147,6 +147,7 @@ async function lazyProfileSync(user: User): Promise<(Profile & SessionProfileExt
   }
 
   // Direct profiles insert as fallback
+  // Missing Azure profiles must never inherit an elevated role from Auth metadata.
   await query(
     `INSERT INTO public.profiles (id, name, email, avatar_url, role, identifier)
      VALUES ($1, $2, $3, $4, $5, $6)
@@ -156,7 +157,7 @@ async function lazyProfileSync(user: User): Promise<(Profile & SessionProfileExt
       meta.name || user.email?.split('@')[0] || 'Unknown',
       user.email || '',
       meta.avatar_url || '',
-      meta.role || 'participant',
+      'participant',
       meta.identifier || `USER-${user.id.substring(0, 8).toUpperCase()}`,
     ]
   );

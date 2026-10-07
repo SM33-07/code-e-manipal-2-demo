@@ -239,16 +239,7 @@ export const POST = withAuth(async (req, { user: adminUser }) => {
       return Errors.BAD_REQUEST('Admins cannot remove their own admin role');
     }
 
-    // Update Supabase Auth user metadata
-    try {
-      const supabase = createSupabaseAdminClient();
-      await supabase.auth.admin.updateUserById(user_id, {
-        user_metadata: { role },
-      });
-    } catch (e) {
-      logger.warn('Failed to update Supabase Auth user_metadata via Admin API', { error: String(e) });
-    }
-
+    // Update the authoritative Azure profile first.
     const updated = await setUserRole(user_id, role as UserRole);
 
     await query(
@@ -263,13 +254,50 @@ export const POST = withAuth(async (req, { user: adminUser }) => {
       ]
     );
 
+    const supabase = createSupabaseAdminClient();
+    const { error: metadataUpdateError } = await supabase.auth.admin.updateUserById(user_id, {
+      user_metadata: { role },
+    });
+    if (metadataUpdateError) {
+      logger.error('Supabase Auth role mirror update failed after Azure profile role change', {
+        targetUserId: user_id,
+        role,
+        error: metadataUpdateError.message,
+      });
+      return Errors.INTERNAL(
+        'Azure profile role was updated, but the Supabase Auth role mirror could not be synchronized. Verify both role sources before considering the repair complete.'
+      );
+    }
+
+    const { data: verifiedAuthUser, error: metadataReadError } =
+      await supabase.auth.admin.getUserById(user_id);
+    const verifiedMetadataRole = verifiedAuthUser?.user?.user_metadata?.role;
+    if (metadataReadError || verifiedMetadataRole !== role || updated.role !== role) {
+      logger.error('Role repair verification failed', {
+        targetUserId: user_id,
+        azureProfileRole: updated.role,
+        expectedRole: role,
+        authMetadataRole: verifiedMetadataRole ?? null,
+        error: metadataReadError?.message,
+      });
+      return Errors.INTERNAL(
+        'Role repair verification failed. Azure profile and Supabase Auth role metadata must match before considering the repair complete.'
+      );
+    }
+
     logger.info('POST /api/admin/users (role update)', {
       targetUserId: user_id,
       newRole: role,
       changedBy: adminUser.id,
     });
 
-    return successResponse(updated);
+    return successResponse(updated, {
+      roleVerification: {
+        azureProfileRole: updated.role,
+        authMetadataRole: verifiedMetadataRole,
+        verified: true,
+      },
+    });
   } catch (err) {
     logger.error('POST /api/admin/users', { error: String(err) });
     return Errors.INTERNAL();
