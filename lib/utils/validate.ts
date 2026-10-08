@@ -21,9 +21,10 @@ export function sanitizeString(value: unknown, max = 500): string | null {
 }
 
 export function sanitizeScore(value: unknown): number | undefined {
+  if (value === null || value === undefined || value === '') return undefined;
   const n = Number(value);
-  if (isNaN(n) || n < 1 || n > 10) return undefined;
-  return Math.round(n);
+  if (isNaN(n) || !Number.isInteger(n) || n < 1 || n > 10) return undefined;
+  return n;
 }
 
 export function sanitizePagination(

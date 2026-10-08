@@ -41,3 +41,8 @@ next-env.d.ts
 *.base
 
 .vscode
+
+# Scratch and audit/progress docs
+/scratch/
+FRONTEND_UI_FORENSIC_AUDIT.md
+IMPLEMENTATION_PROGRESS.md

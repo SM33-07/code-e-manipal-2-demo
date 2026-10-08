@@ -68,5 +68,17 @@ export async function setUserRole(
   const updated = rows[0];
   if (!updated) throw new Error('Profile not found for role update');
 
+  // Sync auth.users raw_user_meta_data so Supabase Auth user_metadata stays in sync
+  try {
+    await query(
+      `UPDATE auth.users
+       SET raw_user_meta_data = jsonb_set(COALESCE(raw_user_meta_data, '{}'::jsonb), '{role}', $2::jsonb)
+       WHERE id = $1`,
+      [userId, JSON.stringify(role)]
+    );
+  } catch (e) {
+    // Continue even if auth.users is managed strictly by Supabase API
+  }
+
   return updated as Profile;
 }

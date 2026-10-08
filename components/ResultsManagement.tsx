@@ -9,7 +9,7 @@ export function ResultsManagement() {
 
   return (
     <motion.div
-      className="bg-white/5 border border-white/10 rounded-xl p-6 backdrop-blur-xl"
+      className="bg-card border border-border rounded-xl p-6"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
     >

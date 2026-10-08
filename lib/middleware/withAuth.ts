@@ -1,69 +1,92 @@
+/**
+ * Centralized Auth Middleware — withAuth
+ *
+ * REFACTORED for Phase 2 to integrate:
+ * 1. Session lifecycle enforcement (force_logout_before, is_disabled)
+ * 2. CSRF validation for state-changing methods
+ * 3. Centralized session validation via lib/auth/session.ts
+ * 4. Role hierarchy from lib/auth/guards.ts
+ *
+ * This file is the primary auth wrapper used by ALL API route handlers.
+ * It replaces the previous ad-hoc profile lookup with the validated
+ * session pipeline (ADR-001 compliant).
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { query } from '@/lib/db';
+import { validateSession } from '@/lib/auth/session';
+import { validateCsrf } from '@/lib/auth/csrf';
+import { hasRole } from '@/lib/auth/guards';
 import type { User } from '@supabase/supabase-js';
 import type { Profile, UserRole } from '@/types';
 import { Errors } from '@/lib/utils/response';
+import { logger } from '@/lib/utils/logger';
 
-export type AuthContext = { user: User; profile: Profile; params?: Record<string, string> };
-export type AuthHandler = (req: NextRequest, ctx: AuthContext) => Promise<NextResponse>;
+export type AuthContext = {
+  user: User;
+  profile: Profile;
+  params?: Record<string, string>;
+};
 
+export type AuthHandler = (
+  req: NextRequest,
+  ctx: AuthContext
+) => Promise<NextResponse>;
+
+/**
+ * Protects a route handler with authentication, authorization, CSRF, and
+ * session lifecycle enforcement.
+ *
+ * @param handler - The route handler function
+ * @param requiredRole - Optional minimum role (admin > judge > participant)
+ */
 export function withAuth(handler: AuthHandler, requiredRole?: UserRole) {
-  return async (req: NextRequest, context?: { params?: Record<string, string> | Promise<Record<string, string>> }) => {
+  return async (
+    req: NextRequest,
+    ...args: any[]
+  ): Promise<NextResponse> => {
+    const context = args[0] as { params?: Record<string, string> | Promise<Record<string, string>> } | undefined;
     try {
-      const supabase = await createSupabaseServerClient();
-      const { data: { user }, error } = await supabase.auth.getUser();
-      if (error || !user) return Errors.UNAUTHORIZED();
+      // ── 1. CSRF validation for state-changing requests ──
+      const csrfError = validateCsrf(req);
+      if (csrfError) return csrfError;
 
-      // Query profile from Azure Postgres
-      const profileRes = await query('SELECT * FROM public.profiles WHERE id = $1', [user.id]);
-      let profile = profileRes.rows[0] as Profile | undefined;
+      // ── 2. Session validation (GoTrue + profile + lifecycle) ──
+      const result = await validateSession();
 
-      if (!profile) {
-        const meta = user.user_metadata || {};
-        try {
-          // Lazily sync the user to Azure auth.users so the trigger creates the profile row
-          await query(
-            'INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING',
-            [user.id, user.email || '', JSON.stringify(meta)]
-          );
-        } catch (e) {
-          console.warn('⚠️ auth.users sync failed, attempting direct profiles insert:', e);
+      if (result.error) {
+        switch (result.error) {
+          case 'UNAUTHENTICATED':
+          case 'FORCE_LOGOUT':
+          case 'NO_PROFILE':
+            return Errors.UNAUTHORIZED();
+          case 'DISABLED':
+            return Errors.FORBIDDEN();
+          default:
+            return Errors.UNAUTHORIZED();
         }
-
-        // Defensive copy: insert directly into public.profiles to be absolutely sure the row exists
-        await query(
-          `INSERT INTO public.profiles (id, name, email, avatar_url, role) 
-           VALUES ($1, $2, $3, $4, $5) 
-           ON CONFLICT (id) DO NOTHING`,
-          [
-            user.id,
-            meta.name || user.email?.split('@')[0] || 'Unknown',
-            user.email || '',
-            meta.avatar_url || '',
-            meta.role || 'participant'
-          ]
-        );
-
-        // Fetch the profile once more
-        const retryRes = await query('SELECT * FROM public.profiles WHERE id = $1', [user.id]);
-        profile = retryRes.rows[0] as Profile | undefined;
       }
 
-      if (!profile) return Errors.INTERNAL('Profile not found');
+      const { session } = result;
 
-      // Role hierarchy: admin > judge > participant
-      const roleRank: Record<UserRole, number> = { participant: 0, judge: 1, admin: 2 };
-      if (requiredRole && roleRank[profile.role as UserRole] < roleRank[requiredRole]) {
+      // ── 3. Role hierarchy check (ADR-001: profiles.role is authoritative) ──
+      if (requiredRole && !hasRole(session.profile.role as UserRole, requiredRole)) {
         return Errors.FORBIDDEN();
       }
 
-      // Resolve params in case Next.js 16 passes it as a Promise
-      const resolvedParams = context?.params instanceof Promise ? await context.params : context?.params;
-      return handler(req, { user, profile, params: resolvedParams });
+      // ── 4. Resolve params (Next.js 16 may pass as Promise) ──
+      const resolvedParams = context?.params instanceof Promise
+        ? await context.params
+        : context?.params;
+
+      // ── 5. Execute handler ──
+      return handler(req, {
+        user: session.user,
+        profile: session.profile,
+        params: resolvedParams,
+      });
     } catch (err) {
-      console.error('🔥 withAuth error:', err);
+      logger.error('🔥 withAuth error:', { error: String(err) });
       return Errors.INTERNAL();
     }
   };
-}
+}

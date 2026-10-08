@@ -10,6 +10,8 @@ import { toast } from "sonner"
 import { motion, AnimatePresence } from "framer-motion"
 import { useState, useEffect } from "react"
 import { Bell, Clock, AlertCircle, Info, X } from "lucide-react"
+import { BrandLogo } from "@/components/BrandLogo"
+import { getPortalNavigation, publicNavigation } from "@/lib/navigation/portal"
 
 import {
   Navbar as ResizableNavbar,
@@ -27,8 +29,8 @@ const mockNotifications = [
   { id: 3, type: "info", icon: Info, title: "Welcome", text: "Welcome to Code-E-Manipal! Hack away.", time: "2h ago" },
 ]
 
-export default function Navbar({ className }: { className?: string }) {
-  const { role, logout, user } = useAuth()
+export default function Navbar({ className, portal = false }: { className?: string; portal?: boolean }) {
+  const { role, logout, user, isAuthenticated } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -175,68 +177,53 @@ export default function Navbar({ className }: { className?: string }) {
   }
 
   const mobileLinkClass = (path: string) => {
-    const isActive = pathname === path
+    const isActive = pathname === path || (path !== "/" && !!pathname?.startsWith(path))
     return isActive
-      ? "block py-3 px-4 text-jaipur-primary font-semibold bg-jaipur-primary/10 rounded-lg text-center"
-      : "block py-3 px-4 text-muted-foreground hover:text-jaipur-primary hover:bg-jaipur-primary/10 rounded-lg transition-colors duration-200 text-center"
+      ? "block py-3 px-4 text-primary font-semibold bg-primary/10 rounded-lg text-center"
+      : "block py-3 px-4 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors duration-200 text-center font-medium"
   }
 
   if (pathname === "/login") return null
 
-  // Generate dynamic links based on user role
-  const navItems = []
-  if (role === "admin" || role === "participant") {
-    navItems.push({ name: "Team", link: "/team" })
-    navItems.push({ name: "Submit", link: "/SubmissionForm" })
-  }
-  if (role === "admin" || role === "judge") {
-    navItems.push({ name: "Judging", link: "/judging" })
-  }
-  if (role === "admin") {
-    navItems.push({ name: "Admin", link: "/admin" })
-  }
-  navItems.push({ name: "Gallery", link: "/gallery" })
+  // A public visit always receives public navigation, even when an existing
+  // session is present. The portal shell explicitly opts into role-aware links.
+  const navItems = portal ? getPortalNavigation(role) : publicNavigation
 
-  const isSubmissionForm = pathname?.startsWith("/SubmissionForm")
+  const isSubmissionForm = pathname?.startsWith("/submit") || pathname?.startsWith("/SubmissionForm")
 
   return (
     <ResizableNavbar isSubmissionForm={isSubmissionForm} className={className}>
       {/* ── Desktop Navigation ── */}
-      <NavBody className="bg-background/90 border border-jaipur-gold/30 shadow-md backdrop-blur-md">
-        {/* Logo */}
-        <Link href="/" className="flex items-center no-underline h-12 flex-shrink-0 z-20">
-          <Image
-            src="/logo.png"
-            width={200}
-            height={52}
-            alt="Code-e-Manipal 2.0"
-            className="h-13 w-auto object-contain"
-            priority
-          />
-        </Link>
+      <NavBody>
+        {/* Brand / Logo Region with deterministic boundary */}
+        <div className="flex items-center shrink-0 min-w-max mr-3 xl:mr-6">
+          <BrandLogo size="md" />
+        </div>
 
-        {/* Dynamic Navigation Links */}
-        <NavItems items={navItems} pathname={pathname} />
+        {/* Dynamic Navigation Links Region */}
+        <div className="flex-1 flex items-center justify-center min-w-0 px-1 xl:px-3">
+          <NavItems items={navItems} pathname={pathname} />
+        </div>
 
-        {/* Desktop Actions */}
-        <div className="flex items-center gap-4 flex-shrink-0 z-20">
+        {/* Desktop Actions Region */}
+        <div className="flex items-center gap-2 xl:gap-3 shrink-0 min-w-max ml-3 xl:ml-6 z-20">
           {/* Role Badge */}
-          {role && (
-            <span className="hidden xl:inline-block text-xs px-3 py-1 rounded-full bg-jaipur-secondary border border-jaipur-secondary-light text-foreground font-medium capitalize">
+          {portal && role && (
+            <span className="hidden xl:inline-block text-xs px-2.5 py-0.5 rounded-full bg-secondary/15 border border-secondary/30 text-secondary font-medium capitalize">
               {role}
             </span>
           )}
 
           {/* Hackathon Timer */}
-          {timerConfig && (
-            <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-jaipur-secondary/50 border border-jaipur-gold/20 text-xs font-mono font-bold text-[#F0C060]">
+          {portal && timerConfig && (
+            <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent/60 border border-border text-xs font-mono font-bold text-secondary">
               <span className={timeLeftStr !== "Not Started" && timeLeftStr !== "Closed" ? "animate-pulse" : ""}>⏳</span>
               <span>{timeLeftStr}</span>
             </div>
           )}
 
           {/* Results Publishing Countdown Pill */}
-          {resultsCountdownStr && (
+          {portal && resultsCountdownStr && (
             <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-jaipur-primary/20 border border-jaipur-primary/40 text-xs font-mono font-bold text-jaipur-gold animate-pulse shadow-sm">
               <span>🏆 Results: {resultsCountdownStr}</span>
             </div>
@@ -246,17 +233,17 @@ export default function Navbar({ className }: { className?: string }) {
           <ThemeToggle />
 
           {/* Notifications Dropdown */}
-          <div className="relative">
+          {portal && <div className="relative">
             <button
               onClick={() => {
                 setNotifsOpen(!notifsOpen);
                 if (menuOpen) setMenuOpen(false);
               }}
-              className="relative p-1.5 rounded-full hover:bg-jaipur-secondary transition-colors focus:outline-none cursor-pointer flex items-center justify-center"
+              className="relative p-1.5 rounded-lg hover:bg-accent transition-colors focus:outline-none cursor-pointer flex items-center justify-center"
             >
               <Bell size={isSubmissionForm ? 24 : 20} className="text-muted-foreground transition-all duration-300" />
               {hasUnread && (
-                <div className={`absolute rounded-full bg-jaipur-pink transition-all duration-300 ${isSubmissionForm ? "top-1 right-2.5 w-2.5 h-2.5" : "top-1 right-1.5 w-2 h-2"}`} />
+                <div className={`absolute rounded-full bg-primary transition-all duration-300 ${isSubmissionForm ? "top-1 right-2.5 w-2.5 h-2.5" : "top-1 right-1.5 w-2 h-2"}`} />
               )}
             </button>
 
@@ -308,63 +295,70 @@ export default function Navbar({ className }: { className?: string }) {
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
+          </div>}
 
-          {/* User Avatar Menu */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => {
-                setMenuOpen(!menuOpen);
-                if (notifsOpen) setNotifsOpen(false);
-              }}
-              className="w-8 h-8 rounded-full bg-jaipur-secondary text-jaipur-primary flex items-center justify-center font-bold text-sm shadow-sm ring-2 ring-jaipur-gold/30 focus:outline-none cursor-pointer"
+          {/* User Auth / Enter Console CTA */}
+          {!portal || !isAuthenticated ? (
+            <Link
+              href="/login"
+              className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold shadow-sm hover:opacity-95 transition-opacity"
             >
-              {user?.email?.charAt(0).toUpperCase()}
-            </button>
+              Enter Console
+            </Link>
+          ) : (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(!menuOpen);
+                  if (notifsOpen) setNotifsOpen(false);
+                }}
+                className="w-8 h-8 rounded-full bg-secondary/15 text-secondary border border-secondary/30 flex items-center justify-center font-bold text-sm shadow-sm focus:outline-none cursor-pointer"
+              >
+                {user?.email?.charAt(0).toUpperCase() || "U"}
+              </button>
 
-            <AnimatePresence>
-              {menuOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  style={{ backgroundColor: "var(--background)", transform: "translateZ(0)" }}
-                  className="absolute right-0 mt-3 w-48 border border-jaipur-gold/30 rounded-xl shadow-xl overflow-hidden z-50 isolate"
-                >
-                  <div className="px-4 py-3 border-b border-jaipur-gold/20 text-xs text-muted-foreground truncate">
-                    {user?.email}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="w-full text-left px-4 py-3 text-sm text-jaipur-primary font-medium hover:bg-jaipur-primary/10 transition-colors cursor-pointer"
+              <AnimatePresence>
+                {menuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    style={{ backgroundColor: "var(--background)", transform: "translateZ(0)" }}
+                    className="absolute right-0 mt-3 w-48 border border-border bg-card rounded-xl shadow-xl overflow-hidden z-50 isolate"
                   >
-                    Logout
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                    <div className="px-4 py-3 border-b border-border text-xs text-muted-foreground truncate">
+                      {user?.email}
+                    </div>
+                    <Link
+                      href="/account"
+                      onClick={() => setMenuOpen(false)}
+                      className="block px-4 py-3 text-sm font-medium text-foreground hover:bg-accent transition-colors"
+                    >
+                      Account
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-3 text-sm text-destructive font-medium hover:bg-destructive/10 transition-colors cursor-pointer"
+                    >
+                      Logout
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
         </div>
       </NavBody>
 
       {/* ── Mobile Navigation ── */}
-      <MobileNav className="bg-background/95 border-b border-jaipur-gold/20 shadow-sm">
+      <MobileNav>
         <MobileNavHeader>
-          <Link href="/" className="flex items-center no-underline h-10">
-            <Image
-              src="/logo.png"
-              width={160}
-              height={40}
-              alt="Code-e-Manipal 2.0"
-              className="h-10 w-auto object-contain"
-              priority
-            />
-          </Link>
-          <div className="flex items-center gap-3">
-            {timerConfig && (
-              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-jaipur-secondary/50 border border-jaipur-gold/20 text-[10px] font-mono font-bold text-[#F0C060]">
+          <BrandLogo size="sm" />
+          <div className="flex items-center gap-2.5">
+            {portal && timerConfig && (
+              <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-accent/60 border border-border text-[10px] font-mono font-bold text-secondary">
                 <span className={timeLeftStr !== "Not Started" && timeLeftStr !== "Closed" ? "animate-pulse" : ""}>⏳</span>
                 <span>{timeLeftStr}</span>
               </div>
@@ -380,7 +374,7 @@ export default function Navbar({ className }: { className?: string }) {
         <MobileNavMenu
           isOpen={mobileNavOpen}
           onClose={() => setMobileNavOpen(false)}
-          className="border border-jaipur-gold/20"
+          className="border border-border bg-card shadow-2xl"
         >
           {navItems.map((item) => (
             <Link
@@ -393,23 +387,43 @@ export default function Navbar({ className }: { className?: string }) {
             </Link>
           ))}
           
-          <div className="flex w-full flex-col gap-4 pt-4 border-t border-jaipur-gold/10 items-center">
-            {role && (
-              <span className="text-xs px-3 py-1 rounded-full bg-jaipur-secondary border border-jaipur-secondary-light text-foreground font-medium capitalize">
-                Role: {role}
-              </span>
+          <div className="flex w-full flex-col gap-3 pt-4 border-t border-border items-center">
+            {portal && isAuthenticated ? (
+              <>
+                {role && (
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-secondary/15 border border-secondary/30 text-secondary font-medium capitalize">
+                    Role: {role}
+                  </span>
+                )}
+                {user?.email && (
+                  <span className="text-xs text-muted-foreground truncate max-w-full">
+                    {user.email}
+                  </span>
+                )}
+                <Link
+                  href="/account"
+                  onClick={() => setMobileNavOpen(false)}
+                  className="w-full py-2.5 rounded-lg border border-border text-center text-sm font-semibold text-foreground hover:bg-accent transition-colors"
+                >
+                  Account
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full py-2.5 rounded-lg bg-destructive/10 border border-destructive/30 hover:bg-destructive/20 text-destructive font-semibold text-sm transition duration-200 cursor-pointer"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                onClick={() => setMobileNavOpen(false)}
+                className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-semibold text-sm transition duration-200 text-center"
+              >
+                Enter Hackathon Console
+              </Link>
             )}
-            {user?.email && (
-              <span className="text-xs text-muted-foreground truncate max-w-full">
-                {user.email}
-              </span>
-            )}
-            <button
-              onClick={handleLogout}
-              className="w-full py-2.5 rounded-lg bg-jaipur-primary/10 hover:bg-jaipur-primary/20 text-jaipur-primary font-semibold text-sm transition duration-200 cursor-pointer"
-            >
-              Logout
-            </button>
           </div>
         </MobileNavMenu>
       </MobileNav>
@@ -424,7 +438,7 @@ export default function Navbar({ className }: { className?: string }) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSheetOpen(false)}
-              className="fixed inset-0 bg-black/50 z-[90] backdrop-blur-sm"
+              className="fixed inset-0 bg-black/60 z-[90]"
             />
 
             {/* Slide-out Panel */}

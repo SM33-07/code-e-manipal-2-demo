@@ -59,7 +59,7 @@ export const Navbar = ({ children, className, isSubmissionForm }: NavbarProps) =
   const [visible, setVisible] = useState<boolean>(false);
 
   useMotionValueEvent(scrollY, "change", (latest) => {
-    if (latest > 100) {
+    if (latest > 50) {
       setVisible(true);
     } else {
       setVisible(false);
@@ -67,10 +67,13 @@ export const Navbar = ({ children, className, isSubmissionForm }: NavbarProps) =
   });
 
   return (
-    <motion.div
+    <div
       ref={ref}
-      // Fixed at the top, top-0 or top-4 depending on scroll
-      className={cn("fixed inset-x-0 top-0 z-50 w-full flex flex-col items-center transition-all duration-300", className)}
+      className={cn(
+        "fixed inset-x-0 top-0 z-50 w-full flex flex-col items-center transition-all duration-300 pointer-events-none",
+        visible ? "py-2 sm:py-2.5" : "py-3 sm:py-4",
+        className
+      )}
     >
       {React.Children.map(children, (child) =>
         React.isValidElement(child)
@@ -80,114 +83,118 @@ export const Navbar = ({ children, className, isSubmissionForm }: NavbarProps) =
             )
           : child,
       )}
-    </motion.div>
+    </div>
   );
 };
 
 export const NavBody = ({ children, className, visible, isSubmissionForm }: NavBodyProps) => {
   return (
-    <motion.div
-      animate={{
-        backdropFilter: visible ? "blur(10px)" : "none",
-        boxShadow: visible
-          ? "0 0 24px rgba(34, 42, 53, 0.06), 0 1px 1px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(34, 42, 53, 0.04), 0 0 4px rgba(34, 42, 53, 0.08), 0 16px 68px rgba(47, 48, 55, 0.05), 0 1px 0 rgba(255, 255, 255, 0.1) inset"
-          : "none",
-        width: visible ? "75%" : "100%",
-        y: visible ? 12 : 0,
-      }}
-      transition={{
-        type: "spring",
-        stiffness: 200,
-        damping: 35,
-      }}
-      style={{
-        minWidth: visible ? "980px" : "100%",
-      }}
+    <div
       className={cn(
-        "relative z-[60] mx-auto hidden w-full max-w-7xl flex-row items-center justify-between rounded-full bg-transparent px-6 py-3 lg:flex transition-all duration-300",
-        visible && "bg-[#FCF6EF]/90 dark:bg-[#0F0A05]/90 border border-jaipur-gold/20",
+        "relative z-[60] mx-auto hidden lg:flex w-[calc(100%-2rem)] flex-row items-center justify-between transition-all duration-300 pointer-events-auto",
+        visible
+          ? "max-w-6xl xl:max-w-7xl rounded-2xl bg-surface-elevated text-card-foreground px-5 xl:px-6 py-2 border border-border shadow-[0_8px_24px_rgba(36,33,29,0.12)]"
+          : "max-w-7xl rounded-2xl bg-transparent text-foreground px-5 py-2.5 border border-transparent shadow-none",
         className,
       )}
     >
       {children}
-    </motion.div>
+    </div>
   );
 };
 
 export const NavItems = ({ items, className, onItemClick, pathname }: NavItemsProps) => {
   const [hovered, setHovered] = useState<number | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  // Responsive item slicing: show 5 primary items directly, overflow the rest cleanly into More.
+  // This guarantees brand logo and status actions never collide across any screen width or zoom factor.
+  const primaryCount = 5;
+  const primaryItems = items.slice(0, primaryCount);
+  const overflowItems = items.slice(primaryCount);
 
   return (
-    <motion.div
+    <div
       onMouseLeave={() => setHovered(null)}
       className={cn(
-        "flex flex-1 flex-row items-center justify-center gap-5 text-sm font-medium transition duration-200 lg:flex",
+        "flex min-w-0 flex-1 flex-row items-center justify-center gap-1 xl:gap-1.5 text-xs xl:text-sm font-medium transition duration-200 lg:flex",
         className,
       )}
     >
-      {items.map((item, idx) => {
-        const isActive = pathname === item.link;
+      {primaryItems.map((item, idx) => {
+        const isActive = pathname === item.link || (item.link !== "/" && !!pathname?.startsWith(item.link));
+        const isSubmit = item.link === "/submit";
+
         return (
           <Link
             onMouseEnter={() => setHovered(idx)}
             onClick={onItemClick}
+            aria-current={isActive ? "page" : undefined}
             className={cn(
-              "relative px-4 py-2 transition-colors duration-200 rounded-full inline-block",
-              isActive
-                ? "text-jaipur-primary font-semibold"
-                : "text-muted-foreground hover:text-foreground"
+              "relative whitespace-nowrap px-2.5 xl:px-3.5 py-1.5 transition-colors duration-150 rounded-lg inline-flex items-center text-xs xl:text-sm font-medium cursor-pointer shrink-0",
+              isSubmit
+                ? "bg-primary text-primary-foreground font-semibold shadow-sm hover:bg-primary/90"
+                : isActive
+                ? "text-primary font-semibold bg-primary/10"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
             )}
             key={`link-${idx}`}
             href={item.link}
           >
-            {hovered === idx && (
-              <motion.div
-                layoutId="hovered"
-                className="absolute inset-0 h-full w-full rounded-full bg-jaipur-secondary dark:bg-[#2A1D16]"
-              />
-            )}
             <span className="relative z-20">{item.name}</span>
           </Link>
         );
       })}
-    </motion.div>
+      {overflowItems.length > 0 && (
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setMoreOpen((open) => !open)}
+            className="rounded-lg px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
+            aria-expanded={moreOpen}
+            aria-haspopup="menu"
+          >
+            More
+          </button>
+          {moreOpen && (
+            <div role="menu" className="absolute right-0 top-full mt-2 min-w-44 rounded-xl border border-border bg-popover p-1.5 shadow-xl z-50">
+              {overflowItems.map((item) => (
+                <Link
+                  key={item.link}
+                  href={item.link}
+                  role="menuitem"
+                  onClick={() => { setMoreOpen(false); onItemClick?.(); }}
+                  className={cn(
+                    "block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent",
+                    pathname === item.link ? "bg-accent text-primary font-semibold" : "text-popover-foreground"
+                  )}
+                >
+                  {item.name}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 };
 
 export const MobileNav = ({ children, className, visible, isSubmissionForm }: MobileNavProps) => {
   return (
-    <motion.div
-      animate={{
-        backdropFilter: visible ? "blur(10px)" : "none",
-        boxShadow: visible
-          ? "0 0 24px rgba(34, 42, 53, 0.06), 0 1px 1px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(34, 42, 53, 0.04), 0 0 4px rgba(34, 42, 53, 0.08), 0 16px 68px rgba(47, 48, 55, 0.05), 0 1px 0 rgba(255, 255, 255, 0.1) inset"
-          : "none",
-        width: visible ? "90%" : "100%",
-        paddingRight: visible ? "16px" : "12px",
-        paddingLeft: visible ? "16px" : "12px",
-        borderRadius: visible ? "20px" : "0px",
-        y: visible ? 10 : 0,
-      }}
-      transition={{
-        type: "spring",
-        stiffness: 200,
-        damping: 35,
-      }}
+    <div
       className={cn(
-        "relative z-50 mx-auto flex w-full max-w-[calc(100vw-2rem)] flex-col items-center justify-between bg-transparent px-0 py-3 lg:hidden transition-all duration-300",
-        visible && "bg-[#FCF6EF]/95 dark:bg-[#0F0A05]/95 border border-jaipur-gold/20",
+        "relative z-[60] mx-auto flex w-[calc(100%-1.5rem)] flex-row items-center justify-between rounded-xl bg-transparent text-foreground px-4 py-2 lg:hidden transition-all duration-300 border border-transparent shadow-none pointer-events-auto",
+        visible && "bg-surface-elevated text-card-foreground border-border shadow-[0_8px_24px_rgba(36,33,29,0.12)]",
         className,
       )}
     >
       {children}
-    </motion.div>
+    </div>
   );
 };
 
-export const MobileNavHeader = ({
-  children,
-  className,
-}: MobileNavHeaderProps) => {
+export const MobileNavHeader = ({ children, className }: MobileNavHeaderProps) => {
   return (
     <div
       className={cn(
@@ -210,11 +217,12 @@ export const MobileNavMenu = ({
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          initial={{ opacity: 0, y: -10 }}
+          initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.18 }}
           className={cn(
-            "absolute inset-x-0 top-16 z-50 flex w-full flex-col items-start justify-start gap-4 rounded-2xl bg-[#FCF6EF] px-6 py-8 shadow-[0_0_24px_rgba(34,_42,_53,_0.06),_0_1px_1px_rgba(0,_0,_0,_0.05),_0_0_0_1px_rgba(34,_42,_53,_0.04),_0_0_4px_rgba(34,_42,_53,_0.08),_0_16px_68px_rgba(47,_48,_55,_0.05)] dark:bg-[#1E1208] border border-jaipur-gold/20",
+            "absolute inset-x-0 top-16 z-50 flex w-full flex-col items-start justify-start gap-3 rounded-xl bg-surface-elevated text-card-foreground px-6 py-6 shadow-lg border border-border",
             className,
           )}
         >
@@ -232,10 +240,18 @@ export const MobileNavToggle = ({
   isOpen: boolean;
   onClick: () => void;
 }) => {
-  return isOpen ? (
-    <X className="text-foreground cursor-pointer size-6" onClick={onClick} />
-  ) : (
-    <Menu className="text-foreground cursor-pointer size-6" onClick={onClick} />
+  const Icon = isOpen ? X : Menu;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={isOpen ? "Close navigation menu" : "Open navigation menu"}
+      aria-expanded={isOpen}
+      className="inline-flex size-10 items-center justify-center text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <Icon aria-hidden="true" className="size-5" />
+    </button>
   );
 };
 
@@ -247,8 +263,8 @@ export const NavbarLogo = () => {
     >
       <img
         src="/logo.png"
-        alt="logo"
-        className="h-10 w-auto object-contain"
+        alt="Code-e-Manipal 2.0"
+        className="h-9 w-auto object-contain bg-transparent"
       />
     </Link>
   );
@@ -272,15 +288,13 @@ export const NavbarButton = ({
   | React.ComponentPropsWithoutRef<"button">
 )) => {
   const baseStyles =
-    "px-4 py-2 rounded-md bg-white button bg-white text-black text-sm font-bold relative cursor-pointer hover:-translate-y-0.5 transition duration-200 inline-block text-center";
+    "px-4 py-2 rounded-lg text-sm font-semibold relative cursor-pointer transition-colors inline-block text-center border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
   const variantStyles = {
-    primary:
-      "shadow-[0_0_24px_rgba(34,_42,_53,_0.06),_0_1px_1px_rgba(0,_0,_0,_0.05),_0_0_0_1px_rgba(34,_42,_53,_0.04),_0_0_4px_rgba(34,_42,_53,_0.08),_0_16px_68px_rgba(47,_48,_55,_0.05),_0_1px_0_rgba(255,_255,_255,_0.1)_inset]",
-    secondary: "bg-transparent shadow-none dark:text-white",
-    dark: "bg-black text-white shadow-[0_0_24px_rgba(34,_42,_53,_0.06),_0_1px_1px_rgba(0,_0,_0,_0.05),_0_0_0_1px_rgba(34,_42,_53,_0.04),_0_0_4px_rgba(34,_42,_53,_0.08),_0_16px_68px_rgba(47,_48,_55,_0.05),_0_1px_0_rgba(255,_255,_255,_0.1)_inset]",
-    gradient:
-      "bg-gradient-to-b from-blue-500 to-blue-700 text-white shadow-[0px_2px_0px_0px_rgba(255,255,255,0.3)_inset]",
+    primary: "bg-primary text-primary-foreground border-primary hover:bg-primary/90 shadow-sm",
+    secondary: "bg-secondary text-secondary-foreground border-secondary hover:bg-secondary/90 shadow-sm",
+    dark: "bg-foreground text-background border-foreground hover:opacity-90",
+    gradient: "bg-primary text-primary-foreground border-primary hover:bg-primary/90 shadow-sm",
   };
 
   return (

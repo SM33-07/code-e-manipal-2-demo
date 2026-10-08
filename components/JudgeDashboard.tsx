@@ -1,19 +1,44 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LogOut, Award, FileText, ClipboardList, CheckSquare } from "lucide-react";
+import { LogOut, Award, FileText, CheckSquare } from "lucide-react";
 
 import { SubmissionList, JudgeSubmission } from "./SubmissionList";
 import { JudgingInterface } from "./JudgingInterface";
-import { Leaderboard } from "./Leaderboard";
 import { Confetti } from "./ui/Confetti";
-import { SuccessSummaryCard } from "./SuccessSummaryCard";
 import { Score } from "@/types/judging";
 import { calculateWeightedScore } from "@/utils/scoring";
+
+interface AssignedSubmissionResponse {
+  submission_id: string;
+  reviewed: boolean;
+  submissions: {
+    id: string;
+    title: string;
+    summary?: string | null;
+    description?: string | null;
+    category?: string | null;
+    status?: string;
+    demo_url?: string | null;
+    demo_video_url?: string | null;
+    track?: string | null;
+    teams?: { name?: string; track?: string } | null;
+  };
+  review: {
+    id: string;
+    is_complete: boolean;
+    version: number;
+    score_innovation: number | null;
+    score_technical: number | null;
+    score_presentation: number | null;
+    score_impact: number | null;
+    feedback: string | null;
+  } | null;
+}
 
 interface Props {
   judgeId: string;
@@ -22,13 +47,13 @@ interface Props {
 }
 
 export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
-  const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   const [submissions, setSubmissions] = useState<JudgeSubmission[]>([]);
   const [allScores, setAllScores] = useState<Score[]>([]);
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState("");
@@ -36,94 +61,112 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 9;
 
-  // Dismiss Celebration overlay state
+  // Celebration state
   const [dismissedCelebration, setDismissedCelebration] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("submissions");
 
   useEffect(() => {
     setMounted(true);
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("status");
+    if (status === "all" || status === "pending" || status === "graded") {
+      setStatusFilter(status);
+    }
+    setSearchQuery(params.get("q")?.slice(0, 100) ?? "");
+    const page = Number.parseInt(params.get("page") || "", 10);
+    if (Number.isInteger(page) && page > 0 && page <= 1000) {
+      setCurrentPage(page);
+    }
     loadAssignments();
   }, []);
 
   const loadAssignments = async () => {
     setLoading(true);
     try {
-      // Fetch assignments
       const res = await fetch("/api/judging/assignments");
       if (!res.ok) {
         throw new Error(`Failed to fetch assignments: ${res.status} ${res.statusText}`);
       }
       const json = await res.json();
-      const data = Array.isArray(json.data) ? json.data : [];
+      if (!Array.isArray(json.data)) {
+        throw new Error("Assignment response was invalid.");
+      }
 
-      const mapped: JudgeSubmission[] = data.map((a: any, idx: number) => {
-        const sub = a.submissions ?? {};
-        const label = `Project ${String.fromCharCode(65 + idx)}`;
+      const data = json.data as AssignedSubmissionResponse[];
+      const mapped: JudgeSubmission[] = data.map((assignment) => {
+        const sub = assignment.submissions;
+        const reviewStatus = !assignment.review
+          ? "not_started"
+          : assignment.review.is_complete
+            ? "submitted"
+            : "in_progress";
         return {
-          id: sub.id ?? a.submission_id,
-          title: label,
+          id: sub.id ?? assignment.submission_id,
+          title: sub.title || "Untitled submission",
           description: sub.description ?? sub.summary ?? "",
           writeup: sub.description ?? "",
-          reflection: sub.technical_challenges ?? "",
+          reflection: "",
           demoUrl: sub.demo_video_url ?? sub.demo_url ?? "",
-          teamSize: 1,
-          judged: a.reviewed ?? false,
+          teamName: sub.teams?.name || "Assigned team",
+          track: sub.teams?.track || sub.track || sub.category || "",
+          reviewStatus,
+          reviewVersion: assignment.review?.version ?? null,
         };
       });
 
       setSubmissions(mapped);
-
-      // Fetch existing reviews / scores
-      const reviewsRes = await fetch("/api/judging/reviews");
-      if (!reviewsRes.ok) {
-        throw new Error(`Failed to fetch reviews: ${reviewsRes.status} ${reviewsRes.statusText}`);
-      }
-      const reviewsJson = await reviewsRes.json();
-      const reviewsData = Array.isArray(reviewsJson.data) ? reviewsJson.data : [];
-      setAllScores(reviewsData);
+      setAllScores(data.flatMap((assignment): Score[] => {
+        const review = assignment.review;
+        if (!review) return [];
+        return [{
+          submissionId: assignment.submission_id,
+          judgeId,
+          criteria: {
+            innovation: review.score_innovation ?? 0,
+            technical: review.score_technical ?? 0,
+            presentation: review.score_presentation ?? 0,
+            impact: review.score_impact ?? 0,
+          },
+          feedback: review.feedback ?? "",
+          isComplete: review.is_complete,
+          version: review.version,
+        }];
+      }));
+      setError(null);
 
     } catch (err) {
       console.error("Failed to load assignments or reviews:", err);
+      setError("Could not refresh assigned teams. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const isDark = resolvedTheme === "dark";
-
-  // Counts based on active submissions data
   const allCount = submissions.length;
-  const gradedCount = submissions.filter((s) => s.judged).length;
+  const gradedCount = submissions.filter((s) => s.reviewStatus === "submitted").length;
   const pendingCount = allCount - gradedCount;
   const progressPercent = allCount > 0 ? (gradedCount / allCount) * 100 : 0;
   const isAllGraded = allCount > 0 && gradedCount === allCount;
 
-  // Auto-switch to leaderboard tab when all are graded
-  useEffect(() => {
-    if (isAllGraded) {
-      setActiveTab("leaderboard");
-    }
-  }, [isAllGraded]);
-
-  // Filter Submissions
   const filteredSubmissions = useMemo(() => {
     return submissions.filter((s) => {
       const query = searchQuery.trim().toLowerCase();
       const matchesSearch =
         query === "" ||
         s.title.toLowerCase().includes(query) ||
+        s.teamName.toLowerCase().includes(query) ||
+        s.track.toLowerCase().includes(query) ||
         s.description.toLowerCase().includes(query);
 
       const matchesStatus =
         statusFilter === "all" ||
-        (statusFilter === "graded" && s.judged) ||
-        (statusFilter === "pending" && !s.judged);
+        (statusFilter === "graded" && s.reviewStatus === "submitted") ||
+        (statusFilter === "pending" && s.reviewStatus !== "submitted");
 
       return matchesSearch && matchesStatus;
     });
   }, [submissions, searchQuery, statusFilter]);
 
-  // Paginated Submissions Slice
   const totalPages = Math.max(1, Math.ceil(filteredSubmissions.length / itemsPerPage));
   const activePageSubmissions = useMemo(() => {
     const adjustedPage = Math.min(currentPage, totalPages);
@@ -131,14 +174,12 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
     return filteredSubmissions.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredSubmissions, currentPage, totalPages]);
 
-  // Adjust page indicator dynamically
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
     }
   }, [filteredSubmissions, totalPages, currentPage]);
 
-  // Calculate top 3 rankings for SuccessSummaryCard
   const topThreeRanked = useMemo(() => {
     return allScores
       .filter((s) => s.isComplete)
@@ -146,7 +187,7 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
         const sub = submissions.find((subItem) => subItem.id === s.submissionId);
         return {
           id: s.submissionId,
-          title: sub?.title ?? "Untitled Project",
+          title: sub ? `${sub.teamName} — ${sub.title}` : "Untitled Project",
           score: calculateWeightedScore(s.criteria),
         };
       })
@@ -154,10 +195,8 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
       .slice(0, 3);
   }, [allScores, submissions]);
 
-  // Celebration trigger: all projects graded and not dismissed
   const showCelebration = allCount > 0 && gradedCount === allCount && !dismissedCelebration;
 
-  // Navigation Logic for Scoring View Takeover
   const selectedIndexInFiltered = useMemo(() => {
     if (!selectedSubmissionId) return -1;
     return filteredSubmissions.findIndex((s) => s.id === selectedSubmissionId);
@@ -186,197 +225,132 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
     ? allScores.find((s) => s.submissionId === selectedSubmissionId)
     : undefined;
 
-  const handleSaveScore = async (score: Score, navigateToNext = false) => {
-    try {
-      const res = await fetch("/api/judging/reviews", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          submission_id: score.submissionId,
-          score_innovation: score.criteria.innovation,
-          score_technical: score.criteria.technical,
-          score_presentation: score.criteria.presentation,
-          score_impact: score.criteria.impact,
-          feedback: score.feedback,
-          is_complete: score.isComplete,
-        }),
-      });
+  const router = useRouter();
 
-      if (!res.ok) throw new Error("Save failed");
-
-      setSubmissions((prev) =>
-        prev.map((s) =>
-          s.id === score.submissionId ? { ...s, judged: true } : s
-        )
-      );
-      setAllScores((prev) => [
-        ...prev.filter((s) => s.submissionId !== score.submissionId),
-        score,
-      ]);
-
-      if (navigateToNext && hasNext) {
-        handleNextSubmission();
-      } else {
-        setSelectedSubmissionId(null);
-      }
-    } catch (err) {
-      console.error("Save score error:", err);
-    }
+  const openEvaluation = (id: string) => {
+    const returnParams = new URLSearchParams({
+      status: statusFilter,
+      q: searchQuery,
+      page: String(currentPage),
+    });
+    const returnTo = `/judge?${returnParams.toString()}`;
+    router.push(`/judge/evaluate/${encodeURIComponent(id)}?returnTo=${encodeURIComponent(returnTo)}`);
   };
 
   if (!mounted) return null;
 
-  // Heritage theme variable classes
-  const titleClass = isDark ? "text-[#F5EFE0]" : "text-[#8F102A]";
-  const subClass = isDark ? "text-[#A08070]" : "text-[#7A5A4A]";
-  const bgCardClass = isDark ? "bg-[#1E1208] border-[#C9A227]/20" : "bg-[#FCF6EF] border-[#EBCFB5]";
-  const dividerClass = isDark ? "bg-[#C9A227]/10" : "bg-[#EBCFB5]/40";
-
   if (loading) {
     return (
-      <div className="min-h-[60vh] p-6 flex items-center justify-center">
-        <p className="text-[#A08070] font-bold text-base animate-pulse">Loading your assigned submissions...</p>
-      </div>
-    );
-  }
-
-  // Active Scoring View Takeover
-  if (selectedSubmission) {
-    return (
-      <div className="w-full max-w-5xl mx-auto px-4 py-8">
-        <JudgingInterface
-          submission={selectedSubmission}
-          judgeId={judgeId}
-          existingScore={existingScore}
-          onSave={handleSaveScore}
-          onBack={() => setSelectedSubmissionId(null)}
-          onNext={handleNextSubmission}
-          onPrev={handlePrevSubmission}
-          hasNext={hasNext}
-          hasPrev={hasPrev}
-        />
+      <div className="min-h-[50vh] p-6 flex items-center justify-center">
+        <p className="text-muted-foreground font-semibold text-sm animate-pulse">Loading assigned submissions...</p>
       </div>
     );
   }
 
   return (
-    <div className="w-full pb-16">
-      {/* Confetti & Success summary celebration overlay */}
+    <div className="text-foreground flex flex-col pb-16">
+      {/* Celebration overlay */}
       {showCelebration && (
-        <>
+        <div className="fixed inset-0 bg-black/75 z-[200] flex items-center justify-center p-4">
           <Confetti />
-          <SuccessSummaryCard
-            topThree={topThreeRanked}
-            onClose={() => setDismissedCelebration(true)}
-            onGoToLeaderboard={() => {
-              setDismissedCelebration(true);
-              setActiveTab("leaderboard");
-            }}
-          />
-        </>
+          <div className="max-w-md w-full border border-border bg-card p-6 sm:p-8 rounded-2xl shadow-2xl text-center">
+            <div className="mx-auto w-14 h-14 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mb-4">
+              <CheckSquare className="w-8 h-8" />
+            </div>
+            <h3 className="text-2xl font-bold text-foreground mb-2">
+              All Evaluations Complete!
+            </h3>
+            <p className="text-xs sm:text-sm text-muted-foreground mb-6 leading-relaxed">
+              You have submitted reviews for all {allCount} assigned projects. Submitted reviews are locked; contact an administrator if a correction is required.
+            </p>
+            <Button
+              onClick={() => setDismissedCelebration(true)}
+              className="w-full bg-primary text-primary-foreground font-bold text-sm py-2.5 rounded-xl shadow-md"
+            >
+              Continue In Workspace
+            </Button>
+          </div>
+        </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
-        {/* Header section */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-8 mt-6">
-          <div className="flex items-center gap-4">
-            <Image
-              src="/logo.png"
-              alt="logo"
-              width={56}
-              height={56}
-              className="w-14 h-14 object-contain"
-            />
-            <div>
-              <h1
-                className={`text-3xl sm:text-4xl font-black tracking-tight font-serif ${titleClass}`}
-              >
-                Judge Workspace
-              </h1>
-              <p className={`text-base font-medium mt-1 ${subClass}`}>
-                Welcome, {judgeName}
-              </p>
+      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
+        {/* Workspace Title & Context Header */}
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-bold uppercase tracking-wider text-secondary flex items-center gap-1.5">
+                <Award className="w-3.5 h-3.5" />
+                Jury Evaluation Console
+              </span>
+              <span className="text-xs text-muted-foreground">&bull;</span>
+              <span className="text-xs font-mono text-muted-foreground">{judgeName}</span>
             </div>
+            <h1 className="text-2xl sm:text-4xl font-extrabold text-foreground tracking-tight m-0">
+              MY EVALUATION WORKSPACE
+            </h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1 mb-0">
+              Score your assigned hackathon submissions across the 4 official rubric dimensions.
+            </p>
           </div>
-          
-          <Button
-            variant="outline"
-            onClick={onLogout}
-            className={`
-              w-full sm:w-auto h-11 px-5 rounded-xl font-bold transition-all
-              ${isDark 
-                ? "border-[#C9A227]/20 text-[#D4732A] hover:bg-[#C9A227]/10" 
-                : "border-[#EBCFB5] text-[#8F102A] hover:bg-[#8F102A]/5"}
-            `}
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
-          </Button>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={loadAssignments}
+              disabled={loading}
+              className="min-h-11 px-3.5 py-2 rounded-xl border border-border bg-card text-foreground hover:bg-muted text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+            >
+              Refresh Queue
+            </button>
+          </div>
         </div>
 
         {/* Workspace tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="bg-transparent flex flex-row gap-4 h-auto p-0 mb-6 border-b border-[#EBCFB5]/30 dark:border-[#C9A227]/10 justify-start">
+          <TabsList className="bg-card flex flex-row gap-1 h-auto p-1 mb-6 border border-border rounded-xl justify-start">
             <TabsTrigger
               value="submissions"
-              disabled={isAllGraded}
-              className={`
-                px-5 pb-3 pt-1 rounded-none border-b-2 border-transparent bg-transparent
-                text-base font-bold shadow-none transition-all disabled:opacity-40 disabled:cursor-not-allowed
-                data-[state=active]:bg-transparent data-[state=active]:shadow-none
-                ${isDark
-                  ? "text-[#A08070] data-[state=active]:border-b-[#F0C060] data-[state=active]:text-[#F0C060]"
-                  : "text-[#B89A85] data-[state=active]:border-b-[#8F102A] data-[state=active]:text-[#8F102A]"}
-              `}
+              className="px-5 py-2 rounded-lg text-sm font-semibold transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground hover:text-foreground cursor-pointer"
             >
               <Award className="w-4 h-4 mr-2" />
-              Submissions {isAllGraded && "(Completed)"}
+              Assigned Submissions ({gradedCount}/{allCount})
             </TabsTrigger>
             <TabsTrigger
-              value="leaderboard"
-              className={`
-                px-5 pb-3 pt-1 rounded-none border-b-2 border-transparent bg-transparent
-                text-base font-bold shadow-none transition-all
-                data-[state=active]:bg-transparent data-[state=active]:shadow-none
-                ${isDark
-                  ? "text-[#A08070] data-[state=active]:border-b-[#F0C060] data-[state=active]:text-[#F0C060]"
-                  : "text-[#B89A85] data-[state=active]:border-b-[#8F102A] data-[state=active]:text-[#8F102A]"}
-              `}
+              value="guidance"
+              className="px-5 py-2 rounded-lg text-sm font-semibold transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground hover:text-foreground cursor-pointer"
             >
               <FileText className="w-4 h-4 mr-2" />
-              Leaderboard
+              Judging Guidance & Rubric
             </TabsTrigger>
           </TabsList>
 
           {/* Submissions Tab Workspace */}
           <TabsContent value="submissions" className="mt-0 outline-none">
-            
             {/* Quick overview stats banner */}
-            <div className={`p-6 border rounded-2xl mb-8 flex flex-col md:flex-row items-center justify-between gap-6 ${bgCardClass}`}>
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-[#8F102A]/5 dark:bg-[#D4732A]/5 text-[#8F102A] dark:text-[#F0C060]">
+            <div className="p-6 border border-border rounded-2xl mb-8 flex flex-col md:flex-row items-center justify-between gap-6 bg-card shadow-sm">
+              <div className="flex items-center gap-3.5">
+                <div className="p-3 rounded-xl bg-primary/10 text-primary">
                   <CheckSquare className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className={`font-bold font-serif text-lg ${titleClass}`}>
-                    Assigned Evaluations Progress
+                  <h3 className="font-bold text-base text-foreground m-0">
+                    Evaluation Progress
                   </h3>
-                  <p className={`text-xs ${subClass}`}>
-                    Review and grade each assigned project.
+                  <p className="text-xs text-muted-foreground mt-0.5 mb-0">
+                    Review and score each assigned project.
                   </p>
                 </div>
               </div>
 
               {/* Progress bar info */}
               <div className="w-full md:max-w-xs space-y-2">
-                <div className="flex justify-between items-center text-xs font-bold">
-                  <span className={subClass}>Grading Complete</span>
-                  <span className={titleClass}>{gradedCount} / {allCount} projects</span>
+                <div className="flex justify-between items-center text-xs font-semibold">
+                  <span className="text-muted-foreground">Completed</span>
+                  <span className="text-foreground">{gradedCount} / {allCount} projects</span>
                 </div>
-                <div className="w-full bg-neutral-200 dark:bg-neutral-800 rounded-full h-1.5 overflow-hidden">
+                <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
                   <div
-                    className="bg-[#8F102A] dark:bg-[#D4732A] h-1.5 transition-all duration-500"
+                    className="bg-primary h-2 transition-all duration-500 rounded-full"
                     style={{ width: `${progressPercent}%` }}
                   />
                 </div>
@@ -385,7 +359,6 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
 
             {/* Filters and search container */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-              {/* Search bar input */}
               <div className="relative w-full md:max-w-xs">
                 <input
                   type="text"
@@ -395,12 +368,7 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
                     setSearchQuery(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="
-                    w-full h-11 pl-4 pr-10 text-sm rounded-xl border focus:outline-none focus:ring-1
-                    bg-[#FCF6EF]/50 border-[#EBCFB5] text-[#6A4635] focus:border-[#8F102A] focus:ring-[#8F102A]
-                    dark:bg-[#0F0A05] dark:border-[#C9A227]/35 dark:text-[#F5EFE0] dark:focus:border-[#D4732A] dark:focus:ring-[#D4732A]
-                    transition-all duration-200
-                  "
+                  className="w-full h-10 pl-4 pr-4 text-xs rounded-xl border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
                 />
               </div>
 
@@ -408,8 +376,8 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
               <div className="flex flex-wrap items-center gap-2">
                 {([
                   { key: "all", label: "All Projects", count: allCount },
-                  { key: "pending", label: "Pending", count: pendingCount },
-                  { key: "graded", label: "Graded", count: gradedCount },
+                  { key: "pending", label: "Needs Review", count: pendingCount },
+                  { key: "graded", label: "Submitted", count: gradedCount },
                 ] as const).map((filter) => {
                   const isActive = statusFilter === filter.key;
                   return (
@@ -419,20 +387,16 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
                         setStatusFilter(filter.key);
                         setCurrentPage(1);
                       }}
-                      className={`
-                        h-10 px-4 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-2 border
-                        ${isActive
-                          ? "bg-[#8F102A] text-white border-[#8F102A] dark:bg-[#D4732A] dark:text-[#0F0A05] dark:border-[#D4732A] shadow-sm"
-                          : "bg-[#FCF6EF]/40 border-[#EBCFB5] text-[#6A4635] hover:bg-[#8F102A]/5 dark:bg-[#1E1208]/40 dark:border-[#C9A227]/25 dark:text-[#A08070] dark:hover:bg-[#C9A227]/10"}
-                      `}
+                      className={`h-9 px-3.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border cursor-pointer ${
+                        isActive
+                          ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                          : "bg-card border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
                     >
                       {filter.label}
-                      <span className={`
-                        px-1.5 py-0.5 rounded-md text-[10px] font-extrabold
-                        ${isActive 
-                          ? "bg-white/20 text-white dark:bg-[#0F0A05]/20 dark:text-[#0F0A05]" 
-                          : "bg-[#8F102A]/10 text-[#8F102A] dark:bg-[#D4732A]/10 dark:text-[#F0C060]"}
-                      `}>
+                      <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${
+                        isActive ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+                      }`}>
                         {filter.count}
                       </span>
                     </button>
@@ -442,9 +406,17 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
             </div>
 
             {/* Submission Grid Cards */}
+            {error && (
+              <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+                <p>{error}</p>
+                <button type="button" onClick={loadAssignments} className="mt-3 min-h-11 rounded-lg border border-current px-3 font-semibold">
+                  Retry
+                </button>
+              </div>
+            )}
             <SubmissionList
               submissions={activePageSubmissions}
-              onSelectSubmission={setSelectedSubmissionId}
+              onSelectSubmission={openEvaluation}
             />
 
             {/* Grid Pagination Actions */}
@@ -454,28 +426,18 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
                   variant="outline"
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className={`
-                    h-10 px-4 rounded-xl font-bold transition-all text-xs
-                    ${isDark 
-                      ? "border-[#C9A227]/20 text-[#A08070] hover:bg-[#C9A227]/10 disabled:opacity-35" 
-                      : "border-[#EBCFB5] text-[#6A4635] hover:bg-[#8F102A]/5 disabled:opacity-35"}
-                  `}
+                  className="h-9 px-4 rounded-xl font-bold text-xs border-border text-foreground hover:bg-muted disabled:opacity-35"
                 >
                   Previous
                 </Button>
-                <span className="text-sm font-bold text-[#B89A85] dark:text-[#A08070]">
+                <span className="text-xs font-bold text-muted-foreground">
                   Page {currentPage} of {totalPages}
                 </span>
                 <Button
                   variant="outline"
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
-                  className={`
-                    h-10 px-4 rounded-xl font-bold transition-all text-xs
-                    ${isDark 
-                      ? "border-[#C9A227]/20 text-[#A08070] hover:bg-[#C9A227]/10 disabled:opacity-35" 
-                      : "border-[#EBCFB5] text-[#6A4635] hover:bg-[#8F102A]/5 disabled:opacity-35"}
-                  `}
+                  className="h-9 px-4 rounded-xl font-bold text-xs border-border text-foreground hover:bg-muted disabled:opacity-35"
                 >
                   Next
                 </Button>
@@ -483,9 +445,57 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
             )}
           </TabsContent>
 
-          {/* Leaderboard Tab */}
-          <TabsContent value="leaderboard" className="mt-0 outline-none">
-            <Leaderboard submissions={submissions} scores={allScores} />
+          {/* Judging Guidance & Rubric Tab */}
+          <TabsContent value="guidance" className="mt-0 outline-none">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+                <div className="text-xs font-bold text-secondary uppercase tracking-wider mb-2">
+                  Criterion 01 • Weight: 30%
+                </div>
+                <h3 className="text-lg font-bold text-foreground mb-2">
+                  Technical Architecture & Execution
+                </h3>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  Evaluate system complexity, code quality, repo cleanliness, reproducibility, and architectural soundness. Assess whether the solution leverages modern engineering practices, scalable design patterns, and robust error handling.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+                <div className="text-xs font-bold text-secondary uppercase tracking-wider mb-2">
+                  Criterion 02 • Weight: 30%
+                </div>
+                <h3 className="text-lg font-bold text-foreground mb-2">
+                  Innovation & Originality
+                </h3>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  Evaluate novelty of the approach, creative problem solving, and technological ambition. Does this project offer an innovative perspective or breakthrough mechanism compared to existing off-the-shelf software?
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+                <div className="text-xs font-bold text-secondary uppercase tracking-wider mb-2">
+                  Criterion 03 • Weight: 20%
+                </div>
+                <h3 className="text-lg font-bold text-foreground mb-2">
+                  Practical Impact & Real-World Utility
+                </h3>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  Assess real-world viability, addressable problem significance, and operational feasibility. Does this solution provide genuine value to target users, businesses, or public infrastructure?
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+                <div className="text-xs font-bold text-secondary uppercase tracking-wider mb-2">
+                  Criterion 04 • Weight: 20%
+                </div>
+                <h3 className="text-lg font-bold text-foreground mb-2">
+                  Presentation & Documentation
+                </h3>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  Review the quality of technical documentation, README setup instructions, live prototype walkthrough, and clarity of the team's demonstration.
+                </p>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </div>

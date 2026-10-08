@@ -10,16 +10,20 @@ export function ProtectedRoute({
   children: React.ReactNode;
 }) {
 
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-
-    if (!isAuthenticated) {
+    // Only redirect after auth state has been resolved
+    if (!loading && !isAuthenticated) {
       router.push("/login");
     }
+  }, [isAuthenticated, loading, router]);
 
-  }, [isAuthenticated, router]);
+  // Show nothing while auth state is loading (prevents flash-to-login)
+  if (loading) {
+    return null;
+  }
 
   if (!isAuthenticated) {
     return null;

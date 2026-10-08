@@ -120,8 +120,8 @@ export function JudgeAssignment() {
 
   if (loading) {
     return (
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
-        <p className="text-white/50 text-sm">Loading assignments...</p>
+      <div className="bg-card border border-border rounded-2xl p-6">
+        <p className="text-muted-foreground text-xs">Loading assignments...</p>
       </div>
     );
   }
@@ -133,34 +133,34 @@ export function JudgeAssignment() {
 
   return (
     <motion.div
-      className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl"
+      className="bg-card border border-border rounded-2xl p-6 shadow-sm"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <UserPlus className="text-purple-400" />
-          <h2 className="text-xl font-semibold text-white">Judge Assignment</h2>
+          <UserPlus className="text-primary w-5 h-5" />
+          <h2 className="text-xl font-bold text-foreground m-0">Judge Assignment</h2>
         </div>
         <button
           onClick={handleAutoAssign}
-          className="flex items-center gap-2 bg-gradient-to-r from-teal-500 to-green-500 text-white rounded-lg px-4 py-2 text-sm font-medium hover:opacity-90 transition"
+          className="flex items-center gap-2 bg-secondary text-secondary-foreground rounded-xl px-3.5 py-2 text-xs font-bold hover:opacity-95 shadow-sm transition"
         >
-          <RotateCcw size={16} />
+          <RotateCcw size={14} />
           Auto-Assign (Shuffle)
         </button>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-4 mb-6">
+      <div className="grid md:grid-cols-3 gap-3.5 mb-6">
         <select
           value={selectedSubmission}
           onChange={(e) => setSelectedSubmission(e.target.value)}
-          className="bg-black/40 border border-white/10 text-white rounded-lg p-3"
+          className="bg-background border border-border text-foreground rounded-xl p-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
         >
-          <option value="" className="bg-[#1E1208] text-[#F5EFE0]">Select Submission</option>
+          <option value="" className="bg-card text-foreground">Select Submission</option>
           {availableSubmissions.map((s) => (
-            <option key={s.id} value={s.id} className="bg-[#1E1208] text-[#F5EFE0]">
+            <option key={s.id} value={s.id} className="bg-card text-foreground">
               {s.teams?.name ?? "Unknown Team"} — {s.title}
             </option>
           ))}
@@ -169,11 +169,11 @@ export function JudgeAssignment() {
         <select
           value={selectedJudge}
           onChange={(e) => setSelectedJudge(e.target.value)}
-          className="bg-black/40 border border-white/10 text-white rounded-lg p-3"
+          className="bg-background border border-border text-foreground rounded-xl p-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
         >
-          <option value="" className="bg-[#1E1208] text-[#F5EFE0]">Select Judge</option>
+          <option value="" className="bg-card text-foreground">Select Judge</option>
           {judges.map((j) => (
-            <option key={j.id} value={j.id} className="bg-[#1E1208] text-[#F5EFE0]">
+            <option key={j.id} value={j.id} className="bg-card text-foreground">
               {j.name || j.email}
             </option>
           ))}
@@ -182,15 +182,15 @@ export function JudgeAssignment() {
         <button
           onClick={handleAssign}
           disabled={!selectedSubmission || !selectedJudge}
-          className="bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg px-4 py-3 font-medium hover:opacity-90 transition disabled:opacity-40"
+          className="bg-primary text-primary-foreground rounded-xl px-4 py-2.5 text-xs font-bold hover:opacity-95 shadow-sm transition disabled:opacity-40"
         >
-          Assign
+          Assign Evaluator
         </button>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {assignments.length === 0 && (
-          <p className="text-white/40 text-sm text-center py-4">
+          <p className="text-muted-foreground text-xs text-center py-6">
             No assignments yet. Assign manually or use Auto-Assign.
           </p>
         )}
@@ -200,23 +200,24 @@ export function JudgeAssignment() {
           return (
             <motion.div
               key={`${a.judge_id}-${a.submission_id}`}
-              className="flex items-center justify-between bg-black/30 border border-white/10 rounded-lg p-4"
+              className="flex items-center justify-between bg-background border border-border rounded-xl p-3.5"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
             >
               <div>
-                <p className="text-white font-medium">
+                <p className="text-foreground font-semibold text-xs m-0">
                   {sub?.teams?.name ?? "Unknown"} — {sub?.title ?? "Unknown"}
                 </p>
-                <p className="text-sm text-white/60">
+                <p className="text-[11px] text-muted-foreground mt-0.5 m-0">
                   Assigned to: {judge?.name || judge?.email || "Unknown"}
                 </p>
               </div>
               <button
                 onClick={() => handleUnassign(a.judge_id, a.submission_id)}
-                className="text-red-400 hover:text-red-300"
+                className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                title="Remove assignment"
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </motion.div>
           );

@@ -1,15 +1,13 @@
-"use client"
+"use client";
 
-import { motion } from "framer-motion"
-import Slider from "react-slick"
-import { projects } from "@/data/projects"
-import { useRouter } from "next/navigation"
-import Image from "next/image"
-import { ChevronLeft, ChevronRight } from "lucide-react"
-import { OrnamentalDivider } from "./ThemeOrnaments"
+import Slider from "react-slick";
+import { projects } from "@/data/projects";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { ChevronLeft, ChevronRight, Video } from "lucide-react";
 
-import "slick-carousel/slick/slick.css"
-import "slick-carousel/slick/slick-theme.css"
+import "slick-carousel/slick/slick.css";
+import "slick-carousel/slick/slick-theme.css";
 
 interface VideoCarouselProps {
   videoUrl?: string;
@@ -17,33 +15,33 @@ interface VideoCarouselProps {
 }
 
 function PrevArrow(props: any) {
-  const { onClick } = props
+  const { onClick } = props;
   return (
     <button
       onClick={onClick}
-      className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-30 w-12 h-12 bg-jaipur-primary hover:bg-jaipur-primary-light text-white rounded-full flex items-center justify-center shadow-lg transition-all duration-200 border border-jaipur-gold/30 active:scale-95 group focus:outline-none"
+      className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-30 w-11 h-11 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:opacity-95 active:scale-95 group focus:outline-none cursor-pointer"
       aria-label="Previous slide"
     >
-      <ChevronLeft className="w-6 h-6 text-[#FFF8F1] transition-transform group-hover:-translate-x-0.5" />
+      <ChevronLeft className="w-5 h-5 transition-transform group-hover:-translate-x-0.5" />
     </button>
-  )
+  );
 }
 
 function NextArrow(props: any) {
-  const { onClick } = props
+  const { onClick } = props;
   return (
     <button
       onClick={onClick}
-      className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-30 w-12 h-12 bg-jaipur-primary hover:bg-jaipur-primary-light text-white rounded-full flex items-center justify-center shadow-lg transition-all duration-200 border border-jaipur-gold/30 active:scale-95 group focus:outline-none"
+      className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-30 w-11 h-11 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:opacity-95 active:scale-95 group focus:outline-none cursor-pointer"
       aria-label="Next slide"
     >
-      <ChevronRight className="w-6 h-6 text-[#FFF8F1] transition-transform group-hover:translate-x-0.5" />
+      <ChevronRight className="w-5 h-5 transition-transform group-hover:translate-x-0.5" />
     </button>
-  )
+  );
 }
 
-export default function VideoCarousel({ videoUrl, title }: VideoCarouselProps){
-  const router = useRouter()
+export default function VideoCarousel({ videoUrl, title }: VideoCarouselProps) {
+  const router = useRouter();
 
   const settings = {
     dots: true,
@@ -62,53 +60,42 @@ export default function VideoCarousel({ videoUrl, title }: VideoCarouselProps){
         breakpoint: 1024,
         settings: {
           centerPadding: "15%",
-        }
+        },
       },
       {
         breakpoint: 640,
         settings: {
           centerPadding: "8%",
-        }
-      }
-    ]
-  }
+        },
+      },
+    ],
+  };
 
-  return(
-    <section className="py-12 relative overflow-hidden">
-      <div className="container mx-auto px-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-10"
-        >
-          <span className="px-4 py-1.5 rounded-full bg-jaipur-primary/10 border border-jaipur-primary/20 text-jaipur-primary text-xs font-bold tracking-widest uppercase">
-            🎬 The Video Chaupal
+  return (
+    <section className="py-14 relative overflow-hidden">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="text-center mb-10">
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold tracking-wider uppercase mb-2">
+            <Video className="w-3.5 h-3.5 text-secondary" />
+            Demonstration Recordings
           </span>
 
-          <h2 
-            className="text-3xl md:text-5xl font-bold text-foreground mt-2"
-            style={{ fontFamily: "'Cormorant Garamond', serif" }}
-          >
-            Explore Our Gallery
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight m-0">
+            Project Video Walkthroughs
           </h2>
 
-          <div className="flex justify-center my-3">
-            <OrnamentalDivider />
-          </div>
-
-          <p className="text-muted-foreground text-sm mt-1">
-            Watch project demos from Code-e-Manipal
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1 mb-0">
+            Explore live demonstration recordings and architecture presentations.
           </p>
-        </motion.div>
+        </div>
 
-        <div className="video-carousel-container py-4 relative">
+        <div className="video-carousel-container py-2 relative">
           <Slider {...settings}>
-            {projects.map(project=>(
-              <div key={project.id} className="px-4 focus:outline-none">
+            {projects.map((project) => (
+              <div key={project.id} className="px-3 focus:outline-none">
                 <div
-                  onClick={()=>router.push(`/project/${project.id}`)}
-                  className="cursor-pointer rounded-2xl overflow-hidden transition-all duration-300 group bg-jaipur-card border border-jaipur-secondary-light shadow-md hover:shadow-lg"
+                  onClick={() => router.push(`/project/${project.id}`)}
+                  className="cursor-pointer rounded-2xl overflow-hidden transition-all duration-300 group bg-card border border-border shadow-sm hover:shadow-xl"
                 >
                   <div className="relative aspect-[16/9] overflow-hidden">
                     <Image
@@ -119,17 +106,14 @@ export default function VideoCarousel({ videoUrl, title }: VideoCarouselProps){
                       sizes="(max-width: 768px) 100vw, 800px"
                       priority
                     />
-                    
-                    {/* Dark gradient shadow inside card */}
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-6 flex flex-col justify-end h-1/3">
-                      <h3 
-                        className="text-white text-lg md:text-xl font-bold line-clamp-1"
-                        style={{ fontFamily: "'Cormorant Garamond', serif" }}
-                      >
+
+                    {/* Gradient overlay */}
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-5 sm:p-6 flex flex-col justify-end">
+                      <h3 className="text-white text-base sm:text-lg font-bold line-clamp-1 m-0">
                         {project.title}
                       </h3>
-                      <p className="text-[#F5DCC1] text-xs font-medium tracking-wide uppercase mt-0.5">
-                        {project.teamName}
+                      <p className="text-white/80 text-xs font-medium uppercase tracking-wider mt-1 mb-0">
+                        {project.teamName} · {project.category}
                       </p>
                     </div>
                   </div>
@@ -140,5 +124,5 @@ export default function VideoCarousel({ videoUrl, title }: VideoCarouselProps){
         </div>
       </div>
     </section>
-  )
+  );
 }

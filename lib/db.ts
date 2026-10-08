@@ -13,9 +13,9 @@ export const pool = new Pool({
     // We set rejectUnauthorized to false to allow SSL connection without configuring a custom CA certificate locally.
     rejectUnauthorized: false,
   },
-  max: 5,                         // Keep low for serverless (each Vercel function gets its own pool)
-  idleTimeoutMillis: 10000,       // Close idle connections after 10s (serverless functions are short-lived)
-  connectionTimeoutMillis: 10000, // Allow 10s for Azure cold-start connections
+  max: 10,                        // Suitable for serverless / dev concurrency
+  idleTimeoutMillis: 30000,       // Keep connections open for 30s
+  connectionTimeoutMillis: 30000, // Allow 30s for Azure SSL handshakes and connection spikes
 });
 
 // Prevent uncaught pool errors from crashing the process

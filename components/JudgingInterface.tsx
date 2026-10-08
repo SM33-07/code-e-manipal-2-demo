@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useTheme } from "next-themes";
 import {
   Card,
   CardContent,
@@ -11,7 +10,6 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import {
   ArrowLeft,
   ChevronLeft,
@@ -56,7 +54,6 @@ export function JudgingInterface({
   hasNext = false,
   hasPrev = false,
 }: JudgingInterfaceProps) {
-  const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "writeup" | "reflection">("overview");
 
@@ -73,7 +70,6 @@ export function JudgingInterface({
 
   useEffect(() => {
     setMounted(true);
-    // Reset criteria and feedback if the submission changes
     setCriteria(
       existingScore?.criteria || {
         innovation: 5,
@@ -88,7 +84,6 @@ export function JudgingInterface({
 
   if (!mounted) return null;
 
-  const isDark = resolvedTheme === "dark";
   const weightedScore = calculateWeightedScore(criteria);
 
   const updateCriterion = (key: keyof Criteria, value: number) => {
@@ -110,28 +105,28 @@ export function JudgingInterface({
     {
       key: "innovation" as keyof Criteria,
       icon: Lightbulb,
-      color: isDark ? "text-yellow-400" : "text-[#D59B3D]",
+      color: "text-amber-500",
       label: "Innovation",
       desc: "Novelty and originality of the solution.",
     },
     {
       key: "technical" as keyof Criteria,
       icon: Code,
-      color: isDark ? "text-[#D4732A]" : "text-[#8F102A]",
+      color: "text-primary",
       label: "Technical Implementation",
       desc: "Quality of code, architecture, and complexity.",
     },
     {
       key: "presentation" as keyof Criteria,
       icon: Video,
-      color: isDark ? "text-amber-400" : "text-[#A61B36]",
+      color: "text-secondary",
       label: "Presentation",
       desc: "Clarity and quality of the demo and write-up.",
     },
     {
       key: "impact" as keyof Criteria,
       icon: Target,
-      color: isDark ? "text-[#F0C060]" : "text-[#6A4635]",
+      color: "text-emerald-500",
       label: "Impact",
       desc: "Potential real-world impact and scalability.",
     },
@@ -158,7 +153,7 @@ export function JudgingInterface({
       const trimmed = prev.trim();
       const bullet = `- ${text}`;
       if (!trimmed) return bullet;
-      if (trimmed.includes(text)) return prev; // Avoid duplicate preset additions
+      if (trimmed.includes(text)) return prev;
       return `${trimmed}\n${bullet}`;
     });
   };
@@ -173,23 +168,17 @@ export function JudgingInterface({
   };
 
   const embedUrl = getYoutubeEmbed(submission.demoUrl);
-
-  const cardBg = isDark ? "bg-[#1E1208] border-[#C9A227]/20" : "bg-[#FCF6EF] border-[#EBCFB5]";
-  const textHeading = isDark ? "text-[#F5EFE0]" : "text-[#6A4635]";
-  const textBody = isDark ? "text-[#A08070]" : "text-[#7A5A4A]";
-  const dividerBg = isDark ? "bg-[#C9A227]/10" : "bg-[#EBCFB5]/40";
-
   const isLocked = Boolean(existingScore?.isComplete);
 
   return (
     <div className="w-full flex flex-col gap-6">
       
       {/* Top navigation actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#EBCFB5]/30 dark:border-[#C9A227]/10 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
         <Button
           variant="ghost"
           onClick={onBack}
-          className="text-[#8F102A] dark:text-[#D4732A] hover:bg-[#8F102A]/5 dark:hover:bg-[#C9A227]/10 rounded-xl px-4 w-fit"
+          className="text-primary hover:bg-muted rounded-xl px-4 w-fit"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Dashboard
@@ -201,29 +190,19 @@ export function JudgingInterface({
             variant="outline"
             onClick={onPrev}
             disabled={!hasPrev}
-            className={`
-              h-9 px-3 rounded-xl font-bold transition-all text-xs
-              ${isDark 
-                ? "border-[#C9A227]/20 text-[#A08070] hover:bg-[#C9A227]/10 disabled:opacity-30" 
-                : "border-[#EBCFB5] text-[#6A4635] hover:bg-[#8F102A]/5 disabled:opacity-30"}
-            `}
+            className="h-9 px-3 rounded-xl font-bold text-xs border-border text-foreground hover:bg-muted disabled:opacity-30"
           >
             <ChevronLeft className="w-4 h-4 mr-1" />
             Previous
           </Button>
-          <span className="text-xs font-bold text-[#B89A85] dark:text-[#A08070] select-none">
+          <span className="text-xs font-bold text-muted-foreground select-none">
             Project Navigation
           </span>
           <Button
             variant="outline"
             onClick={onNext}
             disabled={!hasNext}
-            className={`
-              h-9 px-3 rounded-xl font-bold transition-all text-xs
-              ${isDark 
-                ? "border-[#C9A227]/20 text-[#A08070] hover:bg-[#C9A227]/10 disabled:opacity-30" 
-                : "border-[#EBCFB5] text-[#6A4635] hover:bg-[#8F102A]/5 disabled:opacity-30"}
-            `}
+            className="h-9 px-3 rounded-xl font-bold text-xs border-border text-foreground hover:bg-muted disabled:opacity-30"
           >
             Next
             <ChevronRight className="w-4 h-4 ml-1" />
@@ -234,19 +213,19 @@ export function JudgingInterface({
       <div className="grid lg:grid-cols-12 gap-6 items-start">
         {/* Left Side: Submission Details */}
         <div className="lg:col-span-7 space-y-6">
-          <Card className={`border shadow-sm rounded-2xl overflow-hidden ${cardBg}`}>
+          <Card className="border border-border bg-card shadow-sm rounded-2xl overflow-hidden">
             <CardHeader className="pb-4">
               <div>
-                <CardTitle className={`text-2xl font-serif font-bold ${textHeading}`}>
+                <CardTitle className="text-2xl font-bold text-foreground">
                   {submission.title}
                 </CardTitle>
-                <CardDescription className="text-[#B89A85] dark:text-[#A08070] mt-1">
-                  Blind Judging — Team size: {submission.teamSize} members
+                <CardDescription className="text-muted-foreground mt-1">
+                  Blind Evaluation — Team size: {submission.teamSize} members
                 </CardDescription>
               </div>
 
               {/* Sub-navigation tabs */}
-              <div className="flex border-b border-[#EBCFB5]/40 dark:border-[#C9A227]/20 mt-6 gap-2">
+              <div className="flex border-b border-border mt-6 gap-2">
                 {(["overview", "writeup", "reflection"] as const).map((tab) => {
                   const isActive = activeTab === tab;
                   const label =
@@ -260,18 +239,15 @@ export function JudgingInterface({
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
-                      className={`
-                        pb-2.5 px-3 text-sm font-semibold transition-all relative
-                        ${
-                          isActive
-                            ? "text-[#8F102A] dark:text-[#F0C060]"
-                            : "text-[#B89A85] hover:text-[#6A4635] dark:text-[#A08070] dark:hover:text-[#F5EFE0]"
-                        }
-                      `}
+                      className={`pb-2.5 px-3 text-sm font-semibold transition-all relative ${
+                        isActive
+                          ? "text-primary"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
                     >
                       {label}
                       {isActive && (
-                        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#8F102A] dark:bg-[#F0C060] rounded-full" />
+                        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary rounded-full" />
                       )}
                     </button>
                   );
@@ -281,22 +257,22 @@ export function JudgingInterface({
 
             <CardContent className="pt-2 space-y-4">
               {activeTab === "overview" && (
-                <div className="space-y-4 animate-fadeIn">
+                <div className="space-y-4">
                   <div>
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#8F102A] dark:text-[#D4732A] mb-2 flex items-center gap-1.5">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-primary mb-2 flex items-center gap-1.5">
                       <Bookmark className="w-3.5 h-3.5" /> Project Summary
                     </h4>
-                    <p className={`text-sm leading-relaxed whitespace-pre-wrap ${textBody}`}>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
                       {submission.description || "No description provided."}
                     </p>
                   </div>
 
                   {embedUrl ? (
                     <div className="mt-4">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-[#8F102A] dark:text-[#D4732A] mb-3 flex items-center gap-1.5">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-primary mb-3 flex items-center gap-1.5">
                         <Video className="w-3.5 h-3.5" /> Demo Video Preview
                       </h4>
-                      <div className="relative aspect-video rounded-xl overflow-hidden border border-[#EBCFB5] dark:border-[#C9A227]/30 bg-[#0F0A05]">
+                      <div className="relative aspect-video rounded-xl overflow-hidden border border-border bg-black">
                         <iframe
                           src={embedUrl}
                           title={`${submission.title} Demo`}
@@ -307,20 +283,15 @@ export function JudgingInterface({
                       </div>
                     </div>
                   ) : submission.demoUrl ? (
-                    <div className="mt-4 pt-4 border-t border-[#EBCFB5]/40 dark:border-[#C9A227]/10">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-[#8F102A] dark:text-[#D4732A] mb-2 flex items-center gap-1.5">
+                    <div className="mt-4 pt-4 border-t border-border">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-primary mb-2 flex items-center gap-1.5">
                         <Video className="w-3.5 h-3.5" /> Project Demo
                       </h4>
                       <a
                         href={submission.demoUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="
-                          inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold
-                          bg-[#8F102A]/10 text-[#8F102A] hover:bg-[#8F102A]/20
-                          dark:bg-[#D4732A]/15 dark:text-[#F0C060] dark:hover:bg-[#D4732A]/25
-                          transition-all border border-[#8F102A]/20 dark:border-[#D4732A]/30
-                        "
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-all border border-primary/20"
                       >
                         Launch Project Demo <ExternalLink className="w-4 h-4" />
                       </a>
@@ -330,22 +301,22 @@ export function JudgingInterface({
               )}
 
               {activeTab === "writeup" && (
-                <div className="space-y-2 animate-fadeIn">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#8F102A] dark:text-[#D4732A] mb-2 flex items-center gap-1.5">
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-primary mb-2 flex items-center gap-1.5">
                     <FileText className="w-3.5 h-3.5" /> Technical Details & Architecture
                   </h4>
-                  <p className={`text-sm leading-relaxed whitespace-pre-wrap ${textBody}`}>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
                     {submission.writeup || "No technical write-up provided."}
                   </p>
                 </div>
               )}
 
               {activeTab === "reflection" && (
-                <div className="space-y-2 animate-fadeIn">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#8F102A] dark:text-[#D4732A] mb-2 flex items-center gap-1.5">
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-primary mb-2 flex items-center gap-1.5">
                     <Code className="w-3.5 h-3.5" /> Challenges & Learnings
                   </h4>
-                  <p className={`text-sm leading-relaxed whitespace-pre-wrap ${textBody}`}>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
                     {submission.reflection || "No challenge reflection provided."}
                   </p>
                 </div>
@@ -356,10 +327,10 @@ export function JudgingInterface({
 
         {/* Right Side: Scoring Rubric */}
         <div className="lg:col-span-5 space-y-6">
-          <Card className={`border shadow-sm rounded-2xl ${cardBg}`}>
+          <Card className="border border-border bg-card shadow-sm rounded-2xl">
             <CardHeader className="pb-4">
               <div className="flex justify-between items-center">
-                <CardTitle className={`text-xl font-serif font-bold ${textHeading}`}>
+                <CardTitle className="text-xl font-bold text-foreground">
                   Evaluation Scoresheet
                 </CardTitle>
                 {isLocked && (
@@ -368,7 +339,7 @@ export function JudgingInterface({
                   </span>
                 )}
               </div>
-              <CardDescription className="text-[#B89A85] dark:text-[#A08070]">
+              <CardDescription className="text-muted-foreground">
                 {isLocked ? "This evaluation has been completed and locked." : "Grade each rubric criterion out of 10 points."}
               </CardDescription>
             </CardHeader>
@@ -378,22 +349,22 @@ export function JudgingInterface({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Icon className={`w-4 h-4 ${color}`} />
-                      <Label className={`font-bold text-sm ${textHeading}`}>
+                      <Label className="font-bold text-sm text-foreground">
                         {label}
                       </Label>
-                      <span className="text-[10px] font-semibold text-[#B89A85] dark:text-[#A08070]">
+                      <span className="text-[10px] font-semibold text-muted-foreground">
                         ({(WEIGHTS[key] * 100).toFixed(0)}%)
                       </span>
                     </div>
-                    <span className="text-lg font-bold font-serif text-[#8F102A] dark:text-[#F0C060]">
+                    <span className="text-base font-bold font-mono text-primary">
                       {criteria[key]} / 10
                     </span>
                   </div>
-                  <p className="text-xs leading-relaxed text-[#B89A85] dark:text-[#A08070]/80">
+                  <p className="text-xs leading-relaxed text-muted-foreground">
                     {desc}
                   </p>
                   <div className="flex items-center gap-3 select-none">
-                    <span className="text-xs font-bold text-[#B89A85]">1</span>
+                    <span className="text-xs font-bold text-muted-foreground">1</span>
                     <input
                       type="range"
                       min={1}
@@ -402,12 +373,9 @@ export function JudgingInterface({
                       value={criteria[key]}
                       disabled={isLocked}
                       onChange={(e) => updateCriterion(key, Number(e.target.value))}
-                      className="
-                        flex-1 h-1.5 rounded-lg appearance-none cursor-pointer bg-neutral-200 dark:bg-neutral-800
-                        accent-[#8F102A] dark:accent-[#D4732A] disabled:opacity-50 disabled:cursor-not-allowed
-                      "
+                      className="flex-1 h-1.5 rounded-lg appearance-none cursor-pointer bg-muted accent-primary disabled:opacity-50 disabled:cursor-not-allowed"
                     />
-                    <span className="text-xs font-bold text-[#B89A85]">10</span>
+                    <span className="text-xs font-bold text-muted-foreground">10</span>
                   </div>
                 </div>
               ))}
@@ -415,9 +383,9 @@ export function JudgingInterface({
           </Card>
 
           {/* Feedback & Submission Action */}
-          <Card className={`border shadow-sm rounded-2xl ${cardBg}`}>
+          <Card className="border border-border bg-card shadow-sm rounded-2xl">
             <CardHeader className="pb-2">
-              <CardTitle className={`text-sm font-bold uppercase tracking-wider ${textHeading}`}>
+              <CardTitle className="text-sm font-bold uppercase tracking-wider text-foreground">
                 Qualitative Feedback
               </CardTitle>
             </CardHeader>
@@ -428,18 +396,13 @@ export function JudgingInterface({
                 readOnly={isLocked}
                 placeholder={isLocked ? "No feedback provided." : "Write bulleted feedback notes for the team..."}
                 rows={4}
-                className="
-                  w-full text-sm rounded-xl p-3 resize-none focus:outline-none focus:ring-1
-                  bg-[#FCF6EF]/50 border border-[#EBCFB5] text-[#6A4635] focus:border-[#8F102A] focus:ring-[#8F102A]
-                  dark:bg-[#0F0A05] dark:border-[#C9A227]/30 dark:text-[#F5EFE0] dark:focus:border-[#D4732A] dark:focus:ring-[#D4732A]
-                  transition-all duration-200 read-only:opacity-75 read-only:cursor-not-allowed
-                "
+                className="w-full text-sm rounded-xl p-3 resize-none focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary bg-background border border-border text-foreground transition-all read-only:opacity-75 read-only:cursor-not-allowed"
               />
 
               {/* Preset Comments Panel */}
               {!isLocked && (
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-wide text-[#B89A85] dark:text-[#A08070] block">
+                  <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground block">
                     Quick preset templates (click to insert)
                   </Label>
                   
@@ -449,11 +412,7 @@ export function JudgingInterface({
                         key={preset.text}
                         onClick={() => handleAddPreset(preset.text)}
                         title={preset.desc}
-                        className="
-                          text-[11px] font-bold px-2 py-1 rounded-lg border transition-all active:scale-95
-                          bg-[#FCF6EF] text-[#6A4635] border-[#EBCFB5] hover:bg-[#8F102A]/5 hover:border-[#8F102A]/35
-                          dark:bg-[#1E1208] dark:text-[#F5EFE0] dark:border-[#C9A227]/20 dark:hover:bg-[#C9A227]/10 dark:hover:border-[#C9A227]/40
-                        "
+                        className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-border bg-muted/50 text-foreground hover:bg-muted transition-all active:scale-95"
                       >
                         {preset.text}
                       </button>
@@ -465,11 +424,7 @@ export function JudgingInterface({
                         key={preset.text}
                         onClick={() => handleAddPreset(preset.text)}
                         title={preset.desc}
-                        className="
-                          text-[11px] font-bold px-2 py-1 rounded-lg border transition-all active:scale-95
-                          bg-[#FCF6EF] text-[#A61B36] border-[#EBCFB5] hover:bg-[#A61B36]/5 hover:border-[#A61B36]/35
-                          dark:bg-[#1E1208] dark:text-[#D4732A] dark:border-[#C9A227]/20 dark:hover:bg-[#D4732A]/15 dark:hover:border-[#D4732A]/35
-                        "
+                        className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-border bg-muted/50 text-foreground hover:bg-muted transition-all active:scale-95"
                       >
                         {preset.text}
                       </button>
@@ -478,13 +433,13 @@ export function JudgingInterface({
                 </div>
               )}
 
-              <div className={`p-4 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-4 ${dividerBg}`}>
+              <div className="p-4 rounded-xl border border-border bg-muted/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <span className="text-xs font-bold uppercase tracking-wide text-[#B89A85] dark:text-[#A08070]">
+                  <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                     Weighted Score
                   </span>
-                  <div className={`text-3xl font-serif font-black mt-0.5 ${textHeading}`}>
-                    {weightedScore.toFixed(2)} <span className="text-sm font-normal text-[#B89A85]">/ 10</span>
+                  <div className="text-2xl font-black font-mono text-foreground mt-0.5">
+                    {weightedScore.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">/ 10</span>
                   </div>
                 </div>
                 
@@ -497,11 +452,8 @@ export function JudgingInterface({
                     <>
                       <Button
                         onClick={() => handleSave(false)}
-                        className="
-                          h-10 px-4 rounded-xl font-bold transition-all shadow-sm text-xs
-                          bg-transparent border border-[#8F102A] text-[#8F102A] hover:bg-[#8F102A]/10
-                          dark:border-[#D4732A] dark:text-[#F0C060] dark:hover:bg-[#D4732A]/10
-                        "
+                        variant="outline"
+                        className="h-10 px-4 rounded-xl font-bold text-xs border-border text-foreground hover:bg-muted"
                       >
                         <Save className="w-4 h-4 mr-1.5" />
                         Save & Stay
@@ -510,11 +462,7 @@ export function JudgingInterface({
                       {hasNext && (
                         <Button
                           onClick={() => handleSave(true)}
-                          className="
-                            h-10 px-4 rounded-xl font-bold transition-all shadow-sm text-xs
-                            bg-[#8F102A] hover:bg-[#A61B36] text-white
-                            dark:bg-[#D4732A] dark:hover:bg-[#E28945] dark:text-[#0F0A05]
-                          "
+                          className="h-10 px-4 rounded-xl font-bold text-xs bg-primary text-primary-foreground hover:opacity-95 shadow-sm"
                         >
                           <Save className="w-4 h-4 mr-1.5" />
                           Save & Next

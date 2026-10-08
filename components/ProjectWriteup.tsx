@@ -93,12 +93,13 @@ export default function ProjectWriteup({ writeup }: Props) {
     >
       {/* Header */}
       <div className="flex items-center gap-3 mb-8">
-        <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2 rounded-lg shadow-md">
+        <div className="p-1 rounded-lg flex items-center justify-center bg-transparent">
           <Image
             src="/logo.png"
-            alt="LearnIT Logo"
-            width={24}
-            height={24}
+            alt="Code-e-Manipal Logo"
+            width={32}
+            height={16}
+            className="object-contain bg-transparent"
           />
         </div>
         <h2 className="text-xl font-semibold text-foreground">

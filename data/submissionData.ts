@@ -6,7 +6,7 @@ export const submission = {
     title: "EcoTrack: AI-Powered Campus Sustainability Monitor",
     summary:
       "An intelligent platform that monitors, analyzes, and gamifies campus energy consumption using IoT sensors and machine learning to drive sustainable behavior among students.",
-    category: "Sustainability & Green Tech",
+    category: "Smart City and Infrastructure",
     technologies: [
       "React",
       "TypeScript",

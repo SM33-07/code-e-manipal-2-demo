@@ -1,27 +1,42 @@
-import { NextRequest } from 'next/server';
 import { withAuth } from '@/lib/middleware/withAuth';
 import { query } from '@/lib/db';
 import { successResponse, Errors } from '@/lib/utils/response';
-import { getReviewById, updateReview } from '@/services/judgingService';
 import { sanitizeScore, isValidUUID } from '@/lib/utils/validate';
 import { logger } from '@/lib/utils/logger';
-
-type Ctx = { params: { id: string } };
+import {
+  updateReviewByIdTransactional,
+  calculateTotalScore,
+  ConcurrencyError,
+  PhaseFrozenError,
+  ReviewLockedError,
+  ForbiddenReviewError,
+  NotFoundReviewError,
+} from '@/lib/judging/history';
 
 /**
  * GET /api/judging/reviews/:id
- * Judge/Admin — fetch a single review (must belong to the calling judge).
+ * Judge/Admin — fetch a single review.
+ * Judges can only view their own reviews prior to results release.
  */
-export const GET = withAuth(async (_req, { user, params }) => {
+export const GET = withAuth(async (_req, { user, profile, params }) => {
   try {
-    const id = params!.id;
-    if (!isValidUUID(id)) return Errors.BAD_REQUEST('Invalid review ID');
+    const id = params?.id;
+    if (!id || !isValidUUID(id)) return Errors.BAD_REQUEST('Invalid review ID');
 
-    const review = await getReviewById(id, user.id);
+    const res = await query('SELECT * FROM public.judge_reviews WHERE id = $1 LIMIT 1', [id]);
+    if (res.rows.length === 0) return Errors.NOT_FOUND('Review');
 
-    if (!review) return Errors.NOT_FOUND('Review');
+    const review = res.rows[0];
 
-    return successResponse(review);
+    // Privacy isolation guard: judge cannot view peer reviews
+    if (profile?.role !== 'admin' && review.judge_id !== user.id) {
+      return Errors.FORBIDDEN("Cannot view another judge's review prior to results release");
+    }
+
+    return successResponse({
+      ...review,
+      total_score: calculateTotalScore(review),
+    });
   } catch (err) {
     logger.error('GET /api/judging/reviews/[id]', { error: String(err) });
     return Errors.INTERNAL();
@@ -30,29 +45,35 @@ export const GET = withAuth(async (_req, { user, params }) => {
 
 /**
  * PUT /api/judging/reviews/:id
- * Judge/Admin — update scores / feedback on an existing review.
+ * Judge — update scores / feedback on an existing review.
  *
- * Once is_complete is true the review is locked — re-opening requires admin.
- *
- * Body: same optional fields as POST
+ * Rules:
+ * - Admins cannot use this generic update path; must use /api/admin/reviews/[id]/reopen
+ * - The owning judge may revise a completed review during JUDGING
+ * - Review writes are frozen outside JUDGING
+ * - Optimistic concurrency via expected_version returns 409 Conflict on mismatch
+ * - Atomic phase lock prevents updates outside of JUDGING phase
+ * - Archives previous review state into review_history
+ * - Server calculates total score from criteria weights
  */
-export const PUT = withAuth(async (req, { user, params }) => {
+export const PUT = withAuth(async (req, { user, profile, params }) => {
   try {
-    const id = params!.id;
-    if (!isValidUUID(id)) return Errors.BAD_REQUEST('Invalid review ID');
+    const id = params?.id;
+    if (!id || !isValidUUID(id)) return Errors.BAD_REQUEST('Invalid review ID');
 
-    const existing = await getReviewById(id, user.id);
-
-    if (!existing) return Errors.NOT_FOUND('Review');
-
-    // Prevent editing a finalised review (unless admin re-opens)
-    if (existing.is_complete && user.id === existing.judge_id) {
-      return Errors.BAD_REQUEST(
-        'This review is already finalised. Contact an admin to re-open it.'
+    // Single Administrative Path enforcement (ADR-005)
+    if (profile?.role === 'admin') {
+      return Errors.FORBIDDEN(
+        'Admins cannot modify reviews through the generic update endpoint. Use /api/admin/reviews/[id]/reopen.'
       );
     }
 
-    const body = await req.json();
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      return Errors.BAD_REQUEST('Invalid JSON request body');
+    }
 
     const {
       score_innovation,
@@ -61,7 +82,17 @@ export const PUT = withAuth(async (req, { user, params }) => {
       score_impact,
       feedback,
       is_complete,
+      expected_version,
+      reason,
     } = body;
+
+    if (
+      typeof expected_version !== 'number' ||
+      !Number.isSafeInteger(expected_version) ||
+      expected_version < 0
+    ) {
+      return Errors.BAD_REQUEST('A valid expected_version is required');
+    }
 
     const scoreFields: Record<string, unknown> = {
       score_innovation,
@@ -70,43 +101,53 @@ export const PUT = withAuth(async (req, { user, params }) => {
       score_impact,
     };
 
-    const updates: Record<string, unknown> = {};
-
+    const sanitizedScores: Record<string, number | undefined> = {};
     for (const [key, val] of Object.entries(scoreFields)) {
       if (val === undefined || val === null) continue;
       const sanitized = sanitizeScore(val);
       if (sanitized === undefined) {
         return Errors.BAD_REQUEST(`${key} must be an integer between 1 and 10`);
       }
-      updates[key] = sanitized;
+      sanitizedScores[key] = sanitized;
     }
 
-    if (typeof feedback === 'string') updates.feedback    = feedback.trim();
-    if (is_complete !== undefined)    updates.is_complete = Boolean(is_complete);
-
-    if (Object.keys(updates).length === 0) {
-      return Errors.BAD_REQUEST('No valid fields provided to update');
-    }
-
-    const updated = await updateReview(id, user.id, updates);
-
-    // Sync submission status if is_complete changed
-    if ('is_complete' in updates) {
-      const newStatus = updates.is_complete ? 'reviewed' : 'under_review';
-      await query(
-        'UPDATE public.submissions SET status = $1 WHERE id = $2',
-        [newStatus, existing.submission_id]
-      );
-    }
+    const updated = await updateReviewByIdTransactional({
+      id,
+      actor_id: user.id,
+      actor_role: profile?.role || 'judge',
+      scores: sanitizedScores,
+      feedback: typeof feedback === 'string' ? feedback.trim() : undefined,
+      is_complete: is_complete !== undefined ? Boolean(is_complete) : undefined,
+      expected_version,
+      reason: typeof reason === 'string' ? reason.trim() : undefined,
+    });
 
     logger.info('PUT /api/judging/reviews/[id]', {
       reviewId: id,
-      judgeId:  user.id,
-      updates:  Object.keys(updates),
+      judgeId: user.id,
+      version: updated.version,
     });
 
     return successResponse(updated);
-  } catch (err) {
+  } catch (err: any) {
+    if (err instanceof ConcurrencyError || err.statusCode === 409) {
+      return Errors.CONFLICT(err.message);
+    }
+    if (
+      err instanceof PhaseFrozenError ||
+      err instanceof ReviewLockedError ||
+      err instanceof ForbiddenReviewError ||
+      err.statusCode === 403
+    ) {
+      return Errors.FORBIDDEN(err.message);
+    }
+    if (err instanceof NotFoundReviewError || err.statusCode === 404) {
+      return Errors.NOT_FOUND('Review');
+    }
+    if (err.statusCode === 400) {
+      return Errors.BAD_REQUEST(err.message);
+    }
+
     logger.error('PUT /api/judging/reviews/[id]', { error: String(err) });
     return Errors.INTERNAL();
   }

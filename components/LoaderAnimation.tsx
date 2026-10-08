@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 
@@ -12,26 +12,68 @@ export default function LoaderAnimation({ onComplete }: LoaderAnimationProps) {
   const [progress, setProgress] = useState(0);
   const [isExiting, setIsExiting] = useState(false);
 
+  // Reduced motion: bypass animation immediately for accessibility
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (prefersReduced) {
+        onComplete();
+      }
+    }
+  }, [onComplete]);
+
+  // Failsafe: ensure loader never traps the user under any circumstance
+  useEffect(() => {
+    const failsafe = setTimeout(() => {
+      onComplete();
+    }, 4000);
+    return () => clearTimeout(failsafe);
+  }, [onComplete]);
+
   // Memoize particle positions so they don't re-randomize on every render
-  const particles = useMemo(() =>
-    Array.from({ length: 25 }).map(() => ({
-      left: Math.random() * 100,
-      top: Math.random() * 100,
-      size: Math.random() * 2.5 + 0.5,
-      duration: Math.random() * 6 + 4,
-      delay: Math.random() * 5,
-      yTravel: Math.random() * 80 + 30,
-    })), []
+  const particles = useMemo(
+    () =>
+      Array.from({ length: 25 }).map((_, i) => ({
+        left: (i * 37 + 11) % 100,
+        top: (i * 61 + 7) % 100,
+        size: ((i * 17) % 25) / 10 + 0.5,
+        duration: ((i * 13) % 60) / 10 + 4,
+        delay: ((i * 7) % 50) / 10,
+        yTravel: (i * 19) % 80 + 30,
+      })),
+    []
   );
 
   // Memoize bird data
-  const birds = useMemo(() => [
-    { left: "28%", top: "32%", delay: 2, scale: 0.7 },
-    { left: "32%", top: "30%", delay: 2.3, scale: 0.5 },
-    { left: "68%", top: "31%", delay: 3, scale: 0.6 },
-    { left: "72%", top: "33%", delay: 3.4, scale: 0.45 },
-    { left: "25%", top: "28%", delay: 4, scale: 0.4 },
-  ], []);
+  const birds = useMemo(
+    () => [
+      { left: "28%", top: "32%", delay: 2, scale: 0.7 },
+      { left: "32%", top: "30%", delay: 2.3, scale: 0.5 },
+      { left: "68%", top: "31%", delay: 3, scale: 0.6 },
+      { left: "72%", top: "33%", delay: 3.4, scale: 0.45 },
+      { left: "25%", top: "28%", delay: 4, scale: 0.4 },
+    ],
+    []
+  );
+
+  const handleSkip = useCallback(() => {
+    setProgress(100);
+    setIsExiting(true);
+    setTimeout(() => {
+      onComplete();
+    }, 300);
+  }, [onComplete]);
+
+  // Escape key listener for keyboard accessibility
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        handleSkip();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleSkip]);
 
   // Increment progress counter smoothly
   useEffect(() => {
@@ -60,14 +102,6 @@ export default function LoaderAnimation({ onComplete }: LoaderAnimationProps) {
     return () => clearTimeout(timer);
   }, [progress, onComplete]);
 
-  const handleSkip = () => {
-    setProgress(100);
-    setIsExiting(true);
-    setTimeout(() => {
-      onComplete();
-    }, 800);
-  };
-
   return (
     <AnimatePresence>
       {!isExiting && (
@@ -75,10 +109,9 @@ export default function LoaderAnimation({ onComplete }: LoaderAnimationProps) {
           initial={{ opacity: 1 }}
           exit={{ opacity: 0, scale: 0.96, filter: "blur(6px)" }}
           transition={{ duration: 0.6, ease: "easeInOut" }}
-          className="fixed inset-0 z-[99999] overflow-hidden flex flex-col items-center justify-between"
+          className="fixed inset-0 z-[99999] pointer-events-none overflow-hidden flex flex-col items-center justify-between"
           style={{ background: "linear-gradient(180deg, #050505 0%, #070a12 50%, #050505 100%)" }}
         >
-
           {/* ===== BACKGROUND LAYERS ===== */}
 
           {/* Subtle Grid Texture */}
@@ -94,9 +127,13 @@ export default function LoaderAnimation({ onComplete }: LoaderAnimationProps) {
           />
 
           {/* Cinematic Vignette */}
-          <div className="absolute inset-0 z-[2] pointer-events-none" style={{
-            background: "radial-gradient(ellipse at center, transparent 30%, rgba(5,5,5,0.7) 70%, rgba(5,5,5,0.95) 100%)"
-          }} />
+          <div
+            className="absolute inset-0 z-[2] pointer-events-none"
+            style={{
+              background:
+                "radial-gradient(ellipse at center, transparent 30%, rgba(5,5,5,0.7) 70%, rgba(5,5,5,0.95) 100%)",
+            }}
+          />
 
           {/* MUJ Building Golden Wireframe Background */}
           <motion.div
@@ -114,11 +151,13 @@ export default function LoaderAnimation({ onComplete }: LoaderAnimationProps) {
               alt="MUJ Campus Building"
               width={1600}
               height={1600}
+              sizes="(max-width: 639px) 180vw, 97vw"
+              loading="eager"
+              fetchPriority="high"
               className="w-full h-auto object-contain opacity-[0.35] mix-blend-screen"
               style={{
                 filter: "drop-shadow(0 0 12px rgba(246,196,83,0.15))",
               }}
-              priority
             />
           </motion.div>
 
@@ -160,7 +199,7 @@ export default function LoaderAnimation({ onComplete }: LoaderAnimationProps) {
               transition={{ duration: 6, delay: bird.delay, repeat: Infinity, ease: "easeInOut" }}
             >
               <svg width="24" height="10" viewBox="0 0 24 10" fill="none">
-                <path d="M 0 8 Q 6 0 12 5 Q 18 0 24 8" stroke="#F6C453" strokeWidth="1" fill="none" opacity="0.6"/>
+                <path d="M 0 8 Q 6 0 12 5 Q 18 0 24 8" stroke="#F6C453" strokeWidth="1" fill="none" opacity="0.6" />
               </svg>
             </motion.div>
           ))}
@@ -229,15 +268,15 @@ export default function LoaderAnimation({ onComplete }: LoaderAnimationProps) {
 
           {/* ===== SKIP BUTTON ===== */}
           <button
+            type="button"
             onClick={handleSkip}
-            className="absolute top-4 right-6 sm:top-6 sm:right-10 z-[20] rounded-full border border-[#F6C453]/30 bg-black/40 px-5 py-2 font-mono text-[10px] sm:text-xs text-[#F6C453] tracking-wider transition-all duration-300 hover:bg-[#F6C453] hover:text-black hover:shadow-[0_0_15px_rgba(246,196,83,0.4)] focus:outline-none cursor-pointer backdrop-blur-sm"
+            className="pointer-events-auto absolute top-4 right-6 sm:top-6 sm:right-10 z-[20] rounded-full border border-[#F6C453]/30 bg-black/85 px-5 py-2 font-mono text-[10px] sm:text-xs text-[#F6C453] tracking-wider transition-all duration-300 hover:bg-[#F6C453] hover:text-black hover:shadow-[0_0_15px_rgba(246,196,83,0.4)] focus:outline-none cursor-pointer"
           >
             SKIP INTRO
           </button>
 
           {/* ===== MAIN CONTENT ===== */}
           <div className="flex-1 flex flex-col items-center justify-center z-[15] w-full px-4 max-w-4xl mx-auto">
-
             {/* ── LOGO SECTION ── */}
             <motion.div
               className="relative mb-4 sm:mb-6 flex justify-center items-center"
@@ -307,7 +346,7 @@ export default function LoaderAnimation({ onComplete }: LoaderAnimationProps) {
               </div>
 
               {/* Logo Container - Circular with glow border */}
-              <div className="relative z-10 w-20 h-20 md:w-28 md:h-28 rounded-full border border-[#F6C453]/30 shadow-[0_0_25px_rgba(246,196,83,0.12)] bg-[#050505]/80 backdrop-blur-md flex items-center justify-center p-2">
+              <div className="relative z-10 w-20 h-20 md:w-28 md:h-28 rounded-full border border-[#F6C453]/30 shadow-[0_0_25px_rgba(246,196,83,0.12)] bg-[#050505] flex items-center justify-center p-2">
                 {/* Rotating dashed inner ring */}
                 <motion.div
                   className="absolute inset-1 rounded-full border border-dashed border-[#F6C453]/25"
@@ -325,8 +364,9 @@ export default function LoaderAnimation({ onComplete }: LoaderAnimationProps) {
                         key={`dot-${i}`}
                         className="absolute w-[2px] h-[2px] rounded-full bg-[#F6C453]/40"
                         style={{
-                          left: `calc(50% + ${Math.cos(rad) * r}% - 1px)`,
-                          top: `calc(50% + ${Math.sin(rad) * r}% - 1px)`,
+                          left: `${(50 + Math.cos(rad) * r).toFixed(2)}%`,
+                          top: `${(50 + Math.sin(rad) * r).toFixed(2)}%`,
+                          transform: "translate(-50%, -50%)",
                         }}
                       />
                     );
@@ -398,16 +438,23 @@ export default function LoaderAnimation({ onComplete }: LoaderAnimationProps) {
               transition={{ duration: 1, delay: 0.9, ease: "easeOut" }}
             >
               {/* Outer decorative border (double border effect) */}
-              <div className="relative p-[2px] rounded-lg" style={{
-                background: "linear-gradient(135deg, rgba(246,196,83,0.4), rgba(246,196,83,0.1), rgba(246,196,83,0.4))",
-              }}>
+              <div
+                className="relative p-[2px] rounded-lg"
+                style={{
+                  background:
+                    "linear-gradient(135deg, rgba(246,196,83,0.4), rgba(246,196,83,0.1), rgba(246,196,83,0.4))",
+                }}
+              >
                 <div className="p-[3px] rounded-lg bg-[#0A0A0A]/90">
-                  <div className="relative p-[1px] rounded-md" style={{
-                    background: "linear-gradient(135deg, rgba(246,196,83,0.5), rgba(246,196,83,0.15), rgba(246,196,83,0.5))",
-                  }}>
+                  <div
+                    className="relative p-[1px] rounded-md"
+                    style={{
+                      background:
+                        "linear-gradient(135deg, rgba(246,196,83,0.5), rgba(246,196,83,0.15), rgba(246,196,83,0.5))",
+                    }}
+                  >
                     {/* Glassmorphism Inner Panel */}
-                    <div className="relative overflow-hidden rounded-md bg-[#0A0A0A]/80 backdrop-blur-xl px-6 py-5 md:px-8 md:py-6">
-
+                    <div className="relative overflow-hidden rounded-md bg-[#0A0A0A] px-6 py-5 md:px-8 md:py-6">
                       {/* Top glowing edge */}
                       <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#F6C453]/60 to-transparent" />
 
@@ -417,18 +464,29 @@ export default function LoaderAnimation({ onComplete }: LoaderAnimationProps) {
                           <h3 className="text-lg md:text-xl font-semibold tracking-wide" style={{ color: "#FFF5E1" }}>
                             CODE-ए-MANIPAL
                           </h3>
-                          <p className="text-xs md:text-sm mt-1 font-light tracking-wider" style={{ color: "rgba(246,196,83,0.55)" }}>
+                          <p
+                            className="text-xs md:text-sm mt-1 font-light tracking-wider"
+                            style={{ color: "rgba(246,196,83,0.55)" }}
+                          >
                             Great things are loading. Please wait.
                           </p>
                         </div>
-                        <div className="text-2xl md:text-3xl font-light tabular-nums tracking-tighter" style={{ color: "#F6C453" }}>
+                        <div
+                          className="text-2xl md:text-3xl font-light tabular-nums tracking-tighter"
+                          style={{ color: "#F6C453" }}
+                        >
                           {Math.min(Math.round(progress), 100)}
-                          <span className="text-sm ml-0.5" style={{ color: "rgba(246,196,83,0.5)" }}>%</span>
+                          <span className="text-sm ml-0.5" style={{ color: "rgba(246,196,83,0.5)" }}>
+                            %
+                          </span>
                         </div>
                       </div>
 
                       {/* Progress Bar */}
-                      <div className="h-2 w-full rounded-full overflow-hidden relative" style={{ background: "#111111", border: "1px solid rgba(246,196,83,0.12)" }}>
+                      <div
+                        className="h-2 w-full rounded-full overflow-hidden relative"
+                        style={{ background: "#111111", border: "1px solid rgba(246,196,83,0.12)" }}
+                      >
                         <motion.div
                           className="h-full relative"
                           style={{
@@ -439,20 +497,43 @@ export default function LoaderAnimation({ onComplete }: LoaderAnimationProps) {
                           transition={{ duration: 0.15, ease: "easeOut" }}
                         >
                           {/* Inner bright core */}
-                          <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.35) 0%, transparent 60%)" }} />
+                          <div
+                            className="absolute inset-0"
+                            style={{
+                              background: "linear-gradient(180deg, rgba(255,255,255,0.35) 0%, transparent 60%)",
+                            }}
+                          />
                           {/* Leading glow orb */}
-                          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white/80 shadow-[0_0_10px_rgba(246,196,83,1),0_0_20px_rgba(246,196,83,0.6)]" style={{ filter: "blur(1px)" }} />
+                          <div
+                            className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white/80 shadow-[0_0_10px_rgba(246,196,83,1),0_0_20px_rgba(246,196,83,0.6)]"
+                            style={{ filter: "blur(1px)" }}
+                          />
                         </motion.div>
                       </div>
 
                       {/* Micro HUD Elements */}
                       <div className="flex justify-between items-center mt-3">
                         <div className="flex gap-1">
-                          <motion.div className="w-1 h-1 bg-[#F6C453]" animate={{ opacity: [0.2, 1, 0.2] }} transition={{ duration: 1, repeat: Infinity, delay: 0 }} />
-                          <motion.div className="w-1 h-1 bg-[#F6C453]" animate={{ opacity: [0.2, 1, 0.2] }} transition={{ duration: 1, repeat: Infinity, delay: 0.2 }} />
-                          <motion.div className="w-1 h-1 bg-[#F6C453]" animate={{ opacity: [0.2, 1, 0.2] }} transition={{ duration: 1, repeat: Infinity, delay: 0.4 }} />
+                          <motion.div
+                            className="w-1 h-1 bg-[#F6C453]"
+                            animate={{ opacity: [0.2, 1, 0.2] }}
+                            transition={{ duration: 1, repeat: Infinity, delay: 0 }}
+                          />
+                          <motion.div
+                            className="w-1 h-1 bg-[#F6C453]"
+                            animate={{ opacity: [0.2, 1, 0.2] }}
+                            transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
+                          />
+                          <motion.div
+                            className="w-1 h-1 bg-[#F6C453]"
+                            animate={{ opacity: [0.2, 1, 0.2] }}
+                            transition={{ duration: 1, repeat: Infinity, delay: 0.4 }}
+                          />
                         </div>
-                        <span className="font-mono text-[9px] tracking-widest uppercase" style={{ color: "rgba(246,196,83,0.35)" }}>
+                        <span
+                          className="font-mono text-[9px] tracking-widest uppercase"
+                          style={{ color: "rgba(246,196,83,0.35)" }}
+                        >
                           SYS.INIT.2026
                         </span>
                       </div>
@@ -487,7 +568,6 @@ export default function LoaderAnimation({ onComplete }: LoaderAnimationProps) {
                 transition={{ duration: 3, repeat: Infinity, delay: 1.5 }}
               />
             </motion.div>
-
           </div>
 
           {/* ===== FOOTER SECTION ===== */}
@@ -499,7 +579,7 @@ export default function LoaderAnimation({ onComplete }: LoaderAnimationProps) {
           >
             {/* Small footer logo */}
             <motion.div
-              className="relative w-10 h-10 rounded-full border border-[#F6C453]/20 bg-[#050505]/60 backdrop-blur-md flex items-center justify-center shadow-[0_0_12px_rgba(246,196,83,0.08)]"
+              className="relative w-10 h-10 rounded-full border border-[#F6C453]/20 bg-[#050505] flex items-center justify-center shadow-[0_0_12px_rgba(246,196,83,0.08)]"
               animate={{ scale: [1, 1.05, 1] }}
               transition={{ duration: 3, repeat: Infinity }}
             >
@@ -513,8 +593,8 @@ export default function LoaderAnimation({ onComplete }: LoaderAnimationProps) {
                 src="/logo.png"
                 alt="Learn IT"
                 width={28}
-                height={28}
-                className="object-contain drop-shadow-[0_0_8px_rgba(246,196,83,0.5)]"
+                height={12}
+                className="h-3 w-7 object-contain drop-shadow-[0_0_8px_rgba(246,196,83,0.5)]"
               />
 
               {/* Footer circuit lines */}
@@ -555,7 +635,6 @@ export default function LoaderAnimation({ onComplete }: LoaderAnimationProps) {
             animate={{ y: [-200, 200], opacity: [0, 0.6, 0] }}
             transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
           />
-
         </motion.div>
       )}
     </AnimatePresence>

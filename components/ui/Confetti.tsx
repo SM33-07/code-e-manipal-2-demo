@@ -16,8 +16,8 @@ export function Confetti() {
     let width = (canvas.width = window.innerWidth);
     let height = (canvas.height = window.innerHeight);
 
-    // Warm Jaipur Heritage colors
-    const colors = ["#8F102A", "#D59B3D", "#EBCFB5", "#D4732A", "#C9A227", "#F0C060", "#A61B36"];
+    // Jaipur Pink, Antique Brass, and Terracotta palette
+    const colors = ["#B95745", "#D2AC68", "#A64B3E", "#E69C90", "#E8C88B", "#C97878"];
     const particleCount = 120;
     const particles: Array<{
       x: number;

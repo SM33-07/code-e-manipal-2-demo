@@ -1,4 +1,4 @@
-import { query } from '@/lib/db';
+import { pool, query } from '@/lib/db';
 import type { Team } from '@/types';
 
 /**
@@ -76,31 +76,57 @@ export async function createTeam(name: string, userId: string, leaderName?: stri
  * Join an existing team by invite code
  */
 export async function joinTeamByInviteCode(inviteCode: string, userId: string): Promise<Team> {
-  const teamRes = await query(
-    'SELECT id, name, invite_code, created_by FROM public.teams WHERE invite_code = $1',
-    [inviteCode]
-  );
-  const team = teamRes.rows[0];
-  if (!team) throw new Error('INVALID_INVITE_CODE');
+  const client = await pool.connect();
+  let clientReleased = false;
+  let teamId: string;
 
-  // Verify member capacity (limit to 4)
-  const membersRes = await query('SELECT user_id FROM public.team_members WHERE team_id = $1', [team.id]);
-  const members = membersRes.rows;
+  try {
+    await client.query('BEGIN');
 
-  if (members && members.length >= 4) {
-    throw new Error('TEAM_FULL');
+    // Serialize joins for this team before checking capacity.
+    const teamRes = await client.query(
+      'SELECT id FROM public.teams WHERE invite_code = $1 FOR UPDATE',
+      [inviteCode]
+    );
+    const team = teamRes.rows[0];
+    if (!team) throw new Error('INVALID_INVITE_CODE');
+    teamId = team.id;
+
+    const membersRes = await client.query(
+      'SELECT user_id FROM public.team_members WHERE team_id = $1',
+      [teamId]
+    );
+    const members = membersRes.rows;
+
+    if (members.length >= 6) throw new Error('TEAM_FULL');
+    if (members.some((member: { user_id: string }) => member.user_id === userId)) {
+      throw new Error('ALREADY_IN_TEAM');
+    }
+
+    await client.query(
+      "INSERT INTO public.team_members (team_id, user_id, role) VALUES ($1, $2, 'member')",
+      [teamId, userId]
+    );
+    await client.query('COMMIT');
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      const failure = rollbackError instanceof Error
+        ? rollbackError
+        : new Error(String(rollbackError));
+      failure.message = 'Team join transaction rollback failed';
+      Object.defineProperty(failure, 'cause', { value: err });
+      client.release(failure);
+      clientReleased = true;
+      throw failure;
+    }
+    throw err;
+  } finally {
+    if (!clientReleased) client.release();
   }
 
-  const alreadyInTeam = members?.some((m: any) => m.user_id === userId);
-  if (alreadyInTeam) throw new Error('ALREADY_IN_TEAM');
-
-  // Insert member
-  await query(
-    "INSERT INTO public.team_members (team_id, user_id, role) VALUES ($1, $2, 'member')",
-    [team.id, userId]
-  );
-
-  const updatedTeam = await getTeamById(team.id);
+  const updatedTeam = await getTeamById(teamId);
   if (!updatedTeam) throw new Error('Failed to retrieve updated team details');
 
   return updatedTeam;

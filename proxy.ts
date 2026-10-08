@@ -2,98 +2,113 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function proxy(req: NextRequest) {
-  const res = NextResponse.next();
+  let res = NextResponse.next({
+    request: {
+      headers: req.headers,
+    },
+  });
+
   const { pathname } = req.nextUrl;
 
-  // ── Protected routes ──
-  const protectedRoutes = [
-    '/submission-form',
-    '/team',
-    '/judging',
-    '/admin',
-    '/submission-result',
-  ];
+  // 1. Explicitly public routes (never require authentication)
+  const isPublicRoute =
+    pathname === '/' ||
+    pathname === '/about' ||
+    pathname === '/schedule' ||
+    pathname === '/problem-statements' ||
+    pathname === '/prizes' ||
+    pathname === '/judges' ||
+    pathname === '/sponsors' ||
+    pathname === '/gallery' ||
+    pathname === '/faq' ||
+    pathname === '/contact' ||
+    pathname === '/enter' ||
+    pathname === '/results' ||
+    pathname.startsWith('/project/');
 
-  const isProtected = protectedRoutes.some((r) =>
-    pathname.startsWith(r)
-  );
+  // 2. Auth routes
+  const isLoginRoute = pathname === '/login';
 
-  const isLogin = pathname === '/login';
+  // 3. Protected portal routes
+  const isProtectedRoute =
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/team') ||
+    pathname.startsWith('/submit') ||
+    pathname.startsWith('/SubmissionForm') ||
+    pathname.startsWith('/submission-result') ||
+    pathname.startsWith('/judge') ||
+    pathname.startsWith('/judging') ||
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/account');
 
-  // Bypass Supabase auth check entirely for non-protected, non-login public pages
-  if (!isProtected && !isLogin) {
+  // If public route and not login, fast bypass
+  if (!isProtectedRoute && !isLoginRoute) {
     return res;
   }
 
+  // Resolve Supabase user from session cookies
   let user = null;
-  try {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    if (url) {
-      const projectId = url.split('//')[1].split('.')[0];
-      const cookieName = `sb-${projectId}-auth-token`;
-      const cookieVal = req.cookies.get(cookieName)?.value;
-      if (cookieVal) {
-        let jsonStr = cookieVal;
-        if (cookieVal.startsWith('base64-')) {
-          jsonStr = atob(cookieVal.substring(7));
-        }
-        const session = JSON.parse(jsonStr);
-        if (session.expires_at && session.expires_at > Date.now() / 1000) {
-          user = session.user || null;
-        }
-      }
-    }
-  } catch (e) {
-    // Ignore parsing errors and fall back to the client
-  }
-
-  // Fallback to official client only if fast local check couldn't resolve a valid user
-  if (!user) {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get: (name) => req.cookies.get(name)?.value,
-          set: (name, value, options: CookieOptions) => {
-            req.cookies.set({ name, value, ...options });
-            res.cookies.set({ name, value, ...options });
-          },
-          remove: (name, options: CookieOptions) => {
-            req.cookies.set({ name, value: '', ...options });
-            res.cookies.set({ name, value: '', ...options });
-          },
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get: (name) => req.cookies.get(name)?.value,
+        set: (name, value, options: CookieOptions) => {
+          req.cookies.set({ name, value, ...options });
+          res.cookies.set({ name, value, ...options });
         },
-      }
-    );
+        remove: (name, options: CookieOptions) => {
+          req.cookies.set({ name, value: '', ...options });
+          res.cookies.set({ name, value: '', ...options });
+        },
+      },
+    }
+  );
 
-    const { data: { user: dbUser } } = await supabase.auth.getUser();
-    user = dbUser;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    user = null;
   }
 
-  if (isProtected && !user) {
+  // Unauthenticated user attempting to access protected route -> redirect to /login
+  if (isProtectedRoute && !user) {
     const loginUrl = req.nextUrl.clone();
     loginUrl.pathname = '/login';
     loginUrl.searchParams.set('next', pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // ── Role-based access ──
-  if (user && (pathname.startsWith('/admin') || pathname.startsWith('/judging'))) {
-    const role = user.user_metadata?.role || 'participant';
+  // Role resolution for authenticated users
+  if (user) {
+    // The profile table is the authoritative role source. Metadata is not used
+    // for authorization decisions because it can lag behind an administrative
+    // role change.
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+    const role = profile?.role || 'participant';
 
+    // Prevent authenticated users from staying on /login
+    if (isLoginRoute) {
+      if (role === 'admin') return NextResponse.redirect(new URL('/admin', req.url));
+      if (role === 'judge') return NextResponse.redirect(new URL('/judge', req.url));
+      return NextResponse.redirect(new URL('/dashboard', req.url));
+    }
+
+    // Role-based route guard for /admin
     if (pathname.startsWith('/admin') && role !== 'admin') {
-      return NextResponse.redirect(new URL('/', req.url));
+      return NextResponse.redirect(new URL('/dashboard', req.url));
     }
 
-    if (pathname.startsWith('/judging') && !['judge', 'admin'].includes(role)) {
-      return NextResponse.redirect(new URL('/', req.url));
+    // Role-based route guard for /judge or /judging
+    if ((pathname.startsWith('/judge') || pathname.startsWith('/judging')) && !['judge', 'admin'].includes(role)) {
+      return NextResponse.redirect(new URL('/dashboard', req.url));
     }
-  }
-
-  // ── Prevent logged-in users from seeing login ──
-  if (user && pathname === '/login') {
-    return NextResponse.redirect(new URL('/', req.url));
   }
 
   return res;
@@ -101,6 +116,8 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|icons|fonts|logo.png).*)',
+    '/((?!_next/static|_next/image|favicon.ico|icons|fonts|logo.*|images|api).*)',
   ],
 };
+
+export default proxy;

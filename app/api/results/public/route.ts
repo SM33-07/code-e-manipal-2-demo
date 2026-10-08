@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { query } from '@/lib/db';
 import { successResponse, Errors } from '@/lib/utils/response';
 import { logger } from '@/lib/utils/logger';
+import { getEventConfigState } from '@/lib/event/eventConfigHelper';
 
 /**
  * GET /api/results/public
@@ -11,24 +12,12 @@ import { logger } from '@/lib/utils/logger';
 export async function GET(req: NextRequest) {
   try {
     // 1. Check event_config for results_published state
-    const configRes = await query(
-      "SELECT key, value FROM public.event_config WHERE key IN ('results_published', 'results_publish_time')"
-    );
-    const config = configRes.rows.reduce((acc: Record<string, string>, row) => {
-      acc[row.key] = row.value;
-      return acc;
-    }, {});
-
+    const config = await getEventConfigState();
     let isPublished = config.results_published === 'true';
 
     // Auto-transition check for 5-min timer
     if (config.results_published === 'publishing' && config.results_publish_time) {
       if (Date.now() >= new Date(config.results_publish_time).getTime()) {
-        await query(
-          `INSERT INTO public.event_config (key, value, updated_at)
-           VALUES ('results_published', 'true', NOW())
-           ON CONFLICT (key) DO UPDATE SET value = 'true', updated_at = NOW()`
-        );
         isPublished = true;
       }
     }

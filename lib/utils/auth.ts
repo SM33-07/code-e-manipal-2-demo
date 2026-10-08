@@ -1,5 +1,14 @@
-import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { query } from '@/lib/db';
+/**
+ * Server-side auth utilities — refactored for Phase 2.
+ *
+ * getServerSession() now delegates to the centralized validateSession()
+ * pipeline, which enforces force_logout_before and is_disabled checks.
+ *
+ * hasRole() delegates to the centralized guards module.
+ */
+
+import { validateSession } from '@/lib/auth/session';
+import { hasRole as guardHasRole } from '@/lib/auth/guards';
 import type { Profile, UserRole } from '@/types';
 
 export interface SessionData {
@@ -10,52 +19,30 @@ export interface SessionData {
 
 /**
  * Get the current server-side session + profile.
- * Returns null if unauthenticated or profile missing.
+ * Returns null if unauthenticated, disabled, or force-logged-out.
+ *
+ * Now delegates to the centralized session validation pipeline.
  */
 export async function getServerSession(): Promise<SessionData | null> {
-  try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) return null;
+  const result = await validateSession();
 
-    // Query profile from Azure Postgres
-    const profileRes = await query('SELECT * FROM public.profiles WHERE id = $1', [user.id]);
-    let profile = profileRes.rows[0] as Profile | undefined;
-
-    if (!profile) {
-      // Lazily sync the user to Azure auth.users
-      const meta = user.user_metadata || {};
-      await query(
-        'INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING',
-        [user.id, user.email || '', JSON.stringify(meta)]
-      );
-
-      // Re-fetch profile
-      const retryRes = await query('SELECT * FROM public.profiles WHERE id = $1', [user.id]);
-      profile = retryRes.rows[0] as Profile | undefined;
-    }
-
-    if (!profile) return null;
-
-    return {
-      userId:  user.id,
-      email:   user.email,
-      profile: profile as Profile,
-    };
-  } catch {
+  if (result.error || !result.session) {
     return null;
   }
+
+  return {
+    userId: result.session.user.id,
+    email: result.session.user.email,
+    profile: result.session.profile,
+  };
 }
 
 /**
  * Role hierarchy check — admin > judge > participant.
  * Returns true if userRole meets or exceeds requiredRole.
+ *
+ * Delegates to the centralized guards module.
  */
 export function hasRole(userRole: UserRole, requiredRole: UserRole): boolean {
-  const rank: Record<UserRole, number> = {
-    participant: 0,
-    judge:       1,
-    admin:       2,
-  };
-  return rank[userRole] >= rank[requiredRole];
+  return guardHasRole(userRole, requiredRole);
 }

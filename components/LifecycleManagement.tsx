@@ -3,16 +3,15 @@
 import { useState } from "react"
 import { motion } from "framer-motion"
 import { useRouter } from "next/navigation"
-import { Users, FileText, Scale, Trophy, Image } from "lucide-react"
+import { Users, FileText, Scale, Trophy } from "lucide-react"
 
-type Phase = "Registration" | "Submission" | "Judging" | "Results" | "Gallery"
+type Phase = "Registration" | "Submission" | "Judging" | "Results"
 
 const phases = [
-  { name: "Registration", icon: Users, color: "from-blue-500 to-cyan-500", route: "/team" },
-  { name: "Submission", icon: FileText, color: "from-cyan-500 to-teal-500", route: "/SubmissionForm" },
-  { name: "Judging", icon: Scale, color: "from-teal-500 to-green-500", route: "/judging" },
+  { name: "Registration", icon: Users, color: "from-blue-500 to-cyan-500", route: "/dashboard" },
+  { name: "Submission", icon: FileText, color: "from-cyan-500 to-teal-500", route: "/submit" },
+  { name: "Judging", icon: Scale, color: "from-teal-500 to-green-500", route: "/judge" },
   { name: "Results", icon: Trophy, color: "from-green-500 to-yellow-500", route: "/admin/results" },
-  { name: "Gallery", icon: Image, color: "from-yellow-500 to-orange-500", route: "/gallery" },
 ]
 
 export function LifecycleManagement() {
@@ -26,13 +25,13 @@ export function LifecycleManagement() {
   }
 
   return (
-    <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
+    <div className="bg-card border border-border rounded-2xl p-6">
 
       <h2 className="text-xl text-white mb-4">
         Lifecycle Management
       </h2>
 
-      <div className="grid md:grid-cols-5 gap-4">
+      <div className="grid md:grid-cols-4 gap-4">
 
         {phases.map((phase) => {
 

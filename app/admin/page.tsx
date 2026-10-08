@@ -5,11 +5,9 @@ import { useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
 import {
   ArrowRight, ChevronDown, CheckCircle, FileText,
-  Scale, Shuffle, Trophy, UserCircle, Users, Trash2, UserPlus,
+  Scale, Shuffle, Trophy, UserCircle, Users, Trash2, UserPlus, ShieldAlert,
 } from "lucide-react"
 
-const F     = "'Inter', sans-serif"
-const SERIF = "'Cormorant Garamond', serif"
 
 export default function AdminPage() {
   const router = useRouter()
@@ -228,14 +226,63 @@ export default function AdminPage() {
   return (
     <div className="w-full max-w-7xl mx-auto flex flex-col gap-8 pb-12">
 
-      {/* Hero Header */}
-      <div>
-        <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2" style={{ fontFamily: SERIF }}>
-          Admin Dashboard
-        </h1>
-        <p className="text-muted-foreground" style={{ fontFamily: F }}>
-          Manage hackathon operations, assign judges, and review results.
-        </p>
+      {/* Operations Center Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
+              <ShieldAlert className="w-3.5 h-3.5" />
+              Operations Command Center
+            </span>
+            <span className="text-xs text-muted-foreground">&bull;</span>
+            <span className="text-xs font-mono text-muted-foreground">LIVE EVENT OPERATIONS</span>
+          </div>
+          <h1 className="text-3xl md:text-4xl font-extrabold text-foreground tracking-tight">
+            Event Operations Control Center
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Unified command for judge assignments, evaluation tracking, user roles, and system workflows.
+          </p>
+        </div>
+
+        {/* Quick Module Navigation Pills */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => router.push("/admin/event")}
+            className="px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-accent text-xs font-semibold text-foreground transition-colors cursor-pointer"
+          >
+            Event Control
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push("/admin/teams")}
+            className="px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-accent text-xs font-semibold text-foreground transition-colors cursor-pointer"
+          >
+            Teams
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push("/admin/results")}
+            className="px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-accent text-xs font-semibold text-foreground transition-colors cursor-pointer"
+          >
+            Results
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push("/admin/report")}
+            className="px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-accent text-xs font-semibold text-foreground transition-colors cursor-pointer"
+          >
+            Report & Audit
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push("/admin/analytics")}
+            className="px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-accent text-xs font-semibold text-foreground transition-colors cursor-pointer"
+          >
+            Analytics
+          </button>
+        </div>
       </div>
 
       {/* STAT CARDS ROW */}
@@ -243,14 +290,14 @@ export default function AdminPage() {
         {stats.map(({ label, value, Icon }) => (
           <div 
             key={label} 
-            className="bg-jaipur-card border border-jaipur-secondary-light rounded-xl p-5 flex items-center gap-4 shadow-sm hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(201,162,39,0.18)] transition-all duration-300"
+            className="bg-card border border-border rounded-2xl p-5 flex items-center gap-4 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all duration-300"
           >
-            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center shrink-0 border border-jaipur-secondary-light">
-              <Icon size={24} className="text-jaipur-gold" />
+            <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center shrink-0 border border-border">
+              <Icon size={24} className="text-secondary" />
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground mb-1">{label}</p>
-              <p className="text-3xl font-bold text-foreground leading-none" style={{ fontFamily: SERIF }}>
+              <p className="text-3xl font-bold text-foreground leading-none">
                 {value}
               </p>
             </div>
@@ -261,16 +308,16 @@ export default function AdminPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* JUDGE ASSIGNMENT PANEL */}
-        <div className="lg:col-span-2 bg-jaipur-card border border-jaipur-secondary-light rounded-2xl p-6 md:p-8 relative overflow-hidden flex flex-col min-h-[500px] hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300">
+        <div className="lg:col-span-2 bg-card border border-border rounded-2xl p-6 md:p-8 relative overflow-hidden flex flex-col min-h-[500px] hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300 shadow-sm">
           
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 shrink-0">
             <div className="flex items-center gap-4">
-              <div className="bg-muted p-3 rounded-full shrink-0 border border-jaipur-secondary-light">
-                <UserCircle size={32} className="text-jaipur-gold" />
+              <div className="bg-muted p-3 rounded-xl shrink-0 border border-border">
+                <UserCircle size={28} className="text-secondary" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-foreground" style={{ fontFamily: SERIF }}>Judge Assignment</h2>
-                <p className="text-sm text-muted-foreground mt-1" style={{ fontFamily: F }}>
+                <h2 className="text-2xl font-bold text-foreground">Judge Assignment</h2>
+                <p className="text-sm text-muted-foreground mt-1">
                   Assign judges to submissions quickly, with a shuffle option to randomize.
                 </p>
               </div>
@@ -278,7 +325,7 @@ export default function AdminPage() {
             <button 
               type="button" 
               onClick={handleShuffle} 
-              className="shrink-0 flex items-center justify-center gap-2 h-10 px-4 rounded-lg border border-jaipur-gold bg-transparent text-jaipur-gold text-sm font-semibold hover:bg-jaipur-gold/10 transition-colors"
+              className="shrink-0 flex items-center justify-center gap-2 h-10 px-4 rounded-xl border border-secondary/40 bg-secondary/10 text-secondary text-sm font-semibold hover:bg-secondary/20 transition-colors"
             >
               <Shuffle size={16} /> Auto-Assign
             </button>
@@ -289,37 +336,33 @@ export default function AdminPage() {
               <select 
                 value={selSub} 
                 onChange={e => setSelSub(e.target.value)} 
-                className="w-full h-11 bg-background border border-jaipur-secondary-light rounded-lg pl-4 pr-10 text-sm text-foreground focus:outline-none focus:border-jaipur-gold appearance-none cursor-pointer"
+                className="w-full h-11 bg-background border border-border rounded-xl pl-4 pr-10 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
               >
-                <option value="" className="bg-[#FCF6EF] text-[#6A4635] dark:bg-[#1E1208] dark:text-[#F5EFE0]">Select Submission</option>
+                <option value="" className="bg-card text-foreground">Select Submission</option>
                 {submissions.map(s => (
-                  <option key={s.id} value={s.id} className="bg-[#FCF6EF] text-[#6A4635] dark:bg-[#1E1208] dark:text-[#F5EFE0]">{s.title}</option>
+                  <option key={s.id} value={s.id} className="bg-card text-foreground">{s.title}</option>
                 ))}
               </select>
-              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-jaipur-primary pointer-events-none" />
+              <ChevronDown size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             </div>
             <div className="flex-1 relative">
               <select 
                 value={selJudge} 
                 onChange={e => setSelJudge(e.target.value)} 
-                className="w-full h-11 bg-background border border-jaipur-secondary-light rounded-lg pl-4 pr-10 text-sm text-foreground focus:outline-none focus:border-jaipur-gold appearance-none cursor-pointer"
+                className="w-full h-11 bg-background border border-border rounded-xl pl-4 pr-10 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
               >
-                <option value="" className="bg-[#FCF6EF] text-[#6A4635] dark:bg-[#1E1208] dark:text-[#F5EFE0]">Select Judge</option>
+                <option value="" className="bg-card text-foreground">Select Judge</option>
                 {judges.map(j => (
-                  <option key={j.id} value={j.id} className="bg-[#FCF6EF] text-[#6A4635] dark:bg-[#1E1208] dark:text-[#F5EFE0]">{j.name || j.email}</option>
+                  <option key={j.id} value={j.id} className="bg-card text-foreground">{j.name || j.email}</option>
                 ))}
               </select>
-              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-jaipur-primary pointer-events-none" />
+              <ChevronDown size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             </div>
             <button 
               type="button" 
               onClick={handleAssign} 
               disabled={!canAssign} 
-              className={`h-11 px-6 rounded-lg bg-gradient-to-r text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all shrink-0 ${
-                isDark 
-                  ? "from-[#D4732A] to-[#C1440E] hover:from-[#E8924A] hover:to-[#D4732A]" 
-                  : "from-[#8B1F44] to-[#6D1632] hover:from-[#A61B36] hover:to-[#8B1F44]"
-              }`}
+              className="h-11 px-6 rounded-xl bg-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-all shrink-0 shadow-sm"
             >
               Assign <ArrowRight size={14} />
             </button>
@@ -328,31 +371,31 @@ export default function AdminPage() {
           <div className="flex-1 overflow-y-auto mt-6 flex flex-col gap-3 pr-2">
             {assignments.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-10">
-                <FileText size={48} className="mb-4 opacity-50 text-jaipur-gold" />
-                <p>No assignments yet.</p>
+                <FileText size={44} className="mb-3 opacity-40 text-muted-foreground" />
+                <p className="text-sm font-medium">No assignments yet.</p>
               </div>
             ) : assignments.map((item, i) => (
               <div 
                 key={`${item.judge_id}-${item.submission_id}`} 
-                className="flex items-center justify-between gap-4 bg-background border border-jaipur-secondary-light rounded-xl p-3 sm:p-4 hover:border-jaipur-gold/50 transition-colors"
+                className="flex items-center justify-between gap-4 bg-background border border-border rounded-xl p-3 sm:p-4 hover:border-border/80 transition-colors"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-muted shrink-0 flex items-center justify-center hidden sm:flex border border-jaipur-secondary-light">
-                    <UserCircle size={20} className="text-jaipur-gold" />
+                  <div className="w-10 h-10 rounded-xl bg-muted shrink-0 flex items-center justify-center hidden sm:flex border border-border">
+                    <UserCircle size={20} className="text-secondary" />
                   </div>
                   <div>
                     <p className="text-sm font-bold text-foreground line-clamp-1">
                       {item.submissions?.title ?? "Unknown"}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                      Assigned to: <span className="font-medium text-jaipur-gold">{item.profiles?.name || item.profiles?.email || "Unknown"}</span>
+                      Assigned to: <span className="font-semibold text-secondary">{item.profiles?.name || item.profiles?.email || "Unknown"}</span>
                     </p>
                   </div>
                 </div>
                 <button 
                   type="button" 
                   onClick={() => handleUnassign(item.judge_id, item.submission_id)} 
-                  className="w-8 h-8 shrink-0 rounded-lg border border-destructive/30 bg-transparent flex items-center justify-center text-destructive hover:bg-destructive/10 transition-colors focus:outline-none"
+                  className="w-8 h-8 shrink-0 rounded-lg border border-destructive/30 bg-destructive/10 flex items-center justify-center text-destructive hover:bg-destructive/20 transition-colors focus:outline-none"
                   title="Remove Assignment"
                 >
                   <Trash2 size={14} />
@@ -363,14 +406,14 @@ export default function AdminPage() {
         </div>
 
         {/* RESULTS MANAGEMENT PANEL */}
-        <div className="bg-jaipur-card border border-jaipur-secondary-light rounded-2xl p-6 md:p-8 flex flex-col relative overflow-hidden">
+        <div className="bg-card border border-border rounded-2xl p-6 md:p-8 flex flex-col relative overflow-hidden shadow-sm">
           <div className="flex items-start gap-4 shrink-0">
-            <div className="bg-muted p-3 rounded-full shrink-0 border border-jaipur-secondary-light">
-              <Trophy size={32} className="text-jaipur-gold" />
+            <div className="bg-muted p-3 rounded-xl shrink-0 border border-border">
+              <Trophy size={28} className="text-secondary" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-foreground" style={{ fontFamily: SERIF }}>Results</h2>
-              <p className="text-sm text-muted-foreground mt-1" style={{ fontFamily: F }}>
+              <h2 className="text-2xl font-bold text-foreground">Results</h2>
+              <p className="text-sm text-muted-foreground mt-1">
                 View final ranked report and export data.
               </p>
             </div>
@@ -379,25 +422,19 @@ export default function AdminPage() {
           <button 
             type="button" 
             onClick={() => router.push("/admin/report")} 
-            className={`w-full mt-8 h-12 rounded-xl bg-gradient-to-r text-white text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-md ${
-              isDark 
-                ? "from-[#D4732A] to-[#C1440E] hover:from-[#E8924A] hover:to-[#D4732A] shadow-[0_4px_16px_rgba(212,115,42,0.3)]" 
-                : "from-[#8B1F44] to-[#6D1632] hover:from-[#A61B36] hover:to-[#8B1F44] shadow-[0_4px_16px_rgba(139,31,68,0.2)]"
-            }`}
+            className="w-full mt-8 h-12 rounded-xl bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-md hover:bg-primary/90"
           >
             View Full Report <ArrowRight size={16} />
           </button>
 
           <div className="flex justify-center mt-8 mb-4">
-             <svg width="60" height="10" viewBox="0 0 60 10" fill="none">
-               <line x1="0" y1="5" x2="22" y2="5" stroke={isDark ? "#C9A227" : "#EBCFB5"} strokeWidth="1"/>
-               <polygon points="30,1 35,5 30,9 25,5" fill={isDark ? "#C9A227" : "#8B1F44"}/>
-               <line x1="38" y1="5" x2="60" y2="5" stroke={isDark ? "#C9A227" : "#EBCFB5"} strokeWidth="1"/>
-             </svg>
+             <div className="h-[1px] w-24 bg-border relative flex items-center justify-center">
+               <div className="w-2 h-2 rotate-45 bg-secondary absolute" />
+             </div>
           </div>
 
-          <div className="mt-4 flex-1 bg-background border border-jaipur-secondary-light rounded-xl p-5 overflow-hidden shadow-inner">
-            <p className="text-xs uppercase tracking-widest text-jaipur-gold font-semibold mb-4">
+          <div className="mt-4 flex-1 bg-muted/30 border border-border rounded-xl p-5 overflow-hidden shadow-inner">
+            <p className="text-xs uppercase tracking-widest text-secondary font-bold mb-4">
               Summary
             </p>
             <div className="flex flex-col gap-4">
@@ -406,9 +443,9 @@ export default function AdminPage() {
                 { label: "Pending reports",   val: String(pendingCount) },
                 { label: "Export ready",      val: reviewedCount > 0 ? "Yes" : "No" },
               ].map(({ label, val }) => (
-                <div key={label} className="flex justify-between items-center pb-3 border-b border-jaipur-secondary-light/30 last:border-0 last:pb-0">
+                <div key={label} className="flex justify-between items-center pb-3 border-b border-border/60 last:border-0 last:pb-0">
                   <span className="text-sm text-muted-foreground">{label}</span>
-                  <span className="text-lg font-bold text-foreground" style={{ fontFamily: SERIF }}>{val}</span>
+                  <span className="text-lg font-bold text-foreground">{val}</span>
                 </div>
               ))}
             </div>

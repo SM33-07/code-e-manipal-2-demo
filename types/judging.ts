@@ -13,6 +13,7 @@ export interface Score {
   criteria: Criteria;
   feedback: string;
   isComplete: boolean;
+  version?: number;
 }
 
 export interface Submission {

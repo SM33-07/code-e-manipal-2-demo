@@ -2,32 +2,39 @@ import { NextRequest } from 'next/server';
 import { withAuth } from '@/lib/middleware/withAuth';
 import { query } from '@/lib/db';
 import { successResponse, Errors } from '@/lib/utils/response';
-import { upsertReview } from '@/services/judgingService';
 import { sanitizeScore, isValidUUID } from '@/lib/utils/validate';
 import { logger } from '@/lib/utils/logger';
+import {
+  saveReviewTransactional,
+  calculateTotalScore,
+  ConcurrencyError,
+  PhaseFrozenError,
+  ReviewLockedError,
+  ForbiddenReviewError,
+  NotFoundReviewError,
+} from '@/lib/judging/history';
 
 /**
  * POST /api/judging/reviews
- * Judge/Admin — creates or updates (upserts) a review for a submission.
+ * Judge/Admin — creates or updates a review for a submission.
  *
- * The judge must be assigned to the submission.
- * Scores are optional per-save — judges can save partial drafts.
- * Setting is_complete: true finalises the review.
- *
- * Body:
- * {
- *   submission_id: string        (required)
- *   score_innovation?:    1–10
- *   score_technical?:     1–10
- *   score_presentation?:  1–10
- *   score_impact?:        1–10
- *   feedback?:            string
- *   is_complete?:         boolean
- * }
+ * Requirements:
+ * - Atomic Phase verification (JUDGING phase only)
+ * - Assignment check (requireJudgeAssignment)
+ * - Optimistic concurrency lock via expected_version
+ * - Completed reviews remain editable by their assigned judge during JUDGING
+ * - The event phase lock freezes all reviews outside JUDGING
+ * - Archiving previous state to review_history
+ * - Server-side score calculation (client totals ignored)
  */
 export const POST = withAuth(async (req, { user, profile }) => {
   try {
-    const body = await req.json();
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      return Errors.BAD_REQUEST('Invalid JSON request body');
+    }
 
     const {
       submission_id,
@@ -37,11 +44,21 @@ export const POST = withAuth(async (req, { user, profile }) => {
       score_impact,
       feedback,
       is_complete,
+      expected_version,
+      reason,
     } = body;
 
     // Validate submission_id
     if (!submission_id || !isValidUUID(submission_id)) {
       return Errors.BAD_REQUEST('A valid submission_id is required');
+    }
+
+    if (
+      typeof expected_version !== 'number' ||
+      !Number.isSafeInteger(expected_version) ||
+      expected_version < 0
+    ) {
+      return Errors.BAD_REQUEST('A valid expected_version is required');
     }
 
     // Validate scores if provided
@@ -62,71 +79,102 @@ export const POST = withAuth(async (req, { user, profile }) => {
       sanitizedScores[key] = sanitized;
     }
 
-    // Admins skip the assignment check
-    if (profile?.role !== 'admin') {
-      const assignmentRes = await query(
-        'SELECT 1 FROM public.judge_assignments WHERE judge_id = $1 AND submission_id = $2 LIMIT 1',
-        [user.id, submission_id]
-      );
-
-      if (assignmentRes.rows.length === 0) {
-        return Errors.FORBIDDEN();
-      }
-    }
-
-    // Check if score is already complete / locked
-    const existingRes = await query(
-      'SELECT is_complete FROM public.judge_reviews WHERE submission_id = $1 AND judge_id = $2 LIMIT 1',
-      [submission_id, user.id]
-    );
-    if (existingRes.rows.length > 0 && existingRes.rows[0].is_complete) {
-      return Errors.FORBIDDEN();
-    }
-
-    // Upsert the review
-    const review = await upsertReview({
+    const review = await saveReviewTransactional({
       submission_id,
       judge_id: user.id,
-      ...sanitizedScores,
-      feedback:    typeof feedback === 'string' ? feedback.trim() : undefined,
-      is_complete: Boolean(is_complete),
+      actor_id: user.id,
+      actor_role: profile?.role || 'judge',
+      scores: sanitizedScores,
+      feedback: typeof feedback === 'string' ? feedback.trim() : undefined,
+      is_complete: is_complete !== undefined ? Boolean(is_complete) : undefined,
+      expected_version,
+      reason: typeof reason === 'string' ? reason.trim() : undefined,
     });
 
-    // Sync submission status
-    const newStatus = is_complete ? 'reviewed' : 'under_review';
-    await query(
-      'UPDATE public.submissions SET status = $1 WHERE id = $2',
-      [newStatus, submission_id]
-    );
-
     logger.info('POST /api/judging/reviews', {
-      reviewId:     review.id,
+      reviewId: review.id,
       submissionId: submission_id,
-      judgeId:      user.id,
-      is_complete,
+      judgeId: user.id,
+      version: review.version,
+      is_complete: review.is_complete,
     });
 
     return successResponse(review, undefined, 201);
-  } catch (err) {
-    logger.error('POST /api/judging/reviews', { error: err instanceof Error ? err.message : JSON.stringify(err) });
+  } catch (err: any) {
+    if (err instanceof ConcurrencyError || err.statusCode === 409) {
+      return Errors.CONFLICT(err.message);
+    }
+    if (
+      err instanceof PhaseFrozenError ||
+      err instanceof ReviewLockedError ||
+      err instanceof ForbiddenReviewError ||
+      err.statusCode === 403
+    ) {
+      return Errors.FORBIDDEN(err.message);
+    }
+    if (err instanceof NotFoundReviewError || err.statusCode === 404) {
+      return Errors.NOT_FOUND('Review');
+    }
+    if (err.statusCode === 400) {
+      return Errors.BAD_REQUEST(err.message);
+    }
+
+    logger.error('POST /api/judging/reviews', {
+      error: err instanceof Error ? err.message : JSON.stringify(err),
+    });
     return Errors.INTERNAL();
   }
 }, 'judge');
 
 /**
  * GET /api/judging/reviews
- * Judge/Admin — returns all reviews submitted by the current judge.
+ * Judge/Admin — returns reviews.
+ * - Judges can strictly view only their own reviews (preventing preview of peer scores).
+ * - Admins can view all reviews or filter by submission/judge.
  */
-export const GET = withAuth(async (req, { user }) => {
+export const GET = withAuth(async (req, { user, profile }) => {
   try {
-    const res = await query(
-      'SELECT * FROM public.judge_reviews WHERE judge_id = $1',
-      [user.id]
-    );
+    const { searchParams } = new URL(req.url);
+    const submissionId = searchParams.get('submission_id');
+    const requestedJudgeId = searchParams.get('judge_id');
+
+    let sql = 'SELECT * FROM public.judge_reviews WHERE 1=1';
+    const params: any[] = [];
+
+    if (profile?.role === 'admin') {
+      if (requestedJudgeId && isValidUUID(requestedJudgeId)) {
+        params.push(requestedJudgeId);
+        sql += ` AND judge_id = $${params.length}`;
+      }
+    } else {
+      // Non-admin judges are strictly limited to their own evaluations
+      if (requestedJudgeId && requestedJudgeId !== user.id) {
+        return Errors.FORBIDDEN("Cannot view another judge's reviews prior to results release");
+      }
+      params.push(user.id);
+      sql += ` AND judge_id = $${params.length}`;
+    }
+
+    if (submissionId && isValidUUID(submissionId)) {
+      params.push(submissionId);
+      sql += ` AND submission_id = $${params.length}`;
+    }
+
+    sql += ' ORDER BY created_at DESC';
+
+    const res = await query(sql, params);
 
     const mapped = res.rows.map((row: any) => ({
+      id: row.id,
+      submission_id: row.submission_id,
       submissionId: row.submission_id,
+      judge_id: row.judge_id,
       judgeId: row.judge_id,
+      score_innovation: row.score_innovation,
+      score_technical: row.score_technical,
+      score_presentation: row.score_presentation,
+      score_impact: row.score_impact,
+      total_score: calculateTotalScore(row),
       criteria: {
         innovation: row.score_innovation,
         technical: row.score_technical,
@@ -134,7 +182,11 @@ export const GET = withAuth(async (req, { user }) => {
         impact: row.score_impact,
       },
       feedback: row.feedback || '',
+      is_complete: row.is_complete,
       isComplete: row.is_complete,
+      version: row.version,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
     }));
 
     return successResponse(mapped);
@@ -143,4 +195,3 @@ export const GET = withAuth(async (req, { user }) => {
     return Errors.INTERNAL();
   }
 }, 'judge');
-
