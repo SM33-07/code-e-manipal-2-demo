@@ -15,7 +15,9 @@ import { getPublicEventConfig, getEventConfigState } from '@/lib/event/eventConf
 export async function GET(req: NextRequest) {
   try {
     const publicConfig = await getPublicEventConfig();
-    return successResponse(publicConfig);
+    const res = successResponse(publicConfig);
+    res.headers.set('Cache-Control', 'public, s-maxage=15, stale-while-revalidate=45');
+    return res;
   } catch (err) {
     logger.error('GET /api/event-config failed', { error: String(err) });
     return Errors.INTERNAL('Failed to fetch event configuration.');
