@@ -66,17 +66,20 @@ export async function POST(req: NextRequest) {
       const normalized = normalizeIdentifier(trimmedInput);
       const normalizedLogin = normalizeLoginId(trimmedInput);
       identityKey = normalized?.canonical || normalizedLogin?.canonical || trimmedInput.toUpperCase();
+      const compactKey = identityKey.replace(/-/g, '');
 
       // Look up the authoritative email from Azure profiles using either the
-      // canonical identifier or the separate personalized login_id.
+      // canonical identifier, unhyphenated form, or the separate personalized login_id.
       let profileEmail: string | null = null;
       try {
         const { rows } = await query(
-          `SELECT email FROM public.profiles
-           WHERE UPPER(identifier) = UPPER($1)
-              OR UPPER(login_id) = UPPER($1)
+          `SELECT email, identifier, login_id FROM public.profiles
+           WHERE UPPER(TRIM(identifier)) = $1
+              OR UPPER(TRIM(identifier)) = $2
+              OR UPPER(TRIM(login_id)) = $1
+              OR UPPER(TRIM(login_id)) = $2
            LIMIT 2`,
-          [identityKey]
+          [identityKey, compactKey]
         );
         if (rows.length > 1) {
           logger.warn('Ambiguous profile identifier rejected during login', { identityKey });
@@ -85,6 +88,9 @@ export async function POST(req: NextRequest) {
         }
         if (rows.length === 1 && rows[0].email) {
           profileEmail = rows[0].email;
+          if (rows[0].identifier) {
+            identityKey = rows[0].identifier;
+          }
         }
       } catch (dbErr) {
         logger.warn('Failed to query profile for identifier', { identityKey, error: String(dbErr) });

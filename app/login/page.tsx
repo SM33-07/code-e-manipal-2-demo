@@ -34,7 +34,10 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      const cleanIdentifier = identifier.trim();
+      const cleanInput = identifier.trim();
+      const cleanIdentifier = cleanInput.includes("@")
+        ? cleanInput.toLowerCase()
+        : cleanInput.toUpperCase();
       const authResult = await login(cleanIdentifier, password);
       const userRole = authResult?.role || "participant";
 
@@ -114,9 +117,9 @@ export default function LoginPage() {
                   autoComplete="username"
                   autoCapitalize="none"
                   spellCheck={false}
-                  placeholder="e.g. TEAM-001 or judge identifier"
+                  placeholder="e.g. TEAM001 or name@example.com"
                   value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value.toLowerCase())}
+                  onChange={(e) => setIdentifier(e.target.value)}
                   required
                   className="w-full h-11 pl-10 pr-4 text-sm bg-input border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                 />
