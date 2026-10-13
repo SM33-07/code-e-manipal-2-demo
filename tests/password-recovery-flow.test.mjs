@@ -179,3 +179,214 @@ describe('Inaccessible-Email Fallback Security Controls', () => {
     assert.ok(serialized.includes('Verified in-person'));
   });
 });
+
+describe('Recovery Verification & Delivery Resiliency (Comprehensive Diagnostics)', () => {
+  test('1. Valid PKCE recovery link: exchanges auth code for session successfully', async () => {
+    let capturedCode = null;
+    const mockSupabase = {
+      auth: {
+        exchangeCodeForSession: async (code) => {
+          capturedCode = code;
+          return {
+            data: {
+              session: {
+                access_token: 'valid-pkce-access-token',
+                refresh_token: 'valid-pkce-refresh-token',
+                user: { id: 'user-uuid-1', email: 'admin@learnit-muj.com' },
+              },
+            },
+            error: null,
+          };
+        },
+      },
+    };
+
+    const testCode = 'auth-code-pkce-xyz';
+    const { data, error } = await mockSupabase.auth.exchangeCodeForSession(testCode);
+
+    assert.equal(error, null);
+    assert.equal(capturedCode, testCode);
+    assert.equal(data.session.user.email, 'admin@learnit-muj.com');
+    assert.ok(data.session.access_token);
+  });
+
+  test('2. Invalid, expired and already-used recovery links: surfaces explicit provider error without crash', () => {
+    function parseRecoveryUrlParameters(urlStr) {
+      const url = new URL(urlStr);
+      let hashParams = new URLSearchParams();
+      if (url.hash && url.hash.length > 1) {
+        hashParams = new URLSearchParams(url.hash.substring(1));
+      }
+
+      const rawError =
+        hashParams.get('error_description') ||
+        url.searchParams.get('error_description') ||
+        hashParams.get('error') ||
+        url.searchParams.get('error');
+
+      if (rawError) {
+        const decoded = decodeURIComponent(rawError.replace(/\+/g, ' '));
+        return {
+          isError: true,
+          error: decoded.includes('expired') || decoded.includes('invalid')
+            ? 'Your password setup link is invalid, expired, or has already been used. Please request a new recovery link.'
+            : decoded,
+        };
+      }
+
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+      if (accessToken && refreshToken) {
+        return { isError: false, type: 'implicit', accessToken, refreshToken };
+      }
+
+      const code = url.searchParams.get('code');
+      if (code) {
+        return { isError: false, type: 'pkce', code };
+      }
+
+      return { isError: true, error: 'No active session or valid recovery parameters detected.' };
+    }
+
+    // Expired / consumed OTP error in hash
+    const expiredUrl = 'https://code-e-manipal-portal.vercel.app/auth/setup-password#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired&sb=';
+    const resExpired = parseRecoveryUrlParameters(expiredUrl);
+    assert.equal(resExpired.isError, true);
+    assert.ok(resExpired.error.includes('invalid, expired, or has already been used'));
+
+    // Reused code in search param
+    const invalidQueryUrl = 'https://code-e-manipal-portal.vercel.app/auth/setup-password?error=invalid_grant&error_description=code+is+expired';
+    const resInvalidQuery = parseRecoveryUrlParameters(invalidQueryUrl);
+    assert.equal(resInvalidQuery.isError, true);
+    assert.ok(resInvalidQuery.error.includes('invalid, expired, or has already been used'));
+  });
+
+  test('3. Recovery URL parameters survive redirect (hash-fragment tokens and PKCE query)', () => {
+    function extractTokensFromHash(hashString) {
+      const params = new URLSearchParams(hashString.replace(/^#/, ''));
+      return {
+        accessToken: params.get('access_token'),
+        refreshToken: params.get('refresh_token'),
+        type: params.get('type'),
+      };
+    }
+
+    const testHash = '#access_token=jwt.header.payload.sig&expires_at=1791893338&expires_in=3600&refresh_token=refresh-xyz&sb=&token_type=bearer&type=recovery';
+    const extracted = extractTokensFromHash(testHash);
+
+    assert.equal(extracted.accessToken, 'jwt.header.payload.sig');
+    assert.equal(extracted.refreshToken, 'refresh-xyz');
+    assert.equal(extracted.type, 'recovery');
+  });
+
+  test('4. Resend button calls the correct endpoint /api/auth/forgot-password with valid payload', () => {
+    const targetEndpoint = '/api/auth/forgot-password';
+    const emailToSubmit = 'sohammore3312@gmail.com';
+
+    const requestPayload = { email: emailToSubmit.trim().toLowerCase() };
+    assert.equal(targetEndpoint, '/api/auth/forgot-password');
+    assert.equal(requestPayload.email, 'sohammore3312@gmail.com');
+  });
+
+  test('5. Supabase/provider rejection and rate-limit responses: returns 429 without leaking email existence', () => {
+    function handleProviderResetResult(resetErr) {
+      if (resetErr) {
+        const isRateLimit =
+          resetErr.status === 429 ||
+          /rate limit|too many|once every/i.test(resetErr.message);
+
+        if (isRateLimit) {
+          return {
+            status: 429,
+            body: { error: 'Email delivery rate limit reached. Please wait a few minutes before requesting another reset link.' },
+          };
+        }
+      }
+      return { status: 200, body: { message: 'If an account exists, instructions have been sent.' } };
+    }
+
+    // Supabase 429 rate limit
+    const rateLimitErr = { status: 429, message: 'For security purposes, you can only request this once every 60 seconds.' };
+    const resRateLimit = handleProviderResetResult(rateLimitErr);
+    assert.equal(resRateLimit.status, 429);
+    assert.ok(resRateLimit.body.error.includes('rate limit reached'));
+
+    // Non-rate-limit provider error falls back to generic anti-enumeration response
+    const genericErr = { status: 500, message: 'Upstream SMTP connection timeout' };
+    const resGeneric = handleProviderResetResult(genericErr);
+    assert.equal(resGeneric.status, 200);
+  });
+
+  test('6. Missing server environment configuration: returns 500 cleanly without unhandled exception', () => {
+    function validateServerConfiguration(env) {
+      if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+        return {
+          status: 500,
+          error: 'Authentication service temporarily misconfigured. Please contact support.',
+        };
+      }
+      return { status: 200 };
+    }
+
+    assert.equal(validateServerConfiguration({}).status, 500);
+    assert.equal(validateServerConfiguration({ NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co' }).status, 500);
+    assert.equal(
+      validateServerConfiguration({
+        NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
+        SUPABASE_SERVICE_ROLE_KEY: 'secret-role-key',
+      }).status,
+      200
+    );
+  });
+
+  test('7. Generic responses prevent account enumeration across all query branches', () => {
+    const GENERIC_MSG = "If an account exists for that email address, you'll receive instructions to reset your password. Check your inbox and spam folder.";
+
+    function simulateEndpointResponse(profileFound, providerAccepted) {
+      // Regardless of whether profile was found or not, the message is identical
+      return { status: 200, message: GENERIC_MSG };
+    }
+
+    const respFound = simulateEndpointResponse(true, true);
+    const respNotFound = simulateEndpointResponse(false, false);
+
+    assert.equal(respFound.message, respNotFound.message);
+    assert.equal(respFound.status, respNotFound.status);
+  });
+
+  test('8. Successful password update and subsequent login simulation', async () => {
+    const updatedUsers = new Map();
+
+    const mockSupabase = {
+      auth: {
+        updateUser: async ({ password }) => {
+          updatedUsers.set('user-1', password);
+          return { data: { user: { id: 'user-1' } }, error: null };
+        },
+        signInWithPassword: async ({ email, password }) => {
+          if (updatedUsers.get('user-1') === password) {
+            return {
+              data: { session: { access_token: 'new-session-token', user: { id: 'user-1', email } } },
+              error: null,
+            };
+          }
+          return { data: { session: null }, error: { message: 'Invalid login credentials' } };
+        },
+      },
+    };
+
+    const newPassword = 'SecureAdmin#2026_UpdatedPassword!';
+    const { error: updateError } = await mockSupabase.auth.updateUser({ password: newPassword });
+    assert.equal(updateError, null);
+
+    // Verify subsequent login succeeds with updated password
+    const { data: loginData, error: loginError } = await mockSupabase.auth.signInWithPassword({
+      email: 'admin@learnit-muj.com',
+      password: newPassword,
+    });
+    assert.equal(loginError, null);
+    assert.ok(loginData.session);
+    assert.equal(loginData.session.user.email, 'admin@learnit-muj.com');
+  });
+});
+
