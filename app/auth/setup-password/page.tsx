@@ -6,8 +6,6 @@ import Link from "next/link";
 import { Lock, Eye, EyeOff, CheckCircle2, ShieldCheck, ArrowRight, Sparkles, AlertCircle } from "lucide-react";
 import clsx from "clsx";
 import { createClient } from "@/lib/supabase/client";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { BrandLogo } from "@/components/BrandLogo";
 import { SpecularButton } from "@/components/ui/SpecularButton";
 
 export default function SetupPasswordPage() {
@@ -58,38 +56,101 @@ export default function SetupPasswordPage() {
 
     const initAuth = async () => {
       try {
-        // 1. Check for PKCE exchange code in search params (?code=...)
-        if (typeof window !== "undefined") {
-          const urlParams = new URLSearchParams(window.location.search);
-          const code = urlParams.get("code");
-          if (code) {
-            const { data, error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
-            if (!exchangeErr && data.session) {
-              await processSession(data.session);
-              return;
-            }
-          }
+        if (typeof window === "undefined") return;
+
+        const searchParams = new URLSearchParams(window.location.search);
+        let hashParams = new URLSearchParams();
+        if (window.location.hash && window.location.hash.length > 1) {
+          hashParams = new URLSearchParams(window.location.hash.substring(1));
         }
 
-        // 2. Check for active session
-        const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-        if (!sessionErr && sessionData.session) {
-          await processSession(sessionData.session);
+        // 1. Immediately handle explicit provider error in hash or query parameters (e.g. otp_expired)
+        const urlError =
+          hashParams.get("error_description") ||
+          searchParams.get("error_description") ||
+          hashParams.get("error") ||
+          searchParams.get("error");
+
+        if (urlError) {
+          const decodedError = decodeURIComponent(urlError.replace(/\+/g, " "));
+          setError(
+            decodedError.includes("expired") || decodedError.includes("invalid")
+              ? "Your password setup link is invalid, expired, or has already been used. Please request a new recovery link."
+              : decodedError
+          );
+          setSessionChecking(false);
           return;
         }
 
-        // 3. Fallback: Check hash fragment for implicit flow (#access_token=...)
-        if (typeof window !== "undefined" && window.location.hash.includes("access_token")) {
-          // Allow Supabase SDK to parse hash fragment
-          const { data: authData } = await supabase.auth.getUser();
-          if (authData?.user) {
-            const { data: currentSession } = await supabase.auth.getSession();
-            await processSession(currentSession?.session || { user: authData.user });
+        // 2. Handle implicit flow tokens in hash (#access_token=...&refresh_token=...)
+        // Bypasses @supabase/ssr flowType mismatch by directly establishing session with tokens
+        const accessTokenFromHash = hashParams.get("access_token");
+        const refreshTokenFromHash = hashParams.get("refresh_token");
+
+        if (accessTokenFromHash && refreshTokenFromHash) {
+          try {
+            const { data: setSessionData, error: setSessionErr } = await supabase.auth.setSession({
+              access_token: accessTokenFromHash,
+              refresh_token: refreshTokenFromHash,
+            });
+
+            if (!setSessionErr && setSessionData?.session) {
+              // Strip sensitive tokens from the browser URL address bar
+              window.history.replaceState(null, "", window.location.pathname);
+              await processSession(setSessionData.session);
+              return;
+            } else if (setSessionErr) {
+              setError("Your password setup link is invalid, expired, or has already been used. Please request a new recovery link.");
+              setSessionChecking(false);
+              return;
+            }
+          } catch (_) {
+            // Fall through to additional session discovery methods
+          }
+        }
+
+        // 3. Handle PKCE authorization code in search parameters (?code=...)
+        const code = searchParams.get("code");
+        if (code) {
+          const { data: exchangeData, error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
+          if (!exchangeErr && exchangeData?.session) {
+            window.history.replaceState(null, "", window.location.pathname);
+            await processSession(exchangeData.session);
+            return;
+          } else if (exchangeErr) {
+            setError("Your password setup link is invalid, expired, or has already been used. Please request a new recovery link.");
+            setSessionChecking(false);
             return;
           }
         }
 
-        // Delay slightly before declaring token invalid to allow SDK background recovery
+        // 4. Handle email OTP token hash in search parameters (?token_hash=...&type=recovery)
+        const tokenHash = searchParams.get("token_hash");
+        const tokenType = searchParams.get("type");
+        if (tokenHash && (tokenType === "recovery" || !tokenType)) {
+          const { data: otpData, error: otpErr } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: "recovery",
+          });
+          if (!otpErr && otpData?.session) {
+            window.history.replaceState(null, "", window.location.pathname);
+            await processSession(otpData.session);
+            return;
+          } else if (otpErr) {
+            setError("Your password setup link is invalid, expired, or has already been used. Please request a new recovery link.");
+            setSessionChecking(false);
+            return;
+          }
+        }
+
+        // 5. Check for active session in client storage
+        const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+        if (!sessionErr && sessionData?.session) {
+          await processSession(sessionData.session);
+          return;
+        }
+
+        // Delay slightly before declaring token invalid to allow SDK background events
         setTimeout(async () => {
           if (!resolvedRef.current && isMounted) {
             const { data: retrySession } = await supabase.auth.getSession();
@@ -100,7 +161,7 @@ export default function SetupPasswordPage() {
               setSessionChecking(false);
             }
           }
-        }, 1200);
+        }, 800);
 
       } catch (err: any) {
         if (isMounted) {
@@ -208,33 +269,62 @@ export default function SetupPasswordPage() {
 
   if (sessionChecking) {
     return (
-      <div className="min-h-svh flex items-center justify-center bg-background text-muted-foreground text-sm">
-        Verifying secure recovery session...
+      <div className="relative min-h-[calc(100svh-6rem)] w-full flex items-center justify-center px-4 py-8 sm:px-6">
+        {/* Full-Page Background: Jaipur Heritage Architectural Entrance */}
+        <div
+          className="fixed inset-0 z-0 pointer-events-none overflow-hidden select-none bg-cover bg-center bg-no-repeat bg-[url('/images/heritage/light/14-city-palace-ornate-hall.webp')] dark:bg-[url('/images/heritage/dark/03-sheesh-mahal-corridor.webp')] opacity-80 dark:opacity-45 transition-opacity duration-700"
+          style={{
+            backgroundSize: "cover",
+            backgroundPosition: "center center",
+          }}
+          aria-hidden="true"
+        />
+
+        {/* Atmospheric Theme-Adaptive Overlay (Warm Cream in Light, Neutral Charcoal in Dark) */}
+        <div
+          className="fixed inset-0 z-0 pointer-events-none transition-colors duration-500 bg-gradient-to-b from-background/75 via-background/88 to-background/95 dark:from-background/80 dark:via-background/92 dark:to-background/98"
+          aria-hidden="true"
+        />
+
+        <div className="relative z-10 w-full max-w-[500px] rounded-2xl border border-border/80 border-t-2 border-t-primary bg-card/95 text-card-foreground p-8 shadow-xl text-center">
+          <div className="mx-auto mb-3.5 h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm font-medium text-muted-foreground">Verifying secure recovery session...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-svh overflow-hidden bg-transparent">
-      {/* Top Bar with Brand & Theme Toggle */}
-      <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between px-4 py-4 sm:px-6">
-        <BrandLogo size="md" subtitle="Security & Account Onboarding" />
-        <ThemeToggle />
-      </div>
+    <div className="relative min-h-[calc(100svh-6rem)] w-full flex items-center justify-center px-4 py-8 sm:px-6">
+      {/* Full-Page Background: Jaipur Heritage Architectural Entrance */}
+      <div
+        className="fixed inset-0 z-0 pointer-events-none overflow-hidden select-none bg-cover bg-center bg-no-repeat bg-[url('/images/heritage/light/14-city-palace-ornate-hall.webp')] dark:bg-[url('/images/heritage/dark/03-sheesh-mahal-corridor.webp')] opacity-80 dark:opacity-45 transition-opacity duration-700"
+        style={{
+          backgroundSize: "cover",
+          backgroundPosition: "center center",
+        }}
+        aria-hidden="true"
+      />
 
-      {/* Main Setup Viewport */}
-      <div className="relative z-10 flex min-h-svh w-full items-center justify-center px-4 py-24 sm:px-8">
+      {/* Atmospheric Theme-Adaptive Overlay (Warm Cream in Light, Neutral Charcoal in Dark) */}
+      <div
+        className="fixed inset-0 z-0 pointer-events-none transition-colors duration-500 bg-gradient-to-b from-background/75 via-background/88 to-background/95 dark:from-background/80 dark:via-background/92 dark:to-background/98"
+        aria-hidden="true"
+      />
+
+      {/* Centered Authentication Card */}
+      <div className="relative z-10 w-full max-w-[500px]">
         <div
           className={clsx(
-            "w-full max-w-[480px] border border-border border-l-4 border-l-primary bg-surface-elevated text-card-foreground p-6 shadow-2xl transition-all duration-200 animate-entrance sm:p-9 rounded-2xl",
+            "w-full rounded-2xl border border-border/80 border-t-2 border-t-primary bg-card/95 text-card-foreground p-6 shadow-xl shadow-black/5 dark:shadow-black/30 backdrop-blur-sm transition-all duration-200 animate-entrance sm:p-8",
             shake && "animate-shake"
           )}
         >
-          {/* Header */}
+          {/* Card Header */}
           <div className="mb-6 text-left">
-            <div className="mb-3 inline-flex items-center gap-2 border-b border-secondary/50 pb-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-secondary">
-              <Sparkles size={13} />
-              <span>Code-e-Manipal · Secure Password Setup</span>
+            <div className="mb-2.5 inline-flex items-center gap-1.5 border-b border-secondary/40 pb-1 text-[11px] font-bold uppercase tracking-[0.16em] text-secondary">
+              <Sparkles size={12} className="text-secondary" />
+              <span>Code-e-Manipal · Account Security</span>
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
               Set Your Password
@@ -259,27 +349,33 @@ export default function SetupPasswordPage() {
             </div>
           ) : error && !userEmail ? (
             /* Expired / Invalid Token Banner */
-            <div className="p-5 rounded-xl bg-destructive/15 border border-destructive/30 text-left">
-              <div className="flex items-start gap-3">
-                <AlertCircle size={20} className="text-destructive shrink-0 mt-0.5" />
-                <div>
-                  <h3 className="text-sm font-bold text-destructive">Link Inactive or Expired</h3>
-                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{error}</p>
-                  <div className="mt-4 flex items-center gap-3">
-                    <Link
-                      href="/auth/forgot-password"
-                      className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold cursor-pointer transition-colors"
-                    >
-                      Request New Reset Link
-                    </Link>
-                    <Link
-                      href="/login"
-                      className="px-4 py-2 rounded-lg bg-background hover:bg-accent border border-border text-foreground text-xs font-semibold cursor-pointer transition-colors"
-                    >
-                      Return to Login
-                    </Link>
+            <div className="space-y-6 animate-entrance">
+              <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-5 text-left">
+                <div className="flex items-start gap-3.5">
+                  <div className="rounded-lg bg-destructive/15 p-2 text-destructive shrink-0 mt-0.5">
+                    <AlertCircle size={20} />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-bold text-destructive">Link Inactive or Expired</h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{error}</p>
                   </div>
                 </div>
+              </div>
+
+              {/* Action Buttons: Horizontal on tablet/desktop, stacked on mobile */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1">
+                <Link
+                  href={userEmail ? `/auth/forgot-password?email=${encodeURIComponent(userEmail)}` : "/auth/forgot-password"}
+                  className="flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold cursor-pointer transition-colors shadow-sm text-center"
+                >
+                  Request New Reset Link
+                </Link>
+                <Link
+                  href="/login"
+                  className="flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-surface hover:bg-accent border border-border text-foreground text-xs font-semibold cursor-pointer transition-colors text-center"
+                >
+                  Return to Login
+                </Link>
               </div>
             </div>
           ) : (
