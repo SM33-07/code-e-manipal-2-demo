@@ -1037,7 +1037,7 @@ export default function AdminUsersPage() {
 
             <form onSubmit={handleSubmitInaccessibleRecovery} className="space-y-4 text-xs">
               <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 leading-relaxed text-[11px]">
-                <strong>Governance Rule:</strong> Verify the participant's physical identity or registered credentials via in-person check or verified institutional contact. Do not change emails without verified proof.
+                <strong>Governance Rule:</strong> Verify the participant&apos;s physical identity or registered credentials via in-person check or verified institutional contact. Do not change emails without verified proof.
               </div>
 
               <div>

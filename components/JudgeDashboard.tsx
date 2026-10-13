@@ -492,7 +492,7 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
                   Presentation & Documentation
                 </h3>
                 <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Review the quality of technical documentation, README setup instructions, live prototype walkthrough, and clarity of the team's demonstration.
+                  Review the quality of technical documentation, README setup instructions, live prototype walkthrough, and clarity of the team&apos;s demonstration.
                 </p>
               </div>
             </div>

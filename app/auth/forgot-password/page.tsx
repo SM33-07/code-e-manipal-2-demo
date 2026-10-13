@@ -121,7 +121,7 @@ export default function ForgotPasswordPage() {
               </div>
 
               <div className="p-3.5 rounded-xl bg-muted/40 border border-border text-[11px] text-muted-foreground text-center leading-relaxed">
-                Can't access your registered email? Contact your team leader or the event Help Desk for verified identity assistance.
+                Can&apos;t access your registered email? Contact your team leader or the event Help Desk for verified identity assistance.
               </div>
 
               {/* Action Buttons: Responsive row on sm+, stacked on mobile */}

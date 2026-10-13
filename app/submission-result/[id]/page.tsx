@@ -551,7 +551,7 @@ export default function SubmissionResultPage() {
                               <span className="text-[10px] text-muted-foreground font-mono">Verified Evaluator</span>
                             </div>
                             <p className="text-xs md:text-sm text-foreground/80 leading-relaxed italic">
-                              "{review.feedback || "No verbal feedback provided, scores locked."}"
+                              &quot;{review.feedback || "No verbal feedback provided, scores locked."}&quot;
                             </p>
                           </div>
                         </div>
