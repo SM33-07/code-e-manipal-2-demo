@@ -14,6 +14,10 @@ export interface Profile {
   force_logout_before?: string | null;
   created_at: string;
   updated_at: string;
+  team_id?: string | null;
+  team_name?: string | null;
+  registration_team_id?: string | null;
+  team_member_role?: TeamMemberRole | null;
 }
 
 export interface Team {

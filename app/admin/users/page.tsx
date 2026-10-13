@@ -10,6 +10,10 @@ interface Profile {
   role: 'admin' | 'judge' | 'participant';
   identifier?: string;
   login_id?: string | null;
+  team_id?: string | null;
+  team_name?: string | null;
+  registration_team_id?: string | null;
+  team_member_role?: string | null;
   is_disabled: boolean;
   force_logout_before?: string;
   created_at: string;
@@ -44,6 +48,12 @@ export default function AdminUsersPage() {
   const [resetPasswordResult, setResetPasswordResult] = useState<{ password: string; user: Profile } | null>(null);
   const [isResetting, setIsResetting] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [sendingRecoveryId, setSendingRecoveryId] = useState<string | null>(null);
+  const [showInaccessibleModal, setShowInaccessibleModal] = useState(false);
+  const [inaccessibleTarget, setInaccessibleTarget] = useState<Profile | null>(null);
+  const [replacementEmail, setReplacementEmail] = useState('');
+  const [recoveryReason, setRecoveryReason] = useState('');
+  const [isInaccessibleSubmitting, setIsInaccessibleSubmitting] = useState(false);
 
   // Bulk Generator State
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -137,6 +147,58 @@ export default function AdminUsersPage() {
       setError(err.message);
     } finally {
       setIsLoggingOut(false);
+    }
+  };
+
+  const handleSendRecovery = async (user: Profile) => {
+    try {
+      setSendingRecoveryId(user.id);
+      setError(null);
+      const res = await fetch(`/api/admin/users/${user.id}/send-recovery`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to dispatch recovery link');
+      setSuccessMsg(`Password reset link dispatched to ${user.email}.`);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSendingRecoveryId(null);
+    }
+  };
+
+  const handleOpenInaccessibleRecovery = (user: Profile) => {
+    setInaccessibleTarget(user);
+    setReplacementEmail('');
+    setRecoveryReason('');
+    setShowInaccessibleModal(true);
+  };
+
+  const handleSubmitInaccessibleRecovery = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inaccessibleTarget) return;
+
+    try {
+      setIsInaccessibleSubmitting(true);
+      setError(null);
+      const res = await fetch(`/api/admin/users/${inaccessibleTarget.id}/inaccessible-email-recovery`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          replacement_email: replacementEmail,
+          reason: recoveryReason,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to initiate recovery');
+
+      setSuccessMsg(data.message || `Account email updated and recovery dispatched.`);
+      setShowInaccessibleModal(false);
+      fetchUsers();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsInaccessibleSubmitting(false);
     }
   };
 
@@ -315,7 +377,11 @@ export default function AdminUsersPage() {
       searchQuery === '' ||
       p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.identifier?.toLowerCase().includes(searchQuery.toLowerCase());
+      p.identifier?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.login_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.team_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.registration_team_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.team_id?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesRole && matchesStatus && matchesSearch;
   });
 
@@ -477,6 +543,7 @@ export default function AdminUsersPage() {
               <th className="px-4 py-3.5">User</th>
               <th className="px-4 py-3.5">Role</th>
               <th className="px-4 py-3.5">Identifier / Badge</th>
+              <th className="px-4 py-3.5">Team Association</th>
               <th className="px-4 py-3.5">Status</th>
               <th className="px-4 py-3.5 text-right">Actions</th>
             </tr>
@@ -484,13 +551,13 @@ export default function AdminUsersPage() {
           <tbody className="divide-y divide-border">
             {loading ? (
               <tr>
-                <td colSpan={5} className="p-8 text-center text-muted-foreground font-medium">
+                <td colSpan={6} className="p-8 text-center text-muted-foreground font-medium">
                   Loading users...
                 </td>
               </tr>
             ) : filteredProfiles.length === 0 ? (
               <tr>
-                <td colSpan={5} className="p-8 text-center text-muted-foreground font-medium">
+                <td colSpan={6} className="p-8 text-center text-muted-foreground font-medium">
                   No users found matching filters.
                 </td>
               </tr>
@@ -527,6 +594,38 @@ export default function AdminUsersPage() {
                     )}
                   </td>
                   <td className="px-4 py-3">
+                    {user.role === 'admin' || user.role === 'judge' ? (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    ) : user.team_id ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-semibold text-xs text-foreground">
+                            {user.team_name || 'Team'}
+                          </span>
+                          {user.team_member_role === 'leader' && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                              Leader
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-[11px] font-mono text-muted-foreground">
+                          {user.registration_team_id && (
+                            <span title="Registration Team ID / Invite Code">
+                              Reg: <strong className="text-foreground">{user.registration_team_id}</strong>
+                            </span>
+                          )}
+                          <span title="Canonical Team ID">
+                            ID: {user.team_id.slice(0, 8)}…
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                        Unassigned
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
                     <span
                       className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${
                         user.is_disabled
@@ -538,7 +637,26 @@ export default function AdminUsersPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
+                    <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => handleSendRecovery(user)}
+                        disabled={sendingRecoveryId === user.id}
+                        className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+                        title="Dispatch official password reset link to user's registered email"
+                      >
+                        {sendingRecoveryId === user.id ? 'Sending…' : 'Send Link'}
+                      </button>
+                      {user.role === 'participant' && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenInaccessibleRecovery(user)}
+                          className="px-2.5 py-1 text-xs font-medium rounded-lg bg-secondary/10 hover:bg-secondary/20 text-secondary border border-secondary/30 transition-colors cursor-pointer shadow-xs"
+                          title="Verified identity fallback for participant with lost email access"
+                        >
+                          Email Help
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => handleResetPassword(user)}
@@ -891,6 +1009,94 @@ export default function AdminUsersPage() {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Inaccessible Email Recovery Modal */}
+      {showInaccessibleModal && inaccessibleTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-entrance">
+          <div className="bg-card border border-border rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl text-foreground">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div>
+                <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                  <span>🔐 Inaccessible Email Recovery (Participant)</span>
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Target: <strong className="text-foreground">{inaccessibleTarget.name}</strong> ({inaccessibleTarget.identifier || inaccessibleTarget.email})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowInaccessibleModal(false)}
+                className="text-muted-foreground hover:text-foreground text-sm font-bold p-1 rounded-lg hover:bg-muted cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitInaccessibleRecovery} className="space-y-4 text-xs">
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 leading-relaxed text-[11px]">
+                <strong>Governance Rule:</strong> Verify the participant's physical identity or registered credentials via in-person check or verified institutional contact. Do not change emails without verified proof.
+              </div>
+
+              <div>
+                <label className="font-semibold text-muted-foreground block mb-1">Current Registered Email</label>
+                <input
+                  type="text"
+                  readOnly
+                  disabled
+                  value={inaccessibleTarget.email}
+                  className="w-full px-3 py-2 rounded-xl bg-muted border border-border text-muted-foreground cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-foreground block mb-1">
+                  Verified Replacement Email <span className="text-destructive">*</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="e.g. verified.replacement@domain.com"
+                  value={replacementEmail}
+                  onChange={(e) => setReplacementEmail(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-foreground block mb-1">
+                  Verification Reason & Audit Notes (min 10 chars) <span className="text-destructive">*</span>
+                </label>
+                <textarea
+                  required
+                  minLength={10}
+                  rows={3}
+                  placeholder="e.g. In-person verification via Student ID card at Help Desk with Team Leader confirmation."
+                  value={recoveryReason}
+                  onChange={(e) => setRecoveryReason(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-border flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowInaccessibleModal(false)}
+                  className="px-4 py-2 rounded-xl bg-muted hover:bg-accent text-foreground border border-border font-medium transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isInaccessibleSubmitting || !replacementEmail || recoveryReason.length < 10}
+                  className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {isInaccessibleSubmitting ? 'Updating & Dispatching…' : 'Update Email & Send Reset Link'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

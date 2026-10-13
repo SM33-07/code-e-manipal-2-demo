@@ -1,0 +1,16 @@
+{
+  "judges": [
+    {
+      "name": "JUDGE_NAME_1",
+      "email": "JUDGE_EMAIL_1"
+    },
+    {
+      "name": "JUDGE_NAME_2",
+      "email": "JUDGE_EMAIL_2"
+    },
+    {
+      "name": "JUDGE_NAME_3",
+      "email": "JUDGE_EMAIL_3"
+    }
+  ]
+}

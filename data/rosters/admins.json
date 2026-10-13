@@ -1,0 +1,25 @@
+{
+  "admins": [
+    {
+      "name": "Abhinav",
+      "role": "admin",
+      "target_identifier": "ADMIN-02",
+      "proposed_login_id": "abhinav",
+      "email": "abhinav.ong@gmail.com"
+    },
+    {
+      "name": "Yash",
+      "role": "admin",
+      "target_identifier": "ADMIN-03",
+      "proposed_login_id": "yash",
+      "email": "yashsrivastava3745@gmail.com"
+    },
+    {
+      "name": "Soham",
+      "role": "admin",
+      "target_identifier": "ADMIN-04",
+      "proposed_login_id": "soham",
+      "email": "sohammore3312@gmail.com"
+    }
+  ]
+}

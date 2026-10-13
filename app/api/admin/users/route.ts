@@ -52,7 +52,7 @@ export const GET = withAuth(async (req) => {
         (p) =>
           p.name?.toLowerCase().includes(search) ||
           p.email?.toLowerCase().includes(search) ||
-          p.identifier?.toLowerCase().includes(search)
+          p.identifier?.toLowerCase().includes(search) || p.login_id?.toLowerCase().includes(search) || p.team_name?.toLowerCase().includes(search) || p.registration_team_id?.toLowerCase().includes(search) || p.team_id?.toLowerCase().includes(search)
       );
     }
 
