@@ -110,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.auth.setSession({ access_token: session.access_token, refresh_token: session.refresh_token })
     if (error || !data.user) throw new Error(error?.message || "Unable to establish a secure session.")
 
-    const hydrated = await hydrateProfile(data.user)
+    const hydrated = await hydrateProfile(data.user, session.access_token)
     return { user: hydrated.user, role: hydrated.role }
   }
 
