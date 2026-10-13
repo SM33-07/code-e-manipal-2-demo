@@ -57,7 +57,7 @@ export const POST = withAuth(async (req, { user }) => {
 
     // ── Join via invite code ──────────────────────────────────
     if (action === 'join') {
-      const invite_code = sanitizeString(body.invite_code, 20)?.toLowerCase();
+      const invite_code = sanitizeString(body.invite_code, 20)?.trim();
       if (!invite_code) return Errors.BAD_REQUEST('invite_code is required');
 
       try {
@@ -66,6 +66,7 @@ export const POST = withAuth(async (req, { user }) => {
         return successResponse(team, undefined, 201);
       } catch (e: any) {
         if (e.message === 'INVALID_INVITE_CODE') return Errors.BAD_REQUEST('Invalid invite code');
+        if (e.message === 'AMBIGUOUS_INVITE_CODE') return Errors.CONFLICT('Ambiguous invite code. Please contact organizers.');
         if (e.message === 'ALREADY_IN_TEAM')    return Errors.CONFLICT('Already in this team');
         if (e.message === 'TEAM_FULL')          return Errors.BAD_REQUEST('This team is full');
         if (e.message?.includes('duplicate key')) return Errors.CONFLICT('Already in this team');
