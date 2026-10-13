@@ -1,9 +1,32 @@
 import pg from 'pg';
 
-const supabasePgUrl = 'postgres://postgres.ggmwribwynonpsvsmpyz:StagingPassword2026!%23@aws-0-ap-south-1.pooler.supabase.com:6543/postgres';
+const stagingDatabaseUrl = process.env.STAGING_DATABASE_URL;
+
+if (!stagingDatabaseUrl) {
+  console.error('❌ Configuration error: STAGING_DATABASE_URL environment variable is required.');
+  process.exit(1);
+}
+
+let parsedUrl;
+try {
+  parsedUrl = new URL(stagingDatabaseUrl);
+} catch {
+  console.error('❌ Configuration error: STAGING_DATABASE_URL must be a valid connection URL.');
+  process.exit(1);
+}
+
+if (!['postgres:', 'postgresql:'].includes(parsedUrl.protocol)) {
+  console.error('❌ Configuration error: STAGING_DATABASE_URL must be a PostgreSQL connection URL.');
+  process.exit(1);
+}
+
+if (process.env.DATABASE_URL && stagingDatabaseUrl === process.env.DATABASE_URL) {
+  console.error('❌ Safety violation: STAGING_DATABASE_URL matches production DATABASE_URL. Operation blocked.');
+  process.exit(1);
+}
 
 const client = new pg.Client({
-  connectionString: supabasePgUrl,
+  connectionString: stagingDatabaseUrl,
   ssl: { rejectUnauthorized: false },
 });
 

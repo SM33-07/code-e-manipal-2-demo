@@ -57,6 +57,8 @@ data/reconciliation-dead-letter.json
 scripts/inspect_*.mjs
 scripts/simulate_*.mjs
 scripts/inspect-staging.mjs
+scripts/db_secret_editor.sql
+supabase/.temp/
 
 
 

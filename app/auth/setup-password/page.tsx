@@ -148,7 +148,7 @@ export default function SetupPasswordPage() {
     setError("");
 
     if (!hasMinLength) {
-      triggerError(`Password must be at least ${minLength} characters in length.`);
+      triggerError(`Password must be at least ${requiredLength} characters in length.`);
       return;
     }
     if (!hasUpper || !hasLower || !hasNumber) {
@@ -294,7 +294,7 @@ export default function SetupPasswordPage() {
               {/* Password field */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-foreground">
-                  New Password <span className="text-muted-foreground">(min {minLength} characters for {userRole})</span>
+                  New Password <span className="text-muted-foreground">(min {requiredLength} characters for {userRole})</span>
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground">
@@ -346,7 +346,7 @@ export default function SetupPasswordPage() {
                 </span>
                 <div className="grid grid-cols-2 gap-1 text-[11px] text-muted-foreground">
                   <span className={clsx(hasMinLength && "text-emerald-600 dark:text-emerald-400 font-semibold")}>
-                    {hasMinLength ? "✓" : "○"} {minLength}+ characters
+                    {hasMinLength ? "✓" : "○"} {requiredLength}+ characters
                   </span>
                   <span className={clsx(hasUpper && "text-emerald-600 dark:text-emerald-400 font-semibold")}>
                     {hasUpper ? "✓" : "○"} Uppercase letter

@@ -4,6 +4,10 @@ import { query } from '@/lib/db';
 import { Errors } from '@/lib/utils/response';
 import { logger } from '@/lib/utils/logger';
 
+import { sanitizeCsvCell } from '@/lib/utils/csv';
+
+export { sanitizeCsvCell };
+
 /**
  * GET /api/admin/audit-logs/export
  * Admin only — Secure CSV export of audit logs.
@@ -40,12 +44,6 @@ export const GET = withAuth(async (req: NextRequest) => {
       params
     );
 
-    const escapeCsv = (str: any) => {
-      if (str === null || str === undefined) return '""';
-      const s = typeof str === 'object' ? JSON.stringify(str) : String(str);
-      return `"${s.replace(/"/g, '""')}"`;
-    };
-
     const headers = [
       'Event ID',
       'Timestamp (UTC)',
@@ -58,19 +56,19 @@ export const GET = withAuth(async (req: NextRequest) => {
       'Details Summary',
     ];
 
-    const lines = [headers.join(',')];
+    const lines = [headers.map(sanitizeCsvCell).join(',')];
 
     for (const r of rows) {
       lines.push([
-        escapeCsv(r.id),
-        escapeCsv(r.created_at),
-        escapeCsv(r.action),
-        escapeCsv(r.actor_name || 'System / Unregistered'),
-        escapeCsv(r.actor_email || '—'),
-        escapeCsv(r.actor_role || '—'),
-        escapeCsv(r.target_table || '—'),
-        escapeCsv(r.target_id || '—'),
-        escapeCsv(r.details || {}),
+        sanitizeCsvCell(r.id),
+        sanitizeCsvCell(r.created_at),
+        sanitizeCsvCell(r.action),
+        sanitizeCsvCell(r.actor_name || 'System / Unregistered'),
+        sanitizeCsvCell(r.actor_email || '—'),
+        sanitizeCsvCell(r.actor_role || '—'),
+        sanitizeCsvCell(r.target_table || '—'),
+        sanitizeCsvCell(r.target_id || '—'),
+        sanitizeCsvCell(r.details || {}),
       ].join(','));
     }
 
