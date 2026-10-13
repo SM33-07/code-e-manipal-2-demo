@@ -40,15 +40,24 @@ export async function updateProfile(
  * Fetch all profiles, optionally filtering by role
  */
 export async function getAllProfiles(role?: string): Promise<Profile[]> {
-  let sql = 'SELECT * FROM public.profiles';
+  let sql = `
+    SELECT
+      p.*,
+      t.name AS team_name,
+      t.invite_code AS registration_team_id,
+      tm.role AS team_member_role
+    FROM public.profiles p
+    LEFT JOIN public.teams t ON p.team_id = t.id
+    LEFT JOIN public.team_members tm ON p.id = tm.user_id AND p.team_id = tm.team_id
+  `;
   const params: any[] = [];
 
   if (role) {
-    sql += ' WHERE role = $1';
+    sql += ' WHERE p.role = $1';
     params.push(role);
   }
 
-  sql += ' ORDER BY name ASC';
+  sql += ' ORDER BY p.name ASC';
 
   const { rows } = await query(sql, params);
   return rows as Profile[];
