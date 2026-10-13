@@ -17,6 +17,7 @@ import {
   FileCode,
   Gavel,
   FileQuestion,
+  History,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 
@@ -31,6 +32,7 @@ const sideNav = [
   { label: "Report & Export",   icon: FileText,        href: "/admin/report" },
   { label: "Live Analytics",    icon: BarChart3,       href: "/admin/analytics" },
   { label: "Users & Access",    icon: ShieldAlert,     href: "/admin/users" },
+  { label: "Audit Log",         icon: History,         href: "/admin/audit" },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
