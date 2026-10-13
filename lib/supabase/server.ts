@@ -13,8 +13,14 @@ export const createSupabaseServerClient = cache(async () => {
         getAll() {
           return cookieStore.getAll();
         },
-        setAll() {
-          // ignore in server
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
+          } catch {
+            // Cannot set cookies during Server Component render, ignore
+          }
         },
       },
     }

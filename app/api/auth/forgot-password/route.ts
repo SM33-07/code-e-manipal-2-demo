@@ -43,7 +43,16 @@ export async function POST(req: NextRequest) {
       return Errors.BAD_REQUEST('Please enter a valid email address.');
     }
 
-    // 4. Verify account existence in authoritative profiles
+    // 4. Verify required server configuration
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      logger.error('POST /api/auth/forgot-password: missing required Supabase server configuration');
+      return NextResponse.json(
+        { error: 'Authentication service temporarily misconfigured. Please contact support.' },
+        { status: 500 }
+      );
+    }
+
+    // 5. Verify account existence in authoritative profiles
     const { rows } = await query(
       'SELECT id, role, identifier, is_disabled FROM public.profiles WHERE LOWER(email) = $1 LIMIT 1',
       [email]
@@ -65,7 +74,22 @@ export async function POST(req: NextRequest) {
           logger.warn('Password recovery provider note', {
             emailHash: hashClientIp(email),
             error: resetErr.message,
+            status: (resetErr as any).status,
           });
+
+          // Check if provider returned rate-limiting response (GoTrue 429)
+          const isRateLimit =
+            (resetErr as any).status === 429 ||
+            /rate limit|too many|once every/i.test(resetErr.message);
+
+          if (isRateLimit) {
+            return NextResponse.json(
+              {
+                error: 'Email delivery rate limit reached. Please wait a few minutes before requesting another reset link.',
+              },
+              { status: 429 }
+            );
+          }
         } else {
           // Record truthful audit log
           await query(

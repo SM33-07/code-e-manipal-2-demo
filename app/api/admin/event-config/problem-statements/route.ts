@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { withAuth } from '@/lib/middleware/withAuth';
 import { pool } from '@/lib/db';
 import { successResponse, Errors } from '@/lib/utils/response';
@@ -46,6 +47,12 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     await client.query('COMMIT');
 
     if (!wasPublished) {
+      try {
+        revalidatePath('/problem-statements');
+      } catch (e) {
+        logger.warn('Failed to revalidate /problem-statements', { error: String(e) });
+      }
+
       logAudit({
         userId: user.id,
         action: 'PROBLEM_STATEMENTS_PUBLISHED',

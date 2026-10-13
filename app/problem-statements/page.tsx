@@ -3,8 +3,8 @@ import { Calendar, CheckCircle2, Clock, Lock, Unlock } from "lucide-react";
 import { getEventConfigState } from "@/lib/event/eventConfigHelper";
 import { ProblemStatementsAdminControls } from "./ProblemStatementsAdminControls";
 
-// Publication is an operational server-side state, never a build-time value.
-export const dynamic = "force-dynamic";
+// Publication is cached at the edge and revalidated automatically or on demand when published.
+export const revalidate = 60;
 
 const PROBLEMS = [
   {

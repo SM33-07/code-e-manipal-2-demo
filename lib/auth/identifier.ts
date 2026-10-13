@@ -38,6 +38,24 @@ export function normalizeIdentifier(rawInput: string): NormalizedIdentifier | nu
     return { canonical, role: 'admin' };
   }
 
+  // Flexible normalization for team identifiers (e.g. TEAM001, team001, Team001, TEAM-001)
+  const teamMatch = canonical.match(/^TEAM-?([0-9]{1,3})$/);
+  if (teamMatch && teamMatch[1] !== '000' && teamMatch[1] !== '0') {
+    return { canonical: `TEAM-${teamMatch[1].padStart(3, '0')}`, role: 'participant' };
+  }
+
+  // Flexible normalization for judge badges (e.g. JUDGE01, judge01, JUDGE-01)
+  const judgeMatch = canonical.match(/^JUDGE-?([0-9]{1,2})$/);
+  if (judgeMatch && judgeMatch[1] !== '00' && judgeMatch[1] !== '0') {
+    return { canonical: `JUDGE-${judgeMatch[1].padStart(2, '0')}`, role: 'judge' };
+  }
+
+  // Flexible normalization for admin badges (e.g. ADMIN01, admin01, ADMIN-01)
+  const adminMatch = canonical.match(/^ADMIN-?([0-9]{1,2})$/);
+  if (adminMatch && adminMatch[1] !== '00' && adminMatch[1] !== '0') {
+    return { canonical: `ADMIN-${adminMatch[1].padStart(2, '0')}`, role: 'admin' };
+  }
+
   return null;
 }
 

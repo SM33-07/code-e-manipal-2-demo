@@ -33,15 +33,22 @@ function getApprovedOrigins(): Set<string> {
   origins.add('https://codeemanipal.in');
   origins.add('https://www.codeemanipal.in');
   origins.add('https://portal.codeemanipal.in');
+  origins.add('https://code-e-manipal-portal.vercel.app');
 
   // From environment (e.g., Vercel preview deployments, custom app URLs)
-  const envOrigin = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL;
-  if (envOrigin) {
-    try {
-      const url = new URL(envOrigin);
-      origins.add(url.origin);
-    } catch {
-      // Ignore malformed env
+  const envOrigins = [
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.APP_URL,
+    process.env.NEXT_PUBLIC_SITE_URL,
+  ];
+  for (const envOrigin of envOrigins) {
+    if (envOrigin) {
+      try {
+        const url = new URL(envOrigin);
+        origins.add(url.origin);
+      } catch {
+        // Ignore malformed env
+      }
     }
   }
 

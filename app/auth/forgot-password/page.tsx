@@ -1,11 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Mail, ArrowRight, ArrowLeft, Sparkles, CheckCircle2 } from "lucide-react";
 import clsx from "clsx";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { BrandLogo } from "@/components/BrandLogo";
 import { SpecularButton } from "@/components/ui/SpecularButton";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -16,6 +14,16 @@ export default function ForgotPasswordPage() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [shake, setShake] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const emailParam = params.get("email");
+      if (emailParam) {
+        setEmail(emailParam);
+      }
+    }
+  }, []);
 
   const triggerError = (msg: string) => {
     setError(msg);
@@ -60,59 +68,78 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="relative min-h-svh overflow-hidden bg-transparent">
-      {/* Top Bar with Brand & Theme Toggle */}
-      <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between px-4 py-4 sm:px-6">
-        <BrandLogo size="md" subtitle="Account Recovery" />
-        <ThemeToggle />
-      </div>
+    <div className="relative min-h-[calc(100svh-6rem)] w-full flex items-center justify-center px-4 py-8 sm:px-6">
+      {/* Full-Page Background: Jaipur Heritage Architectural Entrance */}
+      <div
+        className="fixed inset-0 z-0 pointer-events-none overflow-hidden select-none bg-cover bg-center bg-no-repeat bg-[url('/images/heritage/light/14-city-palace-ornate-hall.webp')] dark:bg-[url('/images/heritage/dark/03-sheesh-mahal-corridor.webp')] opacity-80 dark:opacity-45 transition-opacity duration-700"
+        style={{
+          backgroundSize: "cover",
+          backgroundPosition: "center center",
+        }}
+        aria-hidden="true"
+      />
 
-      {/* Main Viewport */}
-      <div className="relative z-10 flex min-h-svh w-full items-center justify-center px-4 py-24 sm:px-8">
+      {/* Atmospheric Theme-Adaptive Overlay (Warm Cream in Light, Neutral Charcoal in Dark) */}
+      <div
+        className="fixed inset-0 z-0 pointer-events-none transition-colors duration-500 bg-gradient-to-b from-background/75 via-background/88 to-background/95 dark:from-background/80 dark:via-background/92 dark:to-background/98"
+        aria-hidden="true"
+      />
+
+      {/* Centered Authentication Card */}
+      <div className="relative z-10 w-full max-w-[500px]">
         <div
           className={clsx(
-            "w-full max-w-[440px] border border-border border-l-4 border-l-primary bg-surface-elevated text-card-foreground p-6 shadow-2xl transition-all duration-200 animate-entrance sm:p-9 rounded-2xl",
+            "w-full rounded-2xl border border-border/80 border-t-2 border-t-primary bg-card/95 text-card-foreground p-6 shadow-xl shadow-black/5 dark:shadow-black/30 backdrop-blur-sm transition-all duration-200 animate-entrance sm:p-8",
             shake && "animate-shake"
           )}
         >
-          {/* Header */}
+          {/* Card Header */}
           <div className="mb-6 text-left">
-            <div className="mb-3 inline-flex items-center gap-2 border-b border-secondary/50 pb-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-secondary">
-              <Sparkles size={13} />
-              <span>Code-e-Manipal · Password Recovery</span>
+            <div className="mb-2.5 inline-flex items-center gap-1.5 border-b border-secondary/40 pb-1 text-[11px] font-bold uppercase tracking-[0.16em] text-secondary">
+              <Sparkles size={12} className="text-secondary" />
+              <span>Code-e-Manipal · Account Recovery</span>
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
               Reset Your Password
             </h1>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Enter the email address registered with your participant, judge, or admin account.
+              Enter your registered email address to receive password setup instructions.
             </p>
           </div>
 
           {submitted ? (
             /* Success confirmation card */
-            <div className="space-y-4 animate-entrance">
+            <div className="space-y-5 animate-entrance">
               <div className="p-6 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-center">
-                <CheckCircle2 size={36} className="mx-auto text-emerald-500 mb-2" />
+                <CheckCircle2 size={40} className="mx-auto text-emerald-500 mb-2.5" />
                 <h2 className="text-base font-bold text-emerald-700 dark:text-emerald-300">
                   Instructions Dispatched
                 </h2>
                 <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                  If an account exists for that email address, you'll receive instructions to reset your password. Check your inbox and spam folder.
+                  If an account exists for <strong className="text-foreground">{email}</strong>, you will receive password reset instructions. Please check your inbox and spam folder.
                 </p>
               </div>
 
-              <div className="p-3 rounded-xl bg-muted/30 border border-border text-[11px] text-muted-foreground text-center">
-                Can't access your registered email? Contact your team leader or the event Help Desk for verified identity assistance.
+              <div className="p-3.5 rounded-xl bg-muted/40 border border-border text-[11px] text-muted-foreground text-center leading-relaxed">
+                Can&apos;t access your registered email? Contact your team leader or the event Help Desk for verified identity assistance.
               </div>
 
-              <Link
-                href="/login"
-                className="mt-4 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-card hover:bg-accent border border-border text-foreground text-xs font-semibold transition-colors"
-              >
-                <ArrowLeft size={14} />
-                <span>Return to Login</span>
-              </Link>
+              {/* Action Buttons: Responsive row on sm+, stacked on mobile */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1">
+                <Link
+                  href="/login"
+                  className="flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold cursor-pointer transition-colors shadow-sm text-center"
+                >
+                  Return to Login
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => { setSubmitted(false); }}
+                  className="flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-surface hover:bg-accent border border-border text-foreground text-xs font-semibold cursor-pointer transition-colors text-center"
+                >
+                  Try Another Email
+                </button>
+              </div>
             </div>
           ) : (
             /* Recovery Request Form */
@@ -123,12 +150,14 @@ export default function ForgotPasswordPage() {
                 </div>
               )}
 
-              <div className="space-y-1.5 text-left">
+              <div className="flex flex-col gap-1.5 text-left">
                 <label className="text-xs font-semibold text-foreground">
                   Registered Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground">
+                    <Mail size={15} />
+                  </div>
                   <input
                     type="email"
                     autoComplete="email"
@@ -137,23 +166,20 @@ export default function ForgotPasswordPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     disabled={loading}
-                    className="w-full h-11 pl-10 pr-4 text-sm bg-input border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all disabled:opacity-60"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-60"
                   />
                 </div>
               </div>
 
-              <div className="mt-2 w-full">
-                <SpecularButton
-                  type="submit"
-                  disabled={loading || !email.trim()}
-                  variant="primary"
-                  size="md"
-                  className="w-full h-11"
-                >
-                  <span>{loading ? "Sending Instructions..." : "Send Reset Instructions"}</span>
-                  {!loading && <ArrowRight size={16} />}
-                </SpecularButton>
-              </div>
+              <SpecularButton
+                type="submit"
+                variant="primary"
+                disabled={loading || !email.trim()}
+                className="w-full mt-2 py-3 cursor-pointer text-sm font-semibold flex items-center justify-center gap-2"
+              >
+                <span>{loading ? "Sending Instructions..." : "Send Reset Instructions"}</span>
+                {!loading && <ArrowRight size={15} />}
+              </SpecularButton>
 
               <div className="pt-2 flex items-center justify-between text-xs text-muted-foreground">
                 <Link

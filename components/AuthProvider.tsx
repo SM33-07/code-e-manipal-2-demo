@@ -27,8 +27,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState("participant")
   const [loading, setLoading] = useState(true)
 
-  const hydrateProfile = useCallback(async (fallbackUser: any) => {
-    const response = await fetch("/api/auth/me", { cache: "no-store" })
+  const hydrateProfile = useCallback(async (fallbackUser: any, token?: string | null) => {
+    const headers: Record<string, string> = {}
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`
+    }
+
+    const response = await fetch("/api/auth/me", { headers, cache: "no-store" })
     if (!response.ok) throw new Error("Your session is no longer available.")
 
     const payload = (await response.json()) as ProfileResponse
@@ -61,9 +66,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
       try {
-        await hydrateProfile(data.session.user)
+        await hydrateProfile(data.session.user, data.session.access_token)
       } catch {
-        await supabase.auth.signOut()
+        // Do NOT destroy sessions if the user is on an authentication onboarding/recovery route
+        const isAuthRoute =
+          typeof window !== "undefined" && window.location.pathname.startsWith("/auth/")
+        if (!isAuthRoute) {
+          await supabase.auth.signOut()
+        }
         if (active) {
           setUser(null)
           setRole("participant")
@@ -100,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.auth.setSession({ access_token: session.access_token, refresh_token: session.refresh_token })
     if (error || !data.user) throw new Error(error?.message || "Unable to establish a secure session.")
 
-    const hydrated = await hydrateProfile(data.user)
+    const hydrated = await hydrateProfile(data.user, session.access_token)
     return { user: hydrated.user, role: hydrated.role }
   }
 

@@ -83,13 +83,14 @@ export async function joinTeamByInviteCode(inviteCode: string, userId: string): 
   try {
     await client.query('BEGIN');
 
-    // Serialize joins for this team before checking capacity.
+    // Serialize joins for this team before checking capacity (case-insensitive invite code).
     const teamRes = await client.query(
-      'SELECT id FROM public.teams WHERE invite_code = $1 FOR UPDATE',
+      'SELECT id FROM public.teams WHERE LOWER(invite_code) = LOWER($1) FOR UPDATE',
       [inviteCode]
     );
+    if (teamRes.rows.length === 0) throw new Error('INVALID_INVITE_CODE');
+    if (teamRes.rows.length > 1) throw new Error('AMBIGUOUS_INVITE_CODE');
     const team = teamRes.rows[0];
-    if (!team) throw new Error('INVALID_INVITE_CODE');
     teamId = team.id;
 
     const membersRes = await client.query(
