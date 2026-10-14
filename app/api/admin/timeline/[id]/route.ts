@@ -27,6 +27,8 @@ export const PUT = withAuth(async (req: NextRequest, { user, params }) => {
     time_range,
     start_time,
     end_time,
+    start_timestamp,
+    end_timestamp,
     venue,
     description,
     card_position,
@@ -34,6 +36,10 @@ export const PUT = withAuth(async (req: NextRequest, { user, params }) => {
     event_type,
     display_order,
     is_published,
+    opens_submissions,
+    closes_submissions,
+    reminders_enabled,
+    reminder_offsets_minutes,
   } = body;
 
   const client = await pool.connect();
@@ -65,8 +71,14 @@ export const PUT = withAuth(async (req: NextRequest, { user, params }) => {
         event_type = COALESCE($10, event_type),
         display_order = COALESCE($11, display_order),
         is_published = COALESCE($12, is_published),
+        start_timestamp = COALESCE($13, start_timestamp),
+        end_timestamp = COALESCE($14, end_timestamp),
+        opens_submissions = COALESCE($15, opens_submissions),
+        closes_submissions = COALESCE($16, closes_submissions),
+        reminders_enabled = COALESCE($17, reminders_enabled),
+        reminder_offsets_minutes = COALESCE($18, reminder_offsets_minutes),
         updated_at = NOW()
-      WHERE id = $13::uuid
+      WHERE id = $19::uuid
       RETURNING *;
     `, [
       title?.trim() || null,
@@ -81,6 +93,12 @@ export const PUT = withAuth(async (req: NextRequest, { user, params }) => {
       event_type || null,
       display_order !== undefined ? display_order : null,
       is_published !== undefined ? is_published : null,
+      start_timestamp ? new Date(start_timestamp) : null,
+      end_timestamp ? new Date(end_timestamp) : null,
+      opens_submissions !== undefined ? opens_submissions : null,
+      closes_submissions !== undefined ? closes_submissions : null,
+      reminders_enabled !== undefined ? reminders_enabled : null,
+      reminder_offsets_minutes !== undefined ? reminder_offsets_minutes : null,
       eventId,
     ]);
 

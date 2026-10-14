@@ -42,6 +42,7 @@ export const PATCH = withAuth(async (req) => {
         return Errors.BAD_REQUEST('submission_frozen boolean is required for global toggle');
       }
       
+      await query('UPDATE public.event_config SET global_freeze = $1, updated_at = NOW() WHERE id = 1', [submission_frozen]);
       await query('UPDATE public.teams SET submission_frozen = $1', [submission_frozen]);
       logger.info('Global submission freeze status updated', { submission_frozen });
       return successResponse({ success: true, global: true, submission_frozen });

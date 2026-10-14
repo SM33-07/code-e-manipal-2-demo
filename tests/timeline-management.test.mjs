@@ -14,23 +14,24 @@ async function runTests() {
   let passed = 0;
 
   try {
-    // Test 1: Timeline events exist and match 9 seed events from PDF
+    // Test 1: Timeline events exist and match 10 seed events from UPDATED TIMELINE.pdf
     const { rows: events } = await pool.query(`
       SELECT * FROM public.timeline_events ORDER BY display_order ASC;
     `);
 
-    assert.strictEqual(events.length, 9, `Expected 9 timeline events matching PDF, found ${events.length}`);
+    assert.strictEqual(events.length, 10, `Expected 10 timeline events matching PDF, found ${events.length}`);
     passed++;
-    console.log(`✅ Test 1: Exact count of 9 events from PDF verified.`);
+    console.log(`✅ Test 1: Exact count of 10 events from PDF verified.`);
 
     // Test 2: Verify Day 1 events match PDF
     const day1 = events.filter(e => e.day_label === 'DAY 1');
     assert.strictEqual(day1.length, 5, 'Expected 5 Day 1 events');
     assert.strictEqual(day1[0].title, 'Registration Open');
     assert.strictEqual(day1[0].time_range, '9:00 AM – 11:00 AM');
+    assert.strictEqual(day1[0].venue, 'AB1');
 
     assert.strictEqual(day1[1].title, 'Opening Ceremony');
-    assert.strictEqual(day1[1].venue, 'TMA Pai');
+    assert.strictEqual(day1[1].venue, 'Vasanti Pai');
 
     assert.strictEqual(day1[2].title, 'Lunch');
     assert.strictEqual(day1[2].venue, 'Old Mess, AB1');
@@ -39,24 +40,28 @@ async function runTests() {
     assert.strictEqual(day1[3].description, 'Problem statement closes at 4:00 PM');
 
     assert.strictEqual(day1[4].title, 'Dinner');
-    assert.strictEqual(day1[4].venue, 'Old Mess');
+    assert.strictEqual(day1[4].venue, 'Old Mess, AB1');
     passed++;
     console.log(`✅ Test 2: Day 1 events match authoritative PDF exactly.`);
 
     // Test 3: Verify Day 2 events match PDF
     const day2 = events.filter(e => e.day_label === 'DAY 2');
-    assert.strictEqual(day2.length, 4, 'Expected 4 Day 2 events');
+    assert.strictEqual(day2.length, 5, 'Expected 5 Day 2 events');
 
     assert.strictEqual(day2[0].title, 'Judging Round 2');
-    assert.strictEqual(day2[0].description, '7:30 AM: results out');
+    assert.strictEqual(day2[0].description, 'Results at 7:30 AM');
 
     assert.strictEqual(day2[1].title, 'Breakfast');
-    assert.strictEqual(day2[1].description, '8:00 AM – 12:00 PM: final presentation prep');
+    assert.strictEqual(day2[1].venue, 'Old Mess, AB1');
 
-    assert.strictEqual(day2[2].title, 'Final Round 3 Judging');
-    assert.strictEqual(day2[2].venue, 'TMA Pai');
+    assert.strictEqual(day2[2].title, 'Lunch');
+    assert.strictEqual(day2[2].venue, 'Old Mess, AB1');
 
-    assert.strictEqual(day2[3].title, 'Result & Closing Ceremony');
+    assert.strictEqual(day2[3].title, 'Final Round 3 Judging');
+    assert.strictEqual(day2[3].venue, 'Vasanti Pai');
+
+    assert.strictEqual(day2[4].title, 'Result & Closing Ceremony');
+    assert.strictEqual(day2[4].venue, 'Vasanti Pai');
     passed++;
     console.log(`✅ Test 3: Day 2 events match authoritative PDF exactly.`);
 
@@ -67,10 +72,6 @@ async function runTests() {
     assert(lunch && projectMaking, 'Lunch and Project Making must exist');
     assert.strictEqual(lunch.time_range, '1:00 PM – 2:30 PM');
     assert.strictEqual(projectMaking.time_range, '2:00 PM – 7:00 PM');
-
-    // Overlap 2: Breakfast (8:00 AM – 9:30 AM) and Presentation prep (8:00 AM – 12:00 PM)
-    const breakfast = day2.find(e => e.title === 'Breakfast');
-    assert(breakfast && breakfast.description.includes('8:00 AM – 12:00 PM'), 'Breakfast prep overlap must exist');
     passed++;
     console.log(`✅ Test 4: Intentional event overlaps preserved as specified.`);
 

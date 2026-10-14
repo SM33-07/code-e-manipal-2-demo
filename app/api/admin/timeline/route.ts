@@ -17,8 +17,10 @@ export const GET = withAuth(async (_req: NextRequest, { user }) => {
 
   const { rows: events } = await pool.query(`
     SELECT id, title, day_label, time_range, start_time, end_time,
-           venue, description, display_order, card_position, status, event_type,
-           is_published, created_at, updated_at
+           start_timestamp, end_timestamp, timezone, venue, description,
+           display_order, card_position, status, event_type, is_published,
+           opens_submissions, closes_submissions, reminders_enabled,
+           reminder_offsets_minutes, created_at, updated_at
     FROM public.timeline_events
     ORDER BY display_order ASC;
   `);

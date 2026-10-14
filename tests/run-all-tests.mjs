@@ -20,6 +20,14 @@ const testFiles = [
   'tests/login-security-enforcement.test.mjs',
   'tests/timeline-management.test.mjs',
   'tests/problem-statement-management.test.mjs',
+  'tests/team-session-limit.test.mjs',
+  'tests/submission-isolation.test.mjs',
+  'tests/canonical-scheduler-operations.test.mjs',
+  'tests/problem-statement-cms.test.mjs',
+  'tests/judge-role-boundaries.test.mjs',
+  'tests/all-three-categories-real-login.test.mjs',
+  'tests/judge-password-reset-by-admin.test.mjs',
+  'tests/problem-statements-catalog-35.test.mjs',
 ];
 
 let totalPassed = 0;
@@ -31,7 +39,13 @@ const envFile = process.env.ENV_FILE || '.env.staging';
 
 for (const f of testFiles) {
   try {
-    const out = execSync(`node --env-file=${envFile} ${f}`, { encoding: 'utf8' });
+    let runner = 'node';
+    if (f.includes('canonical-scheduler') || f.includes('problem-statement-cms')) {
+      runner = 'npx tsx';
+    } else if (f.includes('team-session-limit') || f.includes('submission-isolation') || f.includes('problem-statements-catalog-35')) {
+      runner = 'node --test';
+    }
+    const out = execSync(`${runner} --env-file=${envFile} ${f}`, { encoding: 'utf8' });
     const passMatch = out.match(/pass (\d+)/i) || out.match(/(\d+)\s*\/\s*\d+\s*passed/i) || out.match(/(\d+)\s+passed/i);
     const passes = passMatch ? parseInt(passMatch[1], 10) : 0;
     totalPassed += passes;

@@ -9,7 +9,7 @@ import { toast } from "sonner"
 
 import { motion, AnimatePresence } from "framer-motion"
 import { useState, useEffect } from "react"
-import { Bell, Clock, AlertCircle, Info, X } from "lucide-react"
+import { Bell, Clock, AlertCircle, Info, X, CheckCircle2 } from "lucide-react"
 import { BrandLogo } from "@/components/BrandLogo"
 import { getPortalNavigation, publicNavigation } from "@/lib/navigation/portal"
 
@@ -23,11 +23,16 @@ import {
   MobileNavMenu,
 } from "@/components/ui/resizable-navbar"
 
-const mockNotifications = [
-  { id: 1, type: "time", icon: Clock, title: "Time Remaining", text: "2 hours left for Round 1 submissions. Make sure your repo is public.", time: "Just now" },
-  { id: 2, type: "alert", icon: AlertCircle, title: "Notice", text: "Judging criteria updated for the AI category.", time: "1h ago" },
-  { id: 3, type: "info", icon: Info, title: "Welcome", text: "Welcome to Code-E-Manipal! Hack away.", time: "2h ago" },
-]
+interface LiveNotification {
+  id: string;
+  content: string;
+  type: "info" | "warning" | "urgent" | "success";
+  link_url?: string | null;
+  event_id?: string | null;
+  created_at: string;
+  is_read: boolean;
+  read_at?: string | null;
+}
 
 export default function Navbar({ className, portal = false }: { className?: string; portal?: boolean }) {
   const { role, logout, user, isAuthenticated } = useAuth()
@@ -147,22 +152,120 @@ export default function Navbar({ className, portal = false }: { className?: stri
     return () => clearInterval(ticker);
   }, [timerConfig, team]);
 
-  // Notifications state management
-  const [notifications, setNotifications] = useState(
-    mockNotifications.map((n) => ({ ...n, read: false }))
-  )
-  const [hasUnread, setHasUnread] = useState(true)
+  // Live Notifications state management (Phase 2 Requirement F)
+  const [notifications, setNotifications] = useState<LiveNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [loadingNotifs, setLoadingNotifs] = useState<boolean>(false);
 
-  const handleMarkAllRead = () => {
-    setHasUnread(false)
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
-    toast.success("All notifications marked as read.")
-  }
+  const fetchNotifications = async () => {
+    if (!isAuthenticated) return;
+    try {
+      setLoadingNotifs(true);
+      const res = await fetch("/api/notifications?limit=20");
+      if (res.ok) {
+        const json = await res.json();
+        const items: LiveNotification[] = json.data?.notifications || [];
+        setNotifications(items);
+        setUnreadCount(json.data?.unreadCount || 0);
+      }
+    } catch (err) {
+      // Retain existing state on transient error
+    } finally {
+      setLoadingNotifs(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    fetchNotifications();
+
+    // Controlled polling (15s)
+    const interval = setInterval(fetchNotifications, 15000);
+
+    // Sleep/tab wake-up and network reconnection catch-up
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") fetchNotifications();
+    };
+    const handleOnline = () => fetchNotifications();
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [isAuthenticated]);
+
+  const handleMarkAllRead = async () => {
+    try {
+      setUnreadCount(0);
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      await fetch("/api/notifications/read", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mark_all: true }),
+      });
+      toast.success("All notifications marked as read.");
+    } catch (err) {
+      toast.error("Failed to mark notifications as read.");
+    }
+  };
+
+  const handleNotificationClick = async (notif: LiveNotification) => {
+    if (!notif.is_read) {
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notif.id ? { ...n, is_read: true } : n))
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+      fetch("/api/notifications/read", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ announcement_id: notif.id }),
+      }).catch(() => {});
+    }
+
+    if (notif.link_url) {
+      setNotifsOpen(false);
+      setSheetOpen(false);
+      router.push(notif.link_url);
+    }
+  };
+
+  const formatNotifTime = (iso: string) => {
+    try {
+      const diffMs = Date.now() - new Date(iso).getTime();
+      const mins = Math.floor(diffMs / 60000);
+      if (mins < 1) return "Just now";
+      if (mins < 60) return `${mins}m ago`;
+      const hours = Math.floor(mins / 60);
+      if (hours < 24) return `${hours}h ago`;
+      return `${Math.floor(hours / 24)}d ago`;
+    } catch {
+      return "Recently";
+    }
+  };
+
+  const getNotifIconAndTitle = (type: string) => {
+    switch (type) {
+      case "urgent":
+        return { Icon: AlertCircle, title: "Urgent Alert" };
+      case "warning":
+        return { Icon: Clock, title: "Deadline Notice" };
+      case "success":
+        return { Icon: CheckCircle2, title: "Update" };
+      default:
+        return { Icon: Info, title: "Announcement" };
+    }
+  };
+
+  const hasUnread = unreadCount > 0;
 
   const handleViewAllNotifications = () => {
-    setNotifsOpen(false)
-    setSheetOpen(true)
-  }
+    setNotifsOpen(false);
+    setSheetOpen(true);
+  };
 
   // Close menus when route changes
   useEffect(() => {
@@ -266,23 +369,69 @@ export default function Navbar({ className, portal = false }: { className?: stri
                     </button>
                   </div>
                   <div className="max-h-80 overflow-y-auto">
-                    {notifications.map((notif) => {
-                      const Icon = notif.icon;
-                      return (
-                        <div key={notif.id} className={`px-4 py-3 border-b border-jaipur-gold/10 hover:bg-jaipur-secondary/50 transition-colors cursor-pointer flex gap-3 ${notif.read ? 'opacity-50' : ''}`}>
-                          <div className={`mt-0.5 p-2 rounded-full h-fit ${notif.read ? 'bg-muted text-muted-foreground' : notif.type === 'time' ? 'bg-jaipur-primary/20 text-jaipur-primary' : notif.type === 'alert' ? 'bg-jaipur-pink/20 text-jaipur-pink' : 'bg-jaipur-gold/20 text-jaipur-gold'}`}>
-                            <Icon size={14} />
-                          </div>
-                          <div>
-                            <div className="flex justify-between items-start gap-2">
-                              <h4 className={`text-sm font-medium leading-none ${notif.read ? 'text-muted-foreground' : 'text-foreground'}`}>{notif.title}</h4>
-                              <span className="text-[10px] text-muted-foreground whitespace-nowrap">{notif.time}</span>
+                    {loadingNotifs && notifications.length === 0 ? (
+                      <div className="px-4 py-8 text-center text-xs text-muted-foreground">
+                        Loading notifications...
+                      </div>
+                    ) : notifications.length === 0 ? (
+                      <div className="px-4 py-8 text-center text-xs text-muted-foreground">
+                        No notifications yet. Check back soon!
+                      </div>
+                    ) : (
+                      notifications.map((notif) => {
+                        const { Icon, title } = getNotifIconAndTitle(notif.type);
+                        const isRead = notif.is_read;
+                        return (
+                          <div
+                            key={notif.id}
+                            onClick={() => handleNotificationClick(notif)}
+                            className={`px-4 py-3 border-b border-jaipur-gold/10 hover:bg-jaipur-secondary/50 transition-colors cursor-pointer flex gap-3 ${
+                              isRead ? "opacity-50" : ""
+                            }`}
+                          >
+                            <div
+                              className={`mt-0.5 p-2 rounded-full h-fit shrink-0 ${
+                                isRead
+                                  ? "bg-muted text-muted-foreground"
+                                  : notif.type === "urgent"
+                                  ? "bg-jaipur-pink/20 text-jaipur-pink"
+                                  : notif.type === "warning"
+                                  ? "bg-jaipur-primary/20 text-jaipur-primary"
+                                  : "bg-jaipur-gold/20 text-jaipur-gold"
+                              }`}
+                            >
+                              <Icon size={14} />
                             </div>
-                            <p className={`text-xs mt-1 leading-snug ${notif.read ? 'text-muted-foreground/80' : 'text-muted-foreground'}`}>{notif.text}</p>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex justify-between items-start gap-2">
+                                <h4
+                                  className={`text-sm font-medium leading-none truncate ${
+                                    isRead ? "text-muted-foreground" : "text-foreground"
+                                  }`}
+                                >
+                                  {title}
+                                </h4>
+                                <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
+                                  {formatNotifTime(notif.created_at)}
+                                </span>
+                              </div>
+                              <p
+                                className={`text-xs mt-1 leading-snug break-words ${
+                                  isRead ? "text-muted-foreground/80" : "text-muted-foreground"
+                                }`}
+                              >
+                                {notif.content}
+                              </p>
+                              {notif.link_url && (
+                                <span className="inline-block mt-1 text-[10px] text-jaipur-primary font-medium underline">
+                                  View details &rarr;
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })
+                    )}
                   </div>
                   <div className="px-4 py-2 bg-jaipur-secondary/30 text-center">
                     <button 
@@ -472,7 +621,7 @@ export default function Navbar({ className, portal = false }: { className?: stri
               {/* Toolbar */}
               <div className="px-6 py-3 border-b border-jaipur-gold/10 bg-jaipur-secondary/20 flex justify-between items-center">
                 <span className="text-xs text-muted-foreground font-medium">
-                  {notifications.filter(n => !n.read).length} unread notifications
+                  {unreadCount} unread notification{unreadCount === 1 ? '' : 's'}
                 </span>
                 <button
                   onClick={handleMarkAllRead}
@@ -497,24 +646,26 @@ export default function Navbar({ className, portal = false }: { className?: stri
                   </div>
                 ) : (
                   notifications.map((notif) => {
-                    const Icon = notif.icon;
+                    const { Icon, title } = getNotifIconAndTitle(notif.type);
+                    const isRead = notif.is_read;
                     return (
                       <div
                         key={notif.id}
-                        className={`p-4 rounded-xl border transition-all duration-300 relative flex gap-4 text-left ${
-                          notif.read
+                        onClick={() => handleNotificationClick(notif)}
+                        className={`p-4 rounded-xl border transition-all duration-300 relative flex gap-4 text-left cursor-pointer ${
+                          isRead
                             ? "bg-transparent border-jaipur-gold/10 opacity-60"
                             : "bg-jaipur-secondary/10 border-jaipur-primary/20 shadow-sm"
                         }`}
                       >
                         {/* Type Icon indicator */}
                         <div className={`p-2.5 rounded-full h-fit flex-shrink-0 ${
-                          notif.read 
+                          isRead 
                             ? "bg-muted text-muted-foreground/60"
-                            : notif.type === 'time' 
-                            ? 'bg-jaipur-primary/20 text-jaipur-primary' 
-                            : notif.type === 'alert' 
+                            : notif.type === 'urgent' 
                             ? 'bg-jaipur-pink/20 text-jaipur-pink' 
+                            : notif.type === 'warning' 
+                            ? 'bg-jaipur-primary/20 text-jaipur-primary' 
                             : 'bg-jaipur-gold/20 text-jaipur-gold'
                         }`}>
                           <Icon size={18} />
@@ -523,17 +674,22 @@ export default function Navbar({ className, portal = false }: { className?: stri
                         {/* Details */}
                         <div className="space-y-1 flex-1">
                           <div className="flex justify-between items-baseline gap-2">
-                            <h4 className={`text-sm font-semibold leading-tight ${notif.read ? 'text-muted-foreground' : 'text-foreground'}`}>
-                              {notif.title}
+                            <h4 className={`text-sm font-semibold leading-tight ${isRead ? 'text-muted-foreground' : 'text-foreground'}`}>
+                              {title}
                             </h4>
-                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">{notif.time}</span>
+                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">{formatNotifTime(notif.created_at)}</span>
                           </div>
-                          <p className={`text-xs leading-relaxed ${notif.read ? 'text-muted-foreground/80' : 'text-muted-foreground'}`}>
-                            {notif.text}
+                          <p className={`text-xs leading-relaxed ${isRead ? 'text-muted-foreground/80' : 'text-muted-foreground'}`}>
+                            {notif.content}
                           </p>
+                          {notif.link_url && (
+                            <span className="inline-block mt-1 text-[10px] text-jaipur-primary font-medium underline">
+                              View details &rarr;
+                            </span>
+                          )}
                           
                           {/* Visual Unread Accent Dot */}
-                          {!notif.read && (
+                          {!isRead && (
                             <span className="absolute top-3 right-3 w-2 h-2 rounded-full bg-jaipur-primary" />
                           )}
                         </div>
@@ -546,10 +702,9 @@ export default function Navbar({ className, portal = false }: { className?: stri
               {/* Footer */}
               <div className="p-6 border-t border-jaipur-gold/20 bg-card/10 text-center">
                 <button
-                  onClick={() => {
+                  onClick={async () => {
+                    await handleMarkAllRead();
                     setNotifications([]);
-                    setHasUnread(false);
-                    toast.success("Notification log cleared.");
                   }}
                   disabled={notifications.length === 0}
                   className="w-full py-2.5 rounded-xl border border-jaipur-gold/30 hover:bg-jaipur-primary/10 hover:text-jaipur-primary text-sm font-semibold text-muted-foreground transition duration-200 cursor-pointer disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"

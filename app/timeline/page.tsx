@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   CalendarDays,
@@ -195,6 +195,70 @@ const PHASES = [
 
 export default function TimelinePage() {
   const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>(RAW_SCHEDULE);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  // Authoritative real-time sync with database server clock & published events
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchTimeline = async () => {
+      try {
+        setIsLoading(true);
+        const res = await fetch("/api/timeline", { cache: "no-store" });
+        if (!res.ok) return;
+        const json = await res.json();
+        const serverEvents = json.data?.events;
+
+        if (Array.isArray(serverEvents) && serverEvents.length > 0 && isMounted) {
+          // Merge dynamic database events for Day 1 and Day 2 while preserving pre-event online phase
+          const onlineItems = RAW_SCHEDULE.filter((i) => i.phase === "online");
+          const liveDbItems: ScheduleItem[] = serverEvents.map((e: any) => ({
+            id: e.id,
+            time: e.time_range || `${e.start_time || ''} – ${e.end_time || ''}`,
+            title: e.title,
+            location: e.venue || "Manipal University Jaipur",
+            description: e.description || "",
+            phase: e.day_label === "DAY 1" ? "day1" : "day2",
+            type: (e.event_type as any) || "general",
+            status: e.status || "upcoming",
+          }));
+
+          setScheduleItems([...onlineItems, ...liveDbItems]);
+        }
+      } catch (err) {
+        // Keep current schedule items on network transient failure
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    fetchTimeline();
+
+    // Controlled polling interval (20 seconds)
+    const interval = setInterval(fetchTimeline, 20000);
+
+    // Visibility catch-up (sleeping/background tab wakes up)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchTimeline();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // Network reconnection catch-up
+    const handleOnline = () => {
+      fetchTimeline();
+    };
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, []);
 
   const renderEventCards = (items: ScheduleItem[]) => {
     return (
@@ -274,9 +338,9 @@ export default function TimelinePage() {
   };
 
   // Group into Aceternity Timeline structure
-  const onlineItems = RAW_SCHEDULE.filter((i) => i.phase === "online");
-  const day1Items = RAW_SCHEDULE.filter((i) => i.phase === "day1");
-  const day2Items = RAW_SCHEDULE.filter((i) => i.phase === "day2");
+  const onlineItems = scheduleItems.filter((i) => i.phase === "online");
+  const day1Items = scheduleItems.filter((i) => i.phase === "day1");
+  const day2Items = scheduleItems.filter((i) => i.phase === "day2");
 
   const timelineData: TimelineEntry[] = [];
 

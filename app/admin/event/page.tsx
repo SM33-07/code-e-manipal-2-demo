@@ -1,11 +1,37 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { 
   Radio, Lock, Unlock, Clock, Send, Trash2, 
-  Search, ShieldAlert, Sparkles, Megaphone, Loader2 
+  Search, ShieldAlert, Sparkles, Megaphone, Loader2,
+  CalendarDays, Plus, Pencil, ArrowUp, ArrowDown, Eye,
+  CheckCircle2, AlertCircle, X, ExternalLink
 } from "lucide-react";
+
+interface TimelineEventRecord {
+  id: string;
+  title: string;
+  day_label: string;
+  time_range: string;
+  start_time: string | null;
+  end_time: string | null;
+  start_timestamp: string | null;
+  end_timestamp: string | null;
+  timezone?: string;
+  venue: string | null;
+  description: string | null;
+  card_position: 'left' | 'right';
+  display_order: number;
+  status: string;
+  event_type: string;
+  is_published: boolean;
+  opens_submissions: boolean;
+  closes_submissions: boolean;
+  reminders_enabled: boolean;
+  reminder_offsets_minutes: number[];
+}
 
 interface Team {
   id: string;
@@ -53,11 +79,210 @@ export default function EventControlPage() {
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [publishingResults, setPublishingResults] = useState(false);
 
+  // Tab switching state
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab") === "schedule" ? "schedule" : "operations";
+  const [activeTab, setActiveTab] = useState<"operations" | "schedule">(initialTab);
+
+  // Canonical Schedule state
+  const [scheduleEvents, setScheduleEvents] = useState<TimelineEventRecord[]>([]);
+  const [scheduleConfig, setScheduleConfig] = useState<any>(null);
+  const [loadingSchedule, setLoadingSchedule] = useState(false);
+  const [publishingTimeline, setPublishingTimeline] = useState(false);
+  const [isEditEventModalOpen, setIsEditEventModalOpen] = useState(false);
+  const [editingScheduleEvent, setEditingScheduleEvent] = useState<Partial<TimelineEventRecord> | null>(null);
+  const [deleteConfirmEventId, setDeleteConfirmEventId] = useState<string | null>(null);
+
+  // Round-aware timer metadata
+  const [activeRound, setActiveRound] = useState<TimelineEventRecord | null>(null);
+  const [nextRound, setNextRound] = useState<TimelineEventRecord | null>(null);
+
   useEffect(() => {
     fetchTeams();
     fetchAnnouncements();
     fetchEventConfig();
+    fetchSchedule();
   }, []);
+
+  const fetchSchedule = async () => {
+    setLoadingSchedule(true);
+    try {
+      const res = await fetch("/api/admin/timeline");
+      if (res.ok) {
+        const json = await res.json();
+        const evs: TimelineEventRecord[] = json.data?.events || [];
+        setScheduleEvents(evs);
+        setScheduleConfig(json.data?.config || null);
+
+        // Derive active round & next round against server time
+        const now = Date.now();
+        let cur: TimelineEventRecord | null = null;
+        let nxt: TimelineEventRecord | null = null;
+
+        for (const e of evs) {
+          if (!e.start_timestamp) continue;
+          const s = new Date(e.start_timestamp).getTime();
+          const en = e.end_timestamp ? new Date(e.end_timestamp).getTime() : s + 3600000;
+          if (now >= s && now <= en && !cur) {
+            cur = e;
+          } else if (now < s && !nxt) {
+            nxt = e;
+          }
+        }
+        setActiveRound(cur);
+        setNextRound(nxt);
+      }
+    } catch (err) {
+      console.error("Failed to load schedule:", err);
+    } finally {
+      setLoadingSchedule(false);
+    }
+  };
+
+  const handlePublishSchedule = async () => {
+    try {
+      setPublishingTimeline(true);
+      const res = await fetch("/api/admin/timeline/publish", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error?.message || "Publish failed");
+      toast.success(`Timeline published live! (Version ${json.data?.version || 1})`);
+      fetchSchedule();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setPublishingTimeline(false);
+    }
+  };
+
+  const handleUnpublishSchedule = async () => {
+    if (!confirm("Are you sure you want to unpublish the timeline? It will be hidden from participants.")) return;
+    try {
+      setPublishingTimeline(true);
+      const res = await fetch("/api/admin/timeline/unpublish", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error?.message || "Unpublish failed");
+      toast.success("Timeline unpublished.");
+      fetchSchedule();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setPublishingTimeline(false);
+    }
+  };
+
+  const handleStartNowScheduleEvent = async (event: TimelineEventRecord) => {
+    if (!confirm(`Are you sure you want to override and start "${event.title}" NOW?`)) return;
+    try {
+      const nowIso = new Date().toISOString();
+      let newEndIso = event.end_timestamp;
+      if (event.start_timestamp && event.end_timestamp) {
+        const durationMs = new Date(event.end_timestamp).getTime() - new Date(event.start_timestamp).getTime();
+        newEndIso = new Date(Date.now() + durationMs).toISOString();
+      }
+
+      const res = await fetch(`/api/admin/timeline/${event.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          start_timestamp: nowIso,
+          end_timestamp: newEndIso,
+          status: "current",
+        }),
+      });
+
+      if (res.ok) {
+        toast.success(`Started "${event.title}" now!`);
+        fetchSchedule();
+      } else {
+        toast.error("Failed to start event now.");
+      }
+    } catch (err) {
+      toast.error("Error executing Start Now override.");
+    }
+  };
+
+  const handleSaveScheduleEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingScheduleEvent?.title || !editingScheduleEvent?.day_label || !editingScheduleEvent?.time_range) {
+      toast.error("Title, day label, and time range are required.");
+      return;
+    }
+
+    try {
+      if (editingScheduleEvent.id) {
+        const res = await fetch(`/api/admin/timeline/${editingScheduleEvent.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(editingScheduleEvent),
+        });
+        if (!res.ok) throw new Error("Failed to update event");
+        toast.success("Timeline event updated!");
+      } else {
+        const res = await fetch("/api/admin/timeline", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(editingScheduleEvent),
+        });
+        if (!res.ok) throw new Error("Failed to create event");
+        toast.success("Timeline event created!");
+      }
+
+      setIsEditEventModalOpen(false);
+      setEditingScheduleEvent(null);
+      fetchSchedule();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save schedule event.");
+    }
+  };
+
+  const handleDeleteScheduleEvent = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/timeline/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        toast.success("Event deleted.");
+        setDeleteConfirmEventId(null);
+        fetchSchedule();
+      } else {
+        toast.error("Failed to delete event.");
+      }
+    } catch (err) {
+      toast.error("Error deleting event.");
+    }
+  };
+
+  const handleReorderSchedule = async (eventId: string, direction: "up" | "down") => {
+    const idx = scheduleEvents.findIndex((e) => e.id === eventId);
+    if (idx === -1) return;
+    if (direction === "up" && idx === 0) return;
+    if (direction === "down" && idx === scheduleEvents.length - 1) return;
+
+    const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+    const items = [...scheduleEvents];
+    const temp = items[idx];
+    items[idx] = items[targetIdx];
+    items[targetIdx] = temp;
+
+    const reorderPayload = items.map((item, index) => ({
+      id: item.id,
+      display_order: index + 1,
+    }));
+
+    setScheduleEvents(items);
+
+    try {
+      const res = await fetch("/api/admin/timeline/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: reorderPayload }),
+      });
+      if (!res.ok) {
+        fetchSchedule();
+        toast.error("Failed to save event order.");
+      }
+    } catch (err) {
+      fetchSchedule();
+    }
+  };
 
   const fetchEventConfig = async () => {
     try {
@@ -425,37 +650,87 @@ export default function EventControlPage() {
         </div>
       </div>
 
-      {/* Quick Controls Grid (3 Equal Columns) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Timer Settings Card */}
-        <div className="bg-card border border-border hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300 rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
-          <div>
-            <div className="absolute top-0 right-0 p-3 opacity-10">
-              <Clock size={80} className="text-secondary" />
-            </div>
-            
-            <h3 className="text-lg font-bold text-foreground flex items-center gap-2 mb-4">
-              <Clock size={18} className="text-secondary" />
-              Hackathon Event Timer
-            </h3>
+      {/* Operation Tabs Switcher (Phase 2 Requirement C & G) */}
+      <div className="flex items-center gap-2 border-b border-border pb-3">
+        <button
+          type="button"
+          onClick={() => setActiveTab("operations")}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+            activeTab === "operations"
+              ? "bg-primary text-primary-foreground shadow-md"
+              : "bg-card text-muted-foreground hover:text-foreground hover:bg-accent border border-border"
+          }`}
+        >
+          <Radio size={16} />
+          <span>Event Operations & Controls</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("schedule")}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+            activeTab === "schedule"
+              ? "bg-primary text-primary-foreground shadow-md"
+              : "bg-card text-muted-foreground hover:text-foreground hover:bg-accent border border-border"
+          }`}
+        >
+          <CalendarDays size={16} />
+          <span>Canonical Schedule & Rounds ({scheduleEvents.length})</span>
+        </button>
+      </div>
 
-            <div className="space-y-4">
-              <div className="flex justify-between items-center bg-muted/40 p-3 rounded-xl border border-border">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground">Status</span>
-                  <p className="text-sm font-bold text-foreground">
-                    {isStarted ? (
-                      <span className="text-emerald-500">● Live Running</span>
-                    ) : (
-                      <span className="text-muted-foreground">● Not Started</span>
+      {activeTab === "operations" && (
+        <div className="space-y-8">
+          {/* Quick Controls Grid (3 Equal Columns) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Timer Settings Card */}
+            <div className="bg-card border border-border hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300 rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
+              <div>
+                <div className="absolute top-0 right-0 p-3 opacity-10">
+                  <Clock size={80} className="text-secondary" />
+                </div>
+                
+                <h3 className="text-lg font-bold text-foreground flex items-center gap-2 mb-4">
+                  <Clock size={18} className="text-secondary" />
+                  Hackathon Event Timer
+                </h3>
+
+                <div className="space-y-4">
+                  {/* Round-aware live timer metadata (Phase 2 Requirement C) */}
+                  <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] uppercase font-bold text-primary">Active Round</span>
+                      <span className="text-xs font-mono font-bold text-foreground truncate max-w-[150px]">
+                        {activeRound ? activeRound.title : "No Active Round"}
+                      </span>
+                    </div>
+                    {activeRound && (
+                      <p className="text-[11px] text-muted-foreground leading-tight">
+                        {activeRound.time_range} &bull; {activeRound.venue || "AB1"}
+                      </p>
                     )}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground">Time Left</span>
-                  <p className="text-sm font-mono font-bold text-secondary">{timeRemainingStr}</p>
-                </div>
-              </div>
+                    {nextRound && (
+                      <div className="text-[11px] text-muted-foreground pt-1.5 border-t border-border/50">
+                        Next: <strong className="text-foreground">{nextRound.title}</strong> ({nextRound.time_range})
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex justify-between items-center bg-muted/40 p-3 rounded-xl border border-border">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground">Status</span>
+                      <p className="text-sm font-bold text-foreground">
+                        {isStarted ? (
+                          <span className="text-emerald-500">● Live Running</span>
+                        ) : (
+                          <span className="text-muted-foreground">● Not Started</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground">Time Left</span>
+                      <p className="text-sm font-mono font-bold text-secondary">{timeRemainingStr}</p>
+                    </div>
+                  </div>
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
@@ -847,6 +1122,421 @@ export default function EventControlPage() {
           </div>
         </div>
       </div>
+        </div>
+      )}
+
+      {/* Canonical Schedule & Rounds Tab (Phase 2 Requirement C & G) */}
+      {activeTab === "schedule" && (
+        <div className="space-y-6">
+          {/* Schedule Controls Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border p-5 rounded-2xl shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-xl bg-primary/10 text-primary">
+                <CalendarDays size={22} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-foreground">Authoritative Event Schedule</h3>
+                  <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                    scheduleConfig?.is_published
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                      : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                  }`}>
+                    {scheduleConfig?.is_published ? `Published Live (v${scheduleConfig?.published_version || 1})` : "Draft (Unpublished)"}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  10 canonical events synced with database server clock. Dynamic status transitions derive automatically.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingScheduleEvent({
+                    day_label: "DAY 1",
+                    card_position: "right",
+                    event_type: "general",
+                    is_published: true,
+                    opens_submissions: false,
+                    closes_submissions: false,
+                    reminders_enabled: true,
+                    reminder_offsets_minutes: [60, 15],
+                  });
+                  setIsEditEventModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition shadow-sm cursor-pointer"
+              >
+                <Plus size={14} />
+                <span>Add Event</span>
+              </button>
+
+              {scheduleConfig?.is_published ? (
+                <button
+                  type="button"
+                  onClick={handleUnpublishSchedule}
+                  disabled={publishingTimeline}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold hover:bg-rose-500/20 transition cursor-pointer"
+                >
+                  {publishingTimeline ? <Loader2 className="animate-spin size-3.5" /> : <Eye size={14} />}
+                  <span>Unpublish</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handlePublishSchedule}
+                  disabled={publishingTimeline}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition shadow-sm cursor-pointer"
+                >
+                  {publishingTimeline ? <Loader2 className="animate-spin size-3.5" /> : <Eye size={14} />}
+                  <span>Publish Schedule</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Schedule Events Cards */}
+          {loadingSchedule ? (
+            <div className="p-12 text-center text-sm text-muted-foreground flex items-center justify-center gap-2 bg-card rounded-2xl border border-border">
+              <Loader2 className="animate-spin size-5 text-primary" />
+              <span>Loading canonical schedule from database...</span>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {scheduleEvents.map((ev, index) => {
+                const isCurrent = ev.status === "current";
+                const isCompleted = ev.status === "completed";
+                const isUpcoming = ev.status === "upcoming";
+
+                return (
+                  <div
+                    key={ev.id}
+                    className={`rounded-2xl border bg-card p-4 sm:p-5 transition-all shadow-sm ${
+                      isCurrent
+                        ? "border-primary ring-1 ring-primary/40 bg-primary/[0.02]"
+                        : "border-border hover:border-muted-foreground/30"
+                    }`}
+                  >
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-secondary/15 text-secondary border border-secondary/25">
+                            #{ev.display_order} &bull; {ev.day_label}
+                          </span>
+                          <span className="font-mono text-xs font-bold text-foreground">
+                            {ev.time_range}
+                          </span>
+                          {isCurrent && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/15 px-2.5 py-0.5 rounded-full border border-primary/30 animate-pulse">
+                              <span>CURRENT / ONGOING</span>
+                            </span>
+                          )}
+                          {isCompleted && (
+                            <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
+                              Completed
+                            </span>
+                          )}
+                          {isUpcoming && (
+                            <span className="text-[10px] font-semibold text-secondary bg-secondary/10 px-2 py-0.5 rounded-md">
+                              Upcoming
+                            </span>
+                          )}
+                          {ev.opens_submissions && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+                              🚀 Opens Submissions
+                            </span>
+                          )}
+                          {ev.closes_submissions && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25">
+                              🛑 Closes Submissions
+                            </span>
+                          )}
+                        </div>
+
+                        <h4 className="text-base font-bold text-foreground">{ev.title}</h4>
+                        {ev.venue && (
+                          <p className="text-xs text-muted-foreground font-medium">
+                            Venue: <span className="text-foreground">{ev.venue}</span>
+                          </p>
+                        )}
+                        {ev.description && (
+                          <p className="text-xs text-muted-foreground italic">
+                            &bull; {ev.description}
+                          </p>
+                        )}
+                        {ev.start_timestamp && (
+                          <p className="text-[10px] font-mono text-muted-foreground/80">
+                            IST: {new Date(ev.start_timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+                            {ev.end_timestamp && ` &rarr; ${new Date(ev.end_timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Action Controls */}
+                      <div className="flex items-center gap-2 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-border">
+                        <button
+                          type="button"
+                          onClick={() => handleStartNowScheduleEvent(ev)}
+                          title="Override start time and set status to current now"
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600/10 text-emerald-600 dark:text-emerald-400 border border-emerald-600/20 text-xs font-bold hover:bg-emerald-600/20 transition cursor-pointer"
+                        >
+                          <Clock size={13} />
+                          <span>Start Now</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingScheduleEvent(ev);
+                            setIsEditEventModalOpen(true);
+                          }}
+                          title="Edit event details"
+                          className="p-2 rounded-xl border border-border hover:bg-accent text-muted-foreground hover:text-foreground transition cursor-pointer"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={index === 0}
+                          onClick={() => handleReorderSchedule(ev.id, "up")}
+                          title="Move up"
+                          className="p-2 rounded-xl border border-border hover:bg-accent text-muted-foreground hover:text-foreground transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <ArrowUp size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={index === scheduleEvents.length - 1}
+                          onClick={() => handleReorderSchedule(ev.id, "down")}
+                          title="Move down"
+                          className="p-2 rounded-xl border border-border hover:bg-accent text-muted-foreground hover:text-foreground transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <ArrowDown size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirmEventId(ev.id)}
+                          title="Delete event"
+                          className="p-2 rounded-xl border border-rose-500/20 hover:bg-rose-500/10 text-rose-500 transition cursor-pointer"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Edit / Add Schedule Event Modal */}
+      {isEditEventModalOpen && editingScheduleEvent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-base font-bold text-foreground">
+                {editingScheduleEvent.id ? "Edit Schedule Event" : "Create Schedule Event"}
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditEventModalOpen(false);
+                  setEditingScheduleEvent(null);
+                }}
+                className="text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveScheduleEvent} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground mb-1">
+                    Day Label
+                  </label>
+                  <select
+                    value={editingScheduleEvent.day_label || "DAY 1"}
+                    onChange={(e) => setEditingScheduleEvent({ ...editingScheduleEvent, day_label: e.target.value })}
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground"
+                  >
+                    <option value="DAY 1">DAY 1 (15 Oct)</option>
+                    <option value="DAY 2">DAY 2 (16 Oct)</option>
+                    <option value="ONLINE">ONLINE PHASE</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground mb-1">
+                    Time Range (e.g. 9:00 AM – 11:00 AM)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingScheduleEvent.time_range || ""}
+                    onChange={(e) => setEditingScheduleEvent({ ...editingScheduleEvent, time_range: e.target.value })}
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">
+                  Activity Title
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editingScheduleEvent.title || ""}
+                  onChange={(e) => setEditingScheduleEvent({ ...editingScheduleEvent, title: e.target.value })}
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">
+                  Venue
+                </label>
+                <input
+                  type="text"
+                  value={editingScheduleEvent.venue || ""}
+                  onChange={(e) => setEditingScheduleEvent({ ...editingScheduleEvent, venue: e.target.value })}
+                  placeholder="e.g. Vasanti Pai or Old Mess, AB1"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">
+                  Supporting Notes / Description
+                </label>
+                <textarea
+                  rows={2}
+                  value={editingScheduleEvent.description || ""}
+                  onChange={(e) => setEditingScheduleEvent({ ...editingScheduleEvent, description: e.target.value })}
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground mb-1">
+                    Start Timestamp (UTC / ISO)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingScheduleEvent.start_timestamp || ""}
+                    onChange={(e) => setEditingScheduleEvent({ ...editingScheduleEvent, start_timestamp: e.target.value })}
+                    placeholder="2026-10-15T09:00:00+05:30"
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-mono text-foreground"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground mb-1">
+                    End Timestamp (UTC / ISO)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingScheduleEvent.end_timestamp || ""}
+                    onChange={(e) => setEditingScheduleEvent({ ...editingScheduleEvent, end_timestamp: e.target.value })}
+                    placeholder="2026-10-15T11:00:00+05:30"
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-mono text-foreground"
+                  />
+                </div>
+              </div>
+
+              <div className="border-t border-border pt-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="opens_sub"
+                    checked={editingScheduleEvent.opens_submissions === true}
+                    onChange={(e) => setEditingScheduleEvent({ ...editingScheduleEvent, opens_submissions: e.target.checked })}
+                    className="rounded border-border cursor-pointer"
+                  />
+                  <label htmlFor="opens_sub" className="text-xs font-medium text-foreground cursor-pointer">
+                    Opens Submissions (Hacking Launch)
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="closes_sub"
+                    checked={editingScheduleEvent.closes_submissions === true}
+                    onChange={(e) => setEditingScheduleEvent({ ...editingScheduleEvent, closes_submissions: e.target.checked })}
+                    className="rounded border-border cursor-pointer"
+                  />
+                  <label htmlFor="closes_sub" className="text-xs font-medium text-foreground cursor-pointer">
+                    Closes Submissions (Code Freeze)
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="reminders"
+                    checked={editingScheduleEvent.reminders_enabled !== false}
+                    onChange={(e) => setEditingScheduleEvent({ ...editingScheduleEvent, reminders_enabled: e.target.checked })}
+                    className="rounded border-border cursor-pointer"
+                  />
+                  <label htmlFor="reminders" className="text-xs font-medium text-foreground cursor-pointer">
+                    Enable System Deadline Reminders (e.g. 60m, 15m)
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setIsEditEventModalOpen(false)}
+                  className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-accent cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90 cursor-pointer"
+                >
+                  Save Event
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Schedule Event Modal */}
+      {deleteConfirmEventId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4">
+            <h3 className="text-base font-bold text-foreground">Confirm Event Deletion</h3>
+            <p className="text-xs text-muted-foreground">
+              Are you sure you want to delete this event from the canonical timeline?
+            </p>
+            <div className="flex justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmEventId(null)}
+                className="rounded-xl border border-border px-3.5 py-1.5 text-xs font-semibold text-muted-foreground cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteScheduleEvent(deleteConfirmEventId)}
+                className="rounded-xl bg-rose-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-rose-700 cursor-pointer"
+              >
+                Delete Event
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* PUBLISH RESULTS CONFIRMATION MODAL */}
       {showPublishModal && (
