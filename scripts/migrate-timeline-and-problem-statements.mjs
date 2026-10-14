@@ -1,14 +1,15 @@
 import pg from 'pg';
 
+// Authoritative 10-event schedule from UPDATED TIMELINE.pdf (15–16 October 2026)
 const INITIAL_TIMELINE_EVENTS = [
-  // Day 1
+  // Day 1 — 15 October 2026
   {
     title: 'Registration Open',
     day_label: 'DAY 1',
     time_range: '9:00 AM – 11:00 AM',
     start_time: '9:00 AM',
     end_time: '11:00 AM',
-    venue: null,
+    venue: 'ABI',
     description: null,
     card_position: 'right',
     display_order: 1,
@@ -21,7 +22,7 @@ const INITIAL_TIMELINE_EVENTS = [
     time_range: '11:00 AM – 1:00 PM',
     start_time: '11:00 AM',
     end_time: '1:00 PM',
-    venue: 'TMA Pai',
+    venue: 'Vasanti Pai',
     description: null,
     card_position: 'left',
     display_order: 2,
@@ -60,7 +61,7 @@ const INITIAL_TIMELINE_EVENTS = [
     time_range: '8:00 PM – 9:30 PM',
     start_time: '8:00 PM',
     end_time: '9:30 PM',
-    venue: 'Old Mess',
+    venue: 'Old Mess, AB1',
     description: null,
     card_position: 'right',
     display_order: 5,
@@ -68,7 +69,7 @@ const INITIAL_TIMELINE_EVENTS = [
     event_type: 'hospitality',
   },
 
-  // Day 2
+  // Day 2 — 16 October 2026
   {
     title: 'Judging Round 2',
     day_label: 'DAY 2',
@@ -88,10 +89,23 @@ const INITIAL_TIMELINE_EVENTS = [
     time_range: '8:00 AM – 9:30 AM',
     start_time: '8:00 AM',
     end_time: '9:30 AM',
-    venue: null,
-    description: '8:00 AM – 12:00 PM: final presentation prep',
+    venue: 'Old Mess, AB1',
+    description: null,
     card_position: 'right',
     display_order: 7,
+    status: 'upcoming',
+    event_type: 'hospitality',
+  },
+  {
+    title: 'Lunch',
+    day_label: 'DAY 2',
+    time_range: '12:00 PM – 1:00 PM',
+    start_time: '12:00 PM',
+    end_time: '1:00 PM',
+    venue: 'Old Mess, AB1',
+    description: null,
+    card_position: 'left',
+    display_order: 8,
     status: 'upcoming',
     event_type: 'hospitality',
   },
@@ -101,10 +115,10 @@ const INITIAL_TIMELINE_EVENTS = [
     time_range: '1:00 PM – 3:00 PM',
     start_time: '1:00 PM',
     end_time: '3:00 PM',
-    venue: 'TMA Pai',
+    venue: 'Vasanti Pai',
     description: null,
-    card_position: 'left',
-    display_order: 8,
+    card_position: 'right',
+    display_order: 9,
     status: 'upcoming',
     event_type: 'eval',
   },
@@ -114,10 +128,10 @@ const INITIAL_TIMELINE_EVENTS = [
     time_range: '3:00 PM – 5:00 PM',
     start_time: '3:00 PM',
     end_time: '5:00 PM',
-    venue: null,
+    venue: 'Vasanti Pai',
     description: null,
-    card_position: 'right',
-    display_order: 9,
+    card_position: 'left',
+    display_order: 10,
     status: 'upcoming',
     event_type: 'awards',
   },
@@ -212,7 +226,7 @@ async function migrate(envName, dbUrl) {
     // 6. Seed Timeline Events if empty
     const { rows: existingTimeline } = await client.query('SELECT count(*)::int as count FROM public.timeline_events');
     if (existingTimeline[0].count === 0) {
-      console.log('Seeding 9 initial timeline events from authoritative PDF...');
+      console.log('Seeding 10 initial timeline events from authoritative UPDATED TIMELINE.pdf...');
       for (const ev of INITIAL_TIMELINE_EVENTS) {
         await client.query(`
           INSERT INTO public.timeline_events (
