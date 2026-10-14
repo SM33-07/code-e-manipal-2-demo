@@ -2,7 +2,7 @@ import { query } from '@/lib/db';
 import type { UserRole } from '@/types';
 import { logger } from '@/lib/utils/logger';
 import { provisionAccount } from '@/lib/admin/provisioning';
-export { generateEventPassword, generateAdminPassword } from '@/lib/admin/passwords';
+export { generateEventPassword, generateAdminPassword, generateJudgePassword, generateParticipantPasscode } from '@/lib/admin/passwords';
 
 export interface GeneratedCredential {
   id: string;

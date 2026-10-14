@@ -4,7 +4,7 @@ import { query } from '@/lib/db';
 import { Errors, successResponse } from '@/lib/utils/response';
 import { isValidUUID } from '@/lib/utils/validate';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
-import { generateEventPassword, generateAdminPassword } from '@/lib/admin/credentials';
+import { generateEventPassword, generateAdminPassword, generateJudgePassword, generateParticipantPasscode } from '@/lib/admin/credentials';
 import { logger } from '@/lib/utils/logger';
 
 /**
@@ -27,7 +27,7 @@ export const POST = withAuth(async (req, { user: adminUser, params }) => {
 
     // 1. Verify user exists
     const { rows: profileRows } = await query(
-      'SELECT id, name, email, role, is_disabled FROM public.profiles WHERE id = $1 LIMIT 1',
+      'SELECT id, name, email, role, identifier, login_id, is_disabled FROM public.profiles WHERE id = $1 LIMIT 1',
       [targetUserId]
     );
 
@@ -48,21 +48,57 @@ export const POST = withAuth(async (req, { user: adminUser, params }) => {
     let newPassword = typeof body.password === 'string' ? body.password.trim() : null;
 
     if (newPassword) {
-      if (targetUser.role === 'admin' && newPassword.length < 16) {
-        return Errors.BAD_REQUEST('Admin passwords must be at least 16 characters in length');
+      if (targetUser.role === 'admin') {
+        if (newPassword.length < 16 || !/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+          return Errors.BAD_REQUEST('Admin passwords must be at least 16 characters containing uppercase, lowercase, and numeric characters');
+        }
+      } else if (targetUser.role === 'judge') {
+        if (newPassword.length < 16 || !/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+          return Errors.BAD_REQUEST('Judge passwords must be at least 16 characters containing uppercase, lowercase, and numeric characters');
+        }
+      } else if (targetUser.role === 'participant') {
+        if (newPassword.length !== 8 || !/^[a-zA-Z0-9]{8}$/.test(newPassword) || !/[a-zA-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+          return Errors.BAD_REQUEST('Participant passcodes must be exactly 8 alphanumeric characters containing at least one letter and one digit');
+        }
       }
       if (newPassword.length < 6) {
         return Errors.BAD_REQUEST('Password must be at least 6 characters in length');
       }
     } else {
-      // Auto-generate based on role separation
+      // Auto-generate based on strict role separation policy
       newPassword = targetUser.role === 'admin'
         ? generateAdminPassword(18)
-        : generateEventPassword(8);
+        : targetUser.role === 'judge'
+        ? generateJudgePassword(16)
+        : generateParticipantPasscode(8);
     }
 
-    // 3. Update password in Supabase Auth (hashed via bcrypt)
+    if (targetUser.is_disabled) {
+      return Errors.BAD_REQUEST('Cannot reset password for a disabled account. Enable the account first.');
+    }
+
+    // 3. Verify user exists in Supabase Auth and email mapping is intact
     const supabase = createSupabaseAdminClient();
+    const { data: authUserData, error: getAuthError } = await supabase.auth.admin.getUserById(targetUserId);
+
+    if (getAuthError || !authUserData?.user) {
+      logger.error('Target user not found in Supabase Auth', {
+        targetUserId,
+        error: getAuthError?.message,
+      });
+      return Errors.NOT_FOUND('User authentication account not found in identity provider');
+    }
+
+    if (authUserData.user.email?.toLowerCase() !== targetUser.email?.toLowerCase()) {
+      logger.error('Email mapping conflict between profile and Supabase Auth', {
+        targetUserId,
+        profileEmail: targetUser.email,
+        authEmail: authUserData.user.email,
+      });
+      return Errors.CONFLICT('Profile email does not match authentication account mapping');
+    }
+
+    // 4. Update password in Supabase Auth (hashed via bcrypt)
     const { error: authError } = await supabase.auth.admin.updateUserById(targetUserId, {
       password: newPassword,
     });
@@ -72,7 +108,7 @@ export const POST = withAuth(async (req, { user: adminUser, params }) => {
         targetUserId,
         error: authError.message,
       });
-      return Errors.INTERNAL('Failed to update user password in authentication provider');
+      return Errors.BAD_REQUEST(`Failed to update password: ${authError.message}`);
     }
 
     // 4. Invalidate all active sessions via force_logout_before = NOW() (Phase 2 integration)

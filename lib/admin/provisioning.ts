@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
-import { generateAdminPassword, generateEventPassword } from '@/lib/admin/passwords';
+import { generateAdminPassword, generateEventPassword, generateJudgePassword, generateParticipantPasscode } from '@/lib/admin/passwords';
 import { identifierToEmail, normalizeIdentifier, personalizedLoginId } from '@/lib/auth/identifier';
 import { pool, query } from '@/lib/db';
 import type { UserRole } from '@/types';
@@ -32,8 +32,10 @@ export interface ProvisionedAccount {
 }
 
 export class ProvisioningError extends Error {
-  constructor(message: string, public readonly status = 400) {
+  public readonly status: number;
+  constructor(message: string, status = 400) {
     super(message);
+    this.status = status;
     this.name = 'ProvisioningError';
   }
 }
@@ -137,7 +139,13 @@ export async function provisionAccount(input: ProvisionAccountInput, actorId?: s
     const existingAuthUser = await findAuthUserByEmail(email);
     if (existingAuthUser) throw new ProvisioningError('An authentication account already exists for this identity; reconcile it before provisioning again', 409);
 
-    const password = input.password ?? (input.role === 'admin' ? generateAdminPassword(18) : generateEventPassword(8));
+    const password = input.password ?? (
+      input.role === 'admin'
+        ? generateAdminPassword(18)
+        : input.role === 'participant'
+        ? generateParticipantPasscode(8)
+        : generateJudgePassword(16)
+    );
     const metadata = { name, role: input.role, identifier, login_id: loginId };
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: metadata });
     if (authError || !authData.user) throw new ProvisioningError('Failed to create authentication account', 500);
