@@ -168,7 +168,95 @@ function Shell({ children }: { children: React.ReactNode }) {
   )
 }
 
+function useRecoveryRedirect() {
+  const [isRedirecting, setIsRedirecting] = useState(() => {
+    if (typeof window === "undefined") return false
+    const pathname = window.location.pathname
+    if (pathname === "/auth/setup-password") return false
+
+    const hash = window.location.hash || ""
+    const search = window.location.search || ""
+
+    const isRecoveryHash =
+      hash.includes("type=recovery") ||
+      hash.includes("type=invite") ||
+      hash.includes("type=signup") ||
+      hash.includes("type=magiclink") ||
+      hash.includes("access_token=")
+
+    const isRecoverySearch =
+      search.includes("type=recovery") ||
+      search.includes("type=invite") ||
+      search.includes("type=magiclink") ||
+      search.includes("token_hash=") ||
+      search.includes("code=")
+
+    const isRecoveryError =
+      (hash.includes("error=") || search.includes("error=")) &&
+      (hash.includes("otp_") ||
+       search.includes("otp_") ||
+       hash.includes("access_denied") ||
+       search.includes("access_denied") ||
+       hash.includes("invalid_grant") ||
+       search.includes("invalid_grant") ||
+       hash.includes("expired") ||
+       search.includes("expired"))
+
+    if (isRecoveryHash || isRecoverySearch || isRecoveryError) {
+      window.location.replace(`/auth/setup-password${search}${hash}`)
+      return true
+    }
+    return false
+  })
+
+  useEffect(() => {
+    if (typeof window === "undefined" || isRedirecting) return
+
+    const pathname = window.location.pathname
+    // Do not redirect if already on setup-password route
+    if (pathname === "/auth/setup-password") return
+
+    const hash = window.location.hash || ""
+    const search = window.location.search || ""
+
+    const isRecoveryHash =
+      hash.includes("type=recovery") ||
+      hash.includes("type=invite") ||
+      hash.includes("type=signup") ||
+      hash.includes("type=magiclink") ||
+      hash.includes("access_token=")
+
+    const isRecoverySearch =
+      search.includes("type=recovery") ||
+      search.includes("type=invite") ||
+      search.includes("type=magiclink") ||
+      search.includes("token_hash=") ||
+      search.includes("code=")
+
+    const isRecoveryError =
+      (hash.includes("error=") || search.includes("error=")) &&
+      (hash.includes("otp_") ||
+       search.includes("otp_") ||
+       hash.includes("access_denied") ||
+       search.includes("access_denied") ||
+       hash.includes("invalid_grant") ||
+       search.includes("invalid_grant") ||
+       hash.includes("expired") ||
+       search.includes("expired"))
+
+    if (isRecoveryHash || isRecoverySearch || isRecoveryError) {
+      setIsRedirecting(true)
+      // Use location.replace to preserve hash and search parameters while preventing
+      // back-button looping to exposed tokens on the landing page
+      window.location.replace(`/auth/setup-password${search}${hash}`)
+    }
+  }, [isRedirecting])
+
+  return isRedirecting
+}
+
 export default function RootClient({ children }: { children: React.ReactNode }) {
+  const isRecoveryRedirecting = useRecoveryRedirect()
   const [showLoader, setShowLoader] = useState(true)
 
   const handleLoaderComplete = useCallback(() => {
@@ -180,6 +268,7 @@ export default function RootClient({ children }: { children: React.ReactNode }) 
   }, [])
 
   useEffect(() => {
+    if (isRecoveryRedirecting) return
     try {
       const navEntry = window.performance?.getEntriesByType?.("navigation")?.[0] as PerformanceNavigationTiming | undefined
       const isReload = navEntry?.type === "reload"
@@ -202,7 +291,18 @@ export default function RootClient({ children }: { children: React.ReactNode }) 
     const safety = setTimeout(handleLoaderComplete, 3500)
 
     return () => clearTimeout(safety)
-  }, [handleLoaderComplete])
+  }, [handleLoaderComplete, isRecoveryRedirecting])
+
+  if (isRecoveryRedirecting) {
+    return (
+      <div className="fixed inset-0 z-[10000] flex flex-col items-center justify-center bg-background text-foreground">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mb-4" />
+        <p className="text-sm font-medium text-muted-foreground tracking-wide">
+          Directing to secure credential recovery...
+        </p>
+      </div>
+    )
+  }
 
   return (
     <AuthProvider>
