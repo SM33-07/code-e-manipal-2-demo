@@ -18,6 +18,8 @@ const testFiles = [
   'tests/admin-verification-loading-fix.test.mjs',
   'tests/admin-panel-user-management.test.mjs',
   'tests/login-security-enforcement.test.mjs',
+  'tests/timeline-management.test.mjs',
+  'tests/problem-statement-management.test.mjs',
 ];
 
 let totalPassed = 0;
@@ -30,7 +32,7 @@ const envFile = process.env.ENV_FILE || '.env.staging';
 for (const f of testFiles) {
   try {
     const out = execSync(`node --env-file=${envFile} ${f}`, { encoding: 'utf8' });
-    const passMatch = out.match(/pass (\d+)/);
+    const passMatch = out.match(/pass (\d+)/i) || out.match(/(\d+)\s*\/\s*\d+\s*passed/i) || out.match(/(\d+)\s+passed/i);
     const passes = passMatch ? parseInt(passMatch[1], 10) : 0;
     totalPassed += passes;
     console.log(`✅ ${f}: ${passes} passed`);
