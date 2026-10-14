@@ -18,83 +18,119 @@ import {
   X,
   Search,
   Filter,
+  Check,
+  AlertTriangle,
+  History,
+  ShieldAlert,
+  ChevronDown,
+  ChevronUp,
+  Cpu,
+  Wrench,
+  Lightbulb,
+  Building,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface ProblemStatement {
+interface ProblemStatementDraft {
   id: string;
-  title: string;
+  release_id: string;
+  challenge_num: number;
+  track_num: string;
   track: string;
-  description: string;
-  requirements: string[];
-  deliverables: string[];
-  constraints: string | null;
-  attachment_url: string | null;
-  attachment_name: string | null;
-  is_published: boolean;
+  original_ref_id: string;
+  proposed_id: string;
+  title: string;
+  difficulty: string;
+  build_type: string;
+  review_status: string;
+  category_state: 'selected' | 'hold' | 'new_proposal';
+  is_approved_for_release: boolean;
+  is_official_sih: boolean;
+  scope_note?: string | null;
+  problem_statement: string;
+  implementation_challenge: string;
+  minimum_acceptable_prototype: string;
+  evaluation_tests: string;
+  stretch_differentiator: string;
+  suggested_public_sector_relevance?: string | null;
   display_order: number;
   created_at: string;
   updated_at: string;
 }
 
-interface EventConfig {
-  problem_statements_published: boolean;
-  problem_selection_start: string | null;
-  problem_selection_end: string | null;
+interface ProblemStatementRelease {
+  id: string;
+  version_number: number;
+  label: string;
+  status: 'draft' | 'published' | 'archived' | 'withdrawn';
+  is_current_published: boolean;
+  published_at?: string | null;
+  release_notes?: string | null;
+  stats?: {
+    total_drafts: number;
+    approved_drafts: number;
+    held_drafts: number;
+    new_proposals: number;
+  };
 }
 
-const OFFICIAL_TRACKS = [
-  'Artificial Intelligence and Machine Learning (AI/ML)',
-  'HealthTech',
-  'FinTech and EdTech',
-  'Cybersecurity',
-  'Generative AI and Large Language Models (LLMs)',
-  'Multi-Agent Systems',
-  'Gaming and Immersive Technology',
-  'Smart City and Infrastructure',
-  'Open Innovation',
-];
+interface AuditLog {
+  id: string;
+  action: string;
+  actor_name?: string;
+  actor_email?: string;
+  metadata: any;
+  created_at: string;
+}
 
 export default function AdminProblemStatementsPage() {
   const [loading, setLoading] = useState(true);
-  const [statements, setStatements] = useState<ProblemStatement[]>([]);
-  const [config, setConfig] = useState<EventConfig | null>(null);
+  const [releases, setReleases] = useState<ProblemStatementRelease[]>([]);
+  const [selectedReleaseId, setSelectedReleaseId] = useState<string>('');
+  const [drafts, setDrafts] = useState<ProblemStatementDraft[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
-  // Filters
+  // Filter states
   const [trackFilter, setTrackFilter] = useState('ALL');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [categoryFilter, setCategoryFilter] = useState('ALL'); // ALL, selected, hold, new_proposal, approved
   const [searchQuery, setSearchQuery] = useState('');
 
   // Modals
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isWindowModalOpen, setIsWindowModalOpen] = useState(false);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [editingStatement, setEditingStatement] = useState<any | null>(null);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [editingDraft, setEditingDraft] = useState<ProblemStatementDraft | null>(null);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [previewDraft, setPreviewDraft] = useState<ProblemStatementDraft | null>(null);
+  const [isNewReleaseModalOpen, setIsNewReleaseModalOpen] = useState(false);
+  const [newReleaseLabel, setNewReleaseLabel] = useState('');
+  const [newReleaseNotes, setNewReleaseNotes] = useState('');
+  const [cloneFromId, setCloneFromId] = useState('');
+  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+  const [isUnpublishModalOpen, setIsUnpublishModalOpen] = useState(false);
+  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
 
-  // Window form states
-  const [windowStart, setWindowStart] = useState('2026-10-15T12:45');
-  const [windowEnd, setWindowEnd] = useState('2026-10-15T16:00');
+  // Expanded card state
+  const [expandedDraftId, setExpandedDraftId] = useState<string | null>(null);
 
-  // Fetch data
-  const fetchData = async () => {
+  const fetchData = async (releaseId?: string) => {
     try {
       setLoading(true);
-      const res = await fetch('/api/admin/problem-statements');
-      if (!res.ok) throw new Error('Failed to fetch problem statements');
+      const url = releaseId
+        ? `/api/admin/problem-statements?releaseId=${encodeURIComponent(releaseId)}`
+        : '/api/admin/problem-statements';
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to load problem statement data');
       const json = await res.json();
       if (json.success) {
-        setStatements(json.data.statements);
-        setConfig(json.data.config);
-        if (json.data.config?.problem_selection_start) {
-          setWindowStart(new Date(json.data.config.problem_selection_start).toISOString().slice(0, 16));
-        }
-        if (json.data.config?.problem_selection_end) {
-          setWindowEnd(new Date(json.data.config.problem_selection_end).toISOString().slice(0, 16));
+        setReleases(json.data.releases || []);
+        setSelectedReleaseId(json.data.selectedReleaseId || '');
+        setDrafts(json.data.drafts || []);
+        setAuditLogs(json.data.auditLogs || []);
+        if (!cloneFromId && json.data.selectedReleaseId) {
+          setCloneFromId(json.data.selectedReleaseId);
         }
       }
     } catch (err: any) {
-      toast.error('Error loading statements: ' + err.message);
+      toast.error(err.message || 'Error loading statements');
     } finally {
       setLoading(false);
     }
@@ -104,180 +140,292 @@ export default function AdminProblemStatementsPage() {
     fetchData();
   }, []);
 
-  // Publish / Unpublish individual statement
-  const handleTogglePublish = async (id: string, currentlyPublished: boolean) => {
-    const endpoint = currentlyPublished
-      ? `/api/admin/problem-statements/${id}/unpublish`
-      : `/api/admin/problem-statements/${id}/publish`;
+  const handleSelectRelease = (relId: string) => {
+    setSelectedReleaseId(relId);
+    fetchData(relId);
+  };
 
+  const currentRelease = releases.find((r) => r.id === selectedReleaseId);
+  const publishedRelease = releases.find((r) => r.is_current_published);
+
+  // Toggle approval for a single draft
+  const handleToggleApproval = async (draftId: string, currentStatus: boolean) => {
     try {
-      const res = await fetch(endpoint, { method: 'POST' });
+      const res = await fetch(`/api/admin/problem-statements/drafts/${draftId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isApproved: !currentStatus }),
+      });
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error?.message || 'Action failed');
-      toast.success(currentlyPublished ? 'Statement unpublished' : 'Statement published live');
-      fetchData();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to update approval');
+      }
+      toast.success(
+        !currentStatus
+          ? `Approved ${json.data.proposed_id} for release`
+          : `Removed ${json.data.proposed_id} from approved release`
+      );
+      // Update local state
+      setDrafts((prev) =>
+        prev.map((d) => (d.id === draftId ? { ...d, is_approved_for_release: !currentStatus } : d))
+      );
     } catch (err: any) {
       toast.error(err.message);
     }
   };
 
-  // Save Statement (Create or Update)
-  const handleSaveStatement = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingStatement?.id || !editingStatement?.title || !editingStatement?.track || !editingStatement?.description) {
-      toast.error('ID, Track, Title, and Description are required');
+  // Bulk approve all 13 selected items
+  const handleBulkApproveSelected = async () => {
+    const selectedDrafts = drafts.filter((d) => d.category_state === 'selected' && !d.is_approved_for_release);
+    if (selectedDrafts.length === 0) {
+      toast.info('All 13 selected briefs are already approved.');
       return;
     }
 
     try {
-      const payload = {
-        ...editingStatement,
-        requirements: typeof editingStatement.requirements === 'string'
-          ? editingStatement.requirements.split('\n').map((s: string) => s.trim()).filter(Boolean)
-          : editingStatement.requirements,
-        deliverables: typeof editingStatement.deliverables === 'string'
-          ? editingStatement.deliverables.split('\n').map((s: string) => s.trim()).filter(Boolean)
-          : editingStatement.deliverables,
-      };
+      for (const d of selectedDrafts) {
+        await fetch(`/api/admin/problem-statements/drafts/${d.id}/approve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isApproved: true }),
+        });
+      }
+      toast.success(`Approved ${selectedDrafts.length} selected challenge briefs for release.`);
+      fetchData(selectedReleaseId);
+    } catch (err: any) {
+      toast.error('Bulk approval failed: ' + err.message);
+    }
+  };
 
-      const isUpdate = statements.some(s => s.id === editingStatement.id);
-      const url = isUpdate
-        ? `/api/admin/problem-statements/${editingStatement.id}`
-        : `/api/admin/problem-statements`;
-      const method = isUpdate ? 'PUT' : 'POST';
+  // Save edited draft
+  const handleSaveDraft = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDraft) return;
 
-      const res = await fetch(url, {
-        method,
+    try {
+      const res = await fetch(`/api/admin/problem-statements/drafts/${editingDraft.id}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(editingDraft),
       });
-
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error?.message || 'Save failed');
-
-      toast.success(isUpdate ? 'Problem statement updated' : 'Problem statement created');
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to save draft');
+      }
+      toast.success(`Updated ${editingDraft.proposed_id}`);
       setIsEditModalOpen(false);
-      setEditingStatement(null);
-      fetchData();
+      setDrafts((prev) => prev.map((d) => (d.id === editingDraft.id ? json.data : d)));
     } catch (err: any) {
       toast.error(err.message);
     }
   };
 
-  // Save Selection Window
-  const handleSaveWindow = async (e: React.FormEvent) => {
+  // Create new release version
+  const handleCreateRelease = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newReleaseLabel.trim()) {
+      toast.error('Release label is required');
+      return;
+    }
+
     try {
-      const res = await fetch('/api/admin/event-config/selection-window', {
-        method: 'PUT',
+      const res = await fetch('/api/admin/problem-statements/releases', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          selection_start: new Date(windowStart).toISOString(),
-          selection_end: new Date(windowEnd).toISOString(),
+          label: newReleaseLabel.trim(),
+          sourceReleaseId: cloneFromId || undefined,
+          releaseNotes: newReleaseNotes.trim() || undefined,
         }),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error?.message || 'Failed to update selection window');
-      toast.success('Selection window updated');
-      setIsWindowModalOpen(false);
-      fetchData();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to create release');
+      }
+      toast.success(`Created Release v${json.data.version_number}`);
+      setIsNewReleaseModalOpen(false);
+      setNewReleaseLabel('');
+      setNewReleaseNotes('');
+      fetchData(json.data.id);
     } catch (err: any) {
       toast.error(err.message);
     }
   };
 
-  // Delete Statement
-  const handleDeleteStatement = async (id: string) => {
+  // Publish Release
+  const handlePublishRelease = async () => {
+    if (!selectedReleaseId) return;
     try {
-      const res = await fetch(`/api/admin/problem-statements/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/admin/problem-statements/releases/${selectedReleaseId}/publish`, {
+        method: 'POST',
+      });
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error?.message || 'Delete failed');
-      toast.success('Problem statement deleted');
-      setDeleteConfirmId(null);
-      fetchData();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to publish release');
+      }
+      toast.success(`Release v${json.data.version_number} is now LIVE on /problem-statements!`);
+      setIsPublishModalOpen(false);
+      fetchData(selectedReleaseId);
     } catch (err: any) {
       toast.error(err.message);
     }
   };
 
-  // Filter statements
-  const filteredStatements = statements.filter((s) => {
-    const matchesTrack = trackFilter === 'ALL' || s.track === trackFilter;
-    const matchesStatus =
-      statusFilter === 'ALL' ||
-      (statusFilter === 'published' && s.is_published) ||
-      (statusFilter === 'draft' && !s.is_published);
+  // Emergency Unpublish
+  const handleUnpublishRelease = async () => {
+    if (!selectedReleaseId) return;
+    try {
+      const res = await fetch(`/api/admin/problem-statements/releases/${selectedReleaseId}/unpublish`, {
+        method: 'POST',
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to unpublish release');
+      }
+      toast.warning('Release withdrawn. /problem-statements is now sealed.');
+      setIsUnpublishModalOpen(false);
+      fetchData(selectedReleaseId);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  // Filtered drafts list
+  const filteredDrafts = drafts.filter((d) => {
+    const matchesTrack = trackFilter === 'ALL' || d.track === trackFilter;
+    let matchesCategory = true;
+    if (categoryFilter === 'approved') {
+      matchesCategory = d.is_approved_for_release;
+    } else if (categoryFilter !== 'ALL') {
+      matchesCategory = d.category_state === categoryFilter;
+    }
+
+    const q = searchQuery.toLowerCase().trim();
     const matchesSearch =
-      !searchQuery ||
-      s.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.track.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesTrack && matchesStatus && matchesSearch;
+      !q ||
+      d.proposed_id.toLowerCase().includes(q) ||
+      d.original_ref_id.toLowerCase().includes(q) ||
+      d.title.toLowerCase().includes(q) ||
+      d.track.toLowerCase().includes(q);
+
+    return matchesTrack && matchesCategory && matchesSearch;
   });
 
+  const tracks = Array.from(new Set(drafts.map((d) => d.track))).filter(Boolean);
+  const approvedCount = drafts.filter((d) => d.is_approved_for_release).length;
+
   return (
-    <div className="space-y-8 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
+    <div className="space-y-8 pb-12">
+      {/* Header Banner */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-6">
         <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-              Problem Statements Management
-            </h1>
-            {config?.problem_statements_published ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                <Globe size={12} />
-                VAULT OPEN (LIVE)
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 px-3 py-0.5 text-xs font-bold text-amber-600 dark:text-amber-400">
-                <Lock size={12} />
-                VAULT SEALED (DRAFT)
-              </span>
-            )}
+          <div className="inline-flex items-center gap-2 border-b border-secondary/50 pb-1 text-[11px] font-bold uppercase tracking-wider text-secondary">
+            <Tag size={13} />
+            Problem Statement CMS & Versioning
           </div>
+          <h1 className="mt-2 text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+            Problem Statement Workflow
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Author official challenge briefs, attach supporting PDFs, and manage team selection windows.
+            Manage, approve, version, and publish challenge briefs from the 35-page Technical Review Edition.
           </p>
         </div>
 
-        {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2.5">
           <button
-            onClick={() => setIsWindowModalOpen(true)}
+            onClick={() => setIsAuditModalOpen(true)}
             className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors"
           >
-            <Clock size={14} />
-            Selection Window
+            <History size={14} />
+            Audit Logs
           </button>
-
           <button
-            onClick={() => {
-              setEditingStatement({
-                id: `PS-${String(statements.length + 1).padStart(2, '0')}`,
-                track: OFFICIAL_TRACKS[0],
-                title: '',
-                description: '',
-                requirements: '',
-                deliverables: '',
-                constraints: '',
-                attachment_url: '',
-                attachment_name: '',
-                is_published: false,
-                display_order: statements.length + 1,
-              });
-              setIsEditModalOpen(true);
-            }}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
+            onClick={() => setIsNewReleaseModalOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors"
           >
             <Plus size={14} />
-            Add Problem Statement
+            New Version
           </button>
+          {currentRelease?.is_current_published ? (
+            <button
+              onClick={() => setIsUnpublishModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-destructive px-4 py-2 text-xs font-bold text-destructive-foreground hover:bg-destructive/90 transition-colors shadow-sm"
+            >
+              <Lock size={14} />
+              Emergency Unpublish
+            </button>
+          ) : (
+            <button
+              onClick={() => setIsPublishModalOpen(true)}
+              disabled={approvedCount === 0}
+              className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-colors shadow-sm ${
+                approvedCount > 0
+                  ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                  : 'bg-muted text-muted-foreground cursor-not-allowed opacity-60'
+              }`}
+            >
+              <Globe size={14} />
+              Publish Approved ({approvedCount})
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
+      {/* Release Status & Selection Ribbon */}
+      <div className="rounded-3xl border border-border bg-card p-5 sm:p-6 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-2xl bg-secondary/15 text-secondary">
+            {currentRelease?.is_current_published ? <Unlock size={20} /> : <Lock size={20} />}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Working Release:
+              </span>
+              <select
+                value={selectedReleaseId}
+                onChange={(e) => handleSelectRelease(e.target.value)}
+                className="rounded-xl border border-border bg-surface px-2.5 py-1 text-xs font-bold text-foreground focus:outline-none"
+              >
+                {releases.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    v{r.version_number} — {r.label} ({r.status.toUpperCase()})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {currentRelease?.is_current_published
+                ? '🟢 This version is currently LIVE on /problem-statements'
+                : '🟡 This version is in DRAFT. None of its contents are visible to participants.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          <div className="rounded-2xl border border-border bg-surface px-3 py-1.5">
+            <span className="text-muted-foreground">Total Briefs: </span>
+            <span className="font-bold text-foreground">{drafts.length}</span>
+          </div>
+          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-emerald-700 dark:text-emerald-400 font-bold">
+            Approved: {approvedCount}
+          </div>
+          <div className="rounded-2xl border border-border bg-surface px-3 py-1.5">
+            <span className="text-muted-foreground">On Hold: </span>
+            <span className="font-bold text-amber-600">
+              {drafts.filter((d) => d.category_state === 'hold').length}
+            </span>
+          </div>
+          <div className="rounded-2xl border border-border bg-surface px-3 py-1.5">
+            <span className="text-muted-foreground">Proposals: </span>
+            <span className="font-bold text-indigo-600">
+              {drafts.filter((d) => d.category_state === 'new_proposal').length}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Filter & Quick Action Bar */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
@@ -285,307 +433,312 @@ export default function AdminProblemStatementsPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by ID, title, track, keywords..."
-            className="w-full rounded-2xl border border-border bg-card pl-10 pr-4 py-2 text-xs font-medium text-foreground placeholder:text-muted-foreground focus:outline-none"
+            placeholder="Search by ID (e.g. SIH26166, HX-AI-01) or title..."
+            className="w-full rounded-2xl border border-border bg-card pl-10 pr-4 py-2 text-xs font-medium text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Category Filter */}
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="rounded-2xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground focus:outline-none"
+          >
+            <option value="ALL">All Categories ({drafts.length})</option>
+            <option value="selected">Selected for Review ({drafts.filter((d) => d.category_state === 'selected').length})</option>
+            <option value="hold">On Hold ({drafts.filter((d) => d.category_state === 'hold').length})</option>
+            <option value="new_proposal">New Proposals ({drafts.filter((d) => d.category_state === 'new_proposal').length})</option>
+            <option value="approved">Approved for Release ({approvedCount})</option>
+          </select>
+
+          {/* Track Filter */}
           <select
             value={trackFilter}
             onChange={(e) => setTrackFilter(e.target.value)}
             className="rounded-2xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground focus:outline-none"
           >
             <option value="ALL">All Tracks</option>
-            {OFFICIAL_TRACKS.map((t) => (
+            {tracks.map((t) => (
               <option key={t} value={t}>
                 {t}
               </option>
             ))}
           </select>
 
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-2xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground focus:outline-none"
+          {/* Bulk Approve Action */}
+          <button
+            onClick={handleBulkApproveSelected}
+            className="rounded-2xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-bold text-primary hover:bg-primary/20 transition-colors"
           >
-            <option value="ALL">All Statuses</option>
-            <option value="published">Published Only</option>
-            <option value="draft">Drafts Only</option>
-          </select>
+            Approve All 13 Selected
+          </button>
         </div>
       </div>
 
-      {/* Problem Statements List / Table */}
-      <div className="rounded-3xl border border-border bg-card overflow-hidden shadow-sm">
-        <div className="p-4 sm:p-5 border-b border-border bg-muted/40 flex items-center justify-between">
-          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Problem Statements Repository ({filteredStatements.length})
-          </span>
-          <span className="text-xs text-muted-foreground">
-            Official Content Status: {statements.filter(s => s.is_published).length} Published / {statements.filter(s => !s.is_published).length} Drafts
-          </span>
-        </div>
-
-        {loading ? (
-          <div className="p-12 text-center text-sm text-muted-foreground">
-            Loading problem statements...
-          </div>
-        ) : filteredStatements.length === 0 ? (
-          <div className="p-12 text-center text-sm text-muted-foreground space-y-2">
-            <p className="font-semibold text-foreground">No problem statements found.</p>
-            <p className="text-xs">
-              Click &quot;Add Problem Statement&quot; to author a new challenge draft. All content remains private until explicitly published.
-            </p>
+      {/* Briefs Grid */}
+      <div className="space-y-4">
+        {filteredDrafts.length === 0 ? (
+          <div className="rounded-3xl border border-border bg-card p-12 text-center text-sm text-muted-foreground">
+            No briefs match your filter settings.
           </div>
         ) : (
-          <div className="divide-y divide-border">
-            {filteredStatements.map((item) => (
+          filteredDrafts.map((d) => {
+            const isExpanded = expandedDraftId === d.id;
+            return (
               <div
-                key={item.id}
-                className="p-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4 hover:bg-accent/40 transition-colors"
+                key={d.id}
+                className={`rounded-3xl border transition-all p-5 sm:p-6 bg-card shadow-sm ${
+                  d.is_approved_for_release ? 'border-primary/40 ring-1 ring-primary/20' : 'border-border'
+                }`}
               >
-                <div className="space-y-2 max-w-3xl">
+                {/* Header Line */}
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-xs font-black px-2.5 py-0.5 rounded-md bg-primary/10 border border-primary/30 text-primary">
-                      {item.id}
+                    <span className="rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-xs font-bold text-primary">
+                      {d.original_ref_id}
                     </span>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-secondary bg-secondary/15 px-2.5 py-0.5 rounded-full border border-secondary/25">
-                      <Tag size={11} />
-                      {item.track}
+                    <span className="rounded-full bg-surface border border-border px-2.5 py-0.5 text-xs font-mono font-bold text-foreground">
+                      {d.proposed_id}
                     </span>
-                    {item.is_published ? (
-                      <span className="rounded-md bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                        PUBLISHED
-                      </span>
-                    ) : (
-                      <span className="rounded-md bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                        DRAFT
+                    {d.category_state === 'hold' && (
+                      <span className="rounded-full bg-amber-500/10 border border-amber-500/30 px-2.5 py-0.5 text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                        HOLD
                       </span>
                     )}
+                    {d.category_state === 'new_proposal' && (
+                      <span className="rounded-full bg-indigo-500/10 border border-indigo-500/30 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700 dark:text-indigo-400">
+                        NEW PROPOSAL
+                      </span>
+                    )}
+                    {d.is_official_sih && (
+                      <span className="rounded-full bg-purple-500/10 border border-purple-500/30 px-2.5 py-0.5 text-[11px] font-bold text-purple-700 dark:text-purple-400">
+                        OFFICIAL SIH
+                      </span>
+                    )}
+                    <span className="text-xs text-muted-foreground font-medium">
+                      Track {d.track_num} &middot; {d.track}
+                    </span>
                   </div>
 
-                  <h3 className="text-lg font-bold text-foreground">
-                    {item.title}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 leading-relaxed">
-                    {item.description}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    {/* Approve Toggle */}
+                    <button
+                      onClick={() => handleToggleApproval(d.id, d.is_approved_for_release)}
+                      className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                        d.is_approved_for_release
+                          ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-700'
+                          : 'border border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground'
+                      }`}
+                    >
+                      {d.is_approved_for_release ? (
+                        <>
+                          <Check size={13} /> Approved for Release
+                        </>
+                      ) : (
+                        'Approve for Event'
+                      )}
+                    </button>
 
-                  {item.attachment_url && (
-                    <div className="flex items-center gap-1.5 text-xs text-secondary font-medium pt-1">
-                      <Download size={13} />
-                      <span>Attached: {item.attachment_name || 'Supporting PDF'}</span>
+                    <button
+                      onClick={() => {
+                        setPreviewDraft(d);
+                        setIsPreviewModalOpen(true);
+                      }}
+                      title="Preview Public Card"
+                      className="p-1.5 rounded-xl border border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                    >
+                      <Eye size={15} />
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setEditingDraft({ ...d });
+                        setIsEditModalOpen(true);
+                      }}
+                      title="Edit Brief"
+                      className="p-1.5 rounded-xl border border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                    >
+                      <Pencil size={15} />
+                    </button>
+
+                    <button
+                      onClick={() => setExpandedDraftId(isExpanded ? null : d.id)}
+                      className="p-1.5 rounded-xl border border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                    >
+                      {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Title */}
+                <h3 className="mt-3 text-lg font-bold text-foreground">
+                  {d.title}
+                </h3>
+
+                {/* Core Problem Statement */}
+                <p className="mt-1 text-sm text-foreground/80 leading-relaxed">
+                  {d.problem_statement}
+                </p>
+
+                {/* Expanded Technical Criteria */}
+                {isExpanded && (
+                  <div className="mt-4 pt-4 border-t border-border/60 space-y-3.5 text-xs">
+                    <div>
+                      <span className="font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <Cpu size={13} className="text-primary" /> Implementation Challenge:
+                      </span>
+                      <p className="mt-1 pl-4 text-foreground/90 leading-relaxed">{d.implementation_challenge}</p>
                     </div>
-                  )}
-                </div>
 
-                {/* Actions */}
-                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                  <button
-                    onClick={() => handleTogglePublish(item.id, item.is_published)}
-                    className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${
-                      item.is_published
-                        ? 'border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300'
-                        : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                    }`}
-                  >
-                    {item.is_published ? <Lock size={12} /> : <Unlock size={12} />}
-                    {item.is_published ? 'Unpublish' : 'Publish Live'}
-                  </button>
+                    <div>
+                      <span className="font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <Wrench size={13} className="text-primary" /> Minimum Acceptable Prototype:
+                      </span>
+                      <p className="mt-1 pl-4 text-foreground/90 leading-relaxed">{d.minimum_acceptable_prototype}</p>
+                    </div>
 
-                  <button
-                    onClick={() => {
-                      setEditingStatement({
-                        ...item,
-                        requirements: Array.isArray(item.requirements) ? item.requirements.join('\n') : '',
-                        deliverables: Array.isArray(item.deliverables) ? item.deliverables.join('\n') : '',
-                      });
-                      setIsEditModalOpen(true);
-                    }}
-                    className="p-2 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                    title="Edit Statement"
-                  >
-                    <Pencil size={14} />
-                  </button>
+                    <div>
+                      <span className="font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <AlertTriangle size={13} className="text-primary" /> Evaluation / Failure Tests:
+                      </span>
+                      <p className="mt-1 pl-4 text-foreground/90 leading-relaxed">{d.evaluation_tests}</p>
+                    </div>
 
-                  <button
-                    onClick={() => setDeleteConfirmId(item.id)}
-                    className="p-2 rounded-lg border border-border bg-card text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                    title="Delete Statement"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
+                    <div>
+                      <span className="font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <Lightbulb size={13} className="text-primary" /> Stretch / Differentiator:
+                      </span>
+                      <p className="mt-1 pl-4 text-foreground/90 leading-relaxed">{d.stretch_differentiator}</p>
+                    </div>
+
+                    {d.suggested_public_sector_relevance && (
+                      <div>
+                        <span className="font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                          <Building size={13} className="text-primary" /> Public-Sector Relevance:
+                        </span>
+                        <p className="mt-1 pl-4 text-foreground/90 leading-relaxed">{d.suggested_public_sector_relevance}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
+            );
+          })
         )}
       </div>
 
-      {/* Edit / Create Statement Modal */}
-      {isEditModalOpen && editingStatement && (
+      {/* Edit Draft Modal */}
+      {isEditModalOpen && editingDraft && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-2xl my-8 rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
+          <div className="relative w-full max-w-2xl rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4 my-8">
             <div className="flex items-center justify-between border-b border-border pb-3">
-              <h3 className="text-lg font-bold text-foreground">
-                {statements.some(s => s.id === editingStatement.id)
-                  ? `Edit Problem Statement (${editingStatement.id})`
-                  : 'Author New Problem Statement'}
-              </h3>
-              <button
-                onClick={() => setIsEditModalOpen(false)}
-                className="text-muted-foreground hover:text-foreground"
-              >
+              <div>
+                <h3 className="text-lg font-bold text-foreground">Edit Challenge Brief</h3>
+                <span className="text-xs text-muted-foreground">
+                  {editingDraft.original_ref_id} &middot; {editingDraft.proposed_id}
+                </span>
+              </div>
+              <button onClick={() => setIsEditModalOpen(false)} className="p-1 text-muted-foreground hover:text-foreground">
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSaveStatement} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-muted-foreground mb-1">
-                    Statement ID (e.g. PS-01, PS-AIML-01)
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editingStatement.id || ''}
-                    onChange={(e) => setEditingStatement({ ...editingStatement, id: e.target.value.toUpperCase() })}
-                    placeholder="e.g. PS-01"
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground uppercase"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-muted-foreground mb-1">
-                    Official Track
-                  </label>
-                  <select
-                    value={editingStatement.track || OFFICIAL_TRACKS[0]}
-                    onChange={(e) => setEditingStatement({ ...editingStatement, track: e.target.value })}
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground"
-                  >
-                    {OFFICIAL_TRACKS.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
+            <form onSubmit={handleSaveDraft} className="space-y-4 text-xs">
               <div>
-                <label className="block text-xs font-semibold text-muted-foreground mb-1">
-                  Challenge Title
-                </label>
+                <label className="font-bold text-foreground block mb-1">Title</label>
                 <input
                   type="text"
+                  value={editingDraft.title}
+                  onChange={(e) => setEditingDraft({ ...editingDraft, title: e.target.value })}
+                  className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-foreground text-xs font-medium"
                   required
-                  value={editingStatement.title || ''}
-                  onChange={(e) => setEditingStatement({ ...editingStatement, title: e.target.value })}
-                  placeholder="e.g. Autonomous Multi-Modal Copilot for Rural Diagnostics"
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-muted-foreground mb-1">
-                  Problem Description / Brief
-                </label>
-                <textarea
-                  rows={3}
-                  required
-                  value={editingStatement.description || ''}
-                  onChange={(e) => setEditingStatement({ ...editingStatement, description: e.target.value })}
-                  placeholder="Comprehensive description of the challenge, background, and expected approach..."
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-muted-foreground mb-1">
-                    Core Requirements (one per line)
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={editingStatement.requirements || ''}
-                    onChange={(e) => setEditingStatement({ ...editingStatement, requirements: e.target.value })}
-                    placeholder="Requirement 1&#10;Requirement 2&#10;Requirement 3"
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-muted-foreground mb-1">
-                    Expected Deliverables (one per line)
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={editingStatement.deliverables || ''}
-                    onChange={(e) => setEditingStatement({ ...editingStatement, deliverables: e.target.value })}
-                    placeholder="Deliverable 1&#10;Deliverable 2&#10;Deliverable 3"
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-muted-foreground mb-1">
-                  Constraints & Evaluation Notes (Optional)
-                </label>
-                <textarea
-                  rows={2}
-                  value={editingStatement.constraints || ''}
-                  onChange={(e) => setEditingStatement({ ...editingStatement, constraints: e.target.value })}
-                  placeholder="e.g. Must run on low-bandwidth connections or offline-first..."
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-muted-foreground mb-1">
-                    Attachment URL (Optional PDF/Resource)
-                  </label>
-                  <input
-                    type="url"
-                    value={editingStatement.attachment_url || ''}
-                    onChange={(e) => setEditingStatement({ ...editingStatement, attachment_url: e.target.value })}
-                    placeholder="https://..."
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-muted-foreground mb-1">
-                    Attachment Display Name
-                  </label>
+                  <label className="font-bold text-foreground block mb-1">Difficulty</label>
                   <input
                     type="text"
-                    value={editingStatement.attachment_name || ''}
-                    onChange={(e) => setEditingStatement({ ...editingStatement, attachment_name: e.target.value })}
-                    placeholder="e.g. Official Technical Specification.pdf"
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground"
+                    value={editingDraft.difficulty}
+                    onChange={(e) => setEditingDraft({ ...editingDraft, difficulty: e.target.value })}
+                    className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-foreground text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-foreground block mb-1">Build Type</label>
+                  <input
+                    type="text"
+                    value={editingDraft.build_type}
+                    onChange={(e) => setEditingDraft({ ...editingDraft, build_type: e.target.value })}
+                    className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-foreground text-xs"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="checkbox"
-                  id="publishCheckbox"
-                  checked={Boolean(editingStatement.is_published)}
-                  onChange={(e) => setEditingStatement({ ...editingStatement, is_published: e.target.checked })}
-                  className="rounded border-border"
+              <div>
+                <label className="font-bold text-foreground block mb-1">Problem Statement</label>
+                <textarea
+                  rows={3}
+                  value={editingDraft.problem_statement}
+                  onChange={(e) => setEditingDraft({ ...editingDraft, problem_statement: e.target.value })}
+                  className="w-full rounded-xl border border-border bg-surface p-3 text-foreground text-xs leading-relaxed"
+                  required
                 />
-                <label htmlFor="publishCheckbox" className="text-xs font-semibold text-foreground">
-                  Publish immediately (Visible to participants on /problem-statements)
-                </label>
               </div>
 
-              <div className="flex justify-end gap-2.5 pt-3 border-t border-border">
+              <div>
+                <label className="font-bold text-foreground block mb-1">Implementation Challenge</label>
+                <textarea
+                  rows={3}
+                  value={editingDraft.implementation_challenge}
+                  onChange={(e) => setEditingDraft({ ...editingDraft, implementation_challenge: e.target.value })}
+                  className="w-full rounded-xl border border-border bg-surface p-3 text-foreground text-xs leading-relaxed"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-foreground block mb-1">Minimum Acceptable Prototype</label>
+                <textarea
+                  rows={3}
+                  value={editingDraft.minimum_acceptable_prototype}
+                  onChange={(e) => setEditingDraft({ ...editingDraft, minimum_acceptable_prototype: e.target.value })}
+                  className="w-full rounded-xl border border-border bg-surface p-3 text-foreground text-xs leading-relaxed"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-foreground block mb-1">Evaluation & Failure Tests</label>
+                <textarea
+                  rows={3}
+                  value={editingDraft.evaluation_tests}
+                  onChange={(e) => setEditingDraft({ ...editingDraft, evaluation_tests: e.target.value })}
+                  className="w-full rounded-xl border border-border bg-surface p-3 text-foreground text-xs leading-relaxed"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-foreground block mb-1">Stretch / Differentiator</label>
+                <textarea
+                  rows={2}
+                  value={editingDraft.stretch_differentiator}
+                  onChange={(e) => setEditingDraft({ ...editingDraft, stretch_differentiator: e.target.value })}
+                  className="w-full rounded-xl border border-border bg-surface p-3 text-foreground text-xs leading-relaxed"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-foreground block mb-1">Public Sector Relevance</label>
+                <input
+                  type="text"
+                  value={editingDraft.suggested_public_sector_relevance || ''}
+                  onChange={(e) => setEditingDraft({ ...editingDraft, suggested_public_sector_relevance: e.target.value })}
+                  className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-foreground text-xs"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}
@@ -595,9 +748,9 @@ export default function AdminProblemStatementsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90"
+                  className="rounded-xl bg-primary px-5 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90"
                 >
-                  Save Problem Statement
+                  Save Changes
                 </button>
               </div>
             </form>
@@ -605,59 +758,127 @@ export default function AdminProblemStatementsPage() {
         </div>
       )}
 
-      {/* Selection Window Configuration Modal */}
-      {isWindowModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4">
+      {/* Preview Modal */}
+      {isPreviewModalOpen && previewDraft && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="relative w-full max-w-2xl rounded-3xl border border-border bg-card p-7 shadow-2xl space-y-4 my-8">
             <div className="flex items-center justify-between border-b border-border pb-3">
-              <h3 className="text-base font-bold text-foreground">
-                Configure Problem Selection Window
-              </h3>
-              <button onClick={() => setIsWindowModalOpen(false)} className="text-muted-foreground hover:text-foreground">
+              <span className="text-xs font-bold uppercase tracking-wider text-secondary">
+                Public Card Preview (Participant View)
+              </span>
+              <button onClick={() => setIsPreviewModalOpen(false)} className="p-1 text-muted-foreground hover:text-foreground">
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSaveWindow} className="space-y-4">
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-xs font-bold text-primary">
+                  {previewDraft.original_ref_id}
+                </span>
+                <span className="rounded-full bg-surface border border-border px-2.5 py-0.5 text-xs font-mono font-bold text-foreground">
+                  {previewDraft.proposed_id}
+                </span>
+                <span className="text-xs text-muted-foreground font-medium">
+                  Track {previewDraft.track_num} &middot; {previewDraft.track}
+                </span>
+              </div>
+
+              <h2 className="text-xl font-bold text-foreground font-serif">{previewDraft.title}</h2>
+              <p className="text-sm text-foreground/80 leading-relaxed">{previewDraft.problem_statement}</p>
+
+              <div className="pt-3 border-t border-border/60 space-y-3 text-xs">
+                <div>
+                  <span className="font-bold uppercase tracking-wider text-muted-foreground">Implementation Challenge:</span>
+                  <p className="mt-0.5 text-foreground/90">{previewDraft.implementation_challenge}</p>
+                </div>
+                <div>
+                  <span className="font-bold uppercase tracking-wider text-muted-foreground">Minimum Prototype:</span>
+                  <p className="mt-0.5 text-foreground/90">{previewDraft.minimum_acceptable_prototype}</p>
+                </div>
+                <div>
+                  <span className="font-bold uppercase tracking-wider text-muted-foreground">Evaluation Criteria:</span>
+                  <p className="mt-0.5 text-foreground/90">{previewDraft.evaluation_tests}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-border flex justify-end">
+              <button
+                onClick={() => setIsPreviewModalOpen(false)}
+                className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create New Release Modal */}
+      {isNewReleaseModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-base font-bold text-foreground">Create New Release Version</h3>
+              <button onClick={() => setIsNewReleaseModalOpen(false)} className="p-1 text-muted-foreground hover:text-foreground">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateRelease} className="space-y-4 text-xs">
               <div>
-                <label className="block text-xs font-semibold text-muted-foreground mb-1">
-                  Selection Release Time (Default: 12:45 PM, 15 Oct 2026)
-                </label>
+                <label className="font-bold text-foreground block mb-1">Release Label</label>
                 <input
-                  type="datetime-local"
+                  type="text"
+                  placeholder="e.g. Official Event Day Release"
+                  value={newReleaseLabel}
+                  onChange={(e) => setNewReleaseLabel(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-foreground text-xs"
                   required
-                  value={windowStart}
-                  onChange={(e) => setWindowStart(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-muted-foreground mb-1">
-                  Selection Cutoff Deadline (Default: 4:00 PM, 15 Oct 2026)
-                </label>
-                <input
-                  type="datetime-local"
-                  required
-                  value={windowEnd}
-                  onChange={(e) => setWindowEnd(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground"
+                <label className="font-bold text-foreground block mb-1">Clone Drafts From</label>
+                <select
+                  value={cloneFromId}
+                  onChange={(e) => setCloneFromId(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-foreground text-xs"
+                >
+                  <option value="">Do not clone (Empty release)</option>
+                  {releases.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      v{r.version_number} — {r.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-foreground block mb-1">Release Notes</label>
+                <textarea
+                  rows={2}
+                  placeholder="Brief description of changes in this version..."
+                  value={newReleaseNotes}
+                  onChange={(e) => setNewReleaseNotes(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-surface p-3 text-foreground text-xs"
                 />
               </div>
 
-              <div className="flex justify-end gap-2.5 pt-2 border-t border-border">
+              <div className="flex justify-end gap-2 pt-2 border-t border-border">
                 <button
                   type="button"
-                  onClick={() => setIsWindowModalOpen(false)}
-                  className="rounded-xl border border-border px-3.5 py-1.5 text-xs font-semibold text-muted-foreground"
+                  onClick={() => setIsNewReleaseModalOpen(false)}
+                  className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-accent"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90"
+                  className="rounded-xl bg-primary px-5 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90"
                 >
-                  Update Window
+                  Create Version
                 </button>
               </div>
             </form>
@@ -665,26 +886,142 @@ export default function AdminProblemStatementsPage() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {deleteConfirmId && (
+      {/* Publish Confirmation Modal */}
+      {isPublishModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4">
-            <h3 className="text-base font-bold text-foreground">Confirm Statement Deletion</h3>
-            <p className="text-xs text-muted-foreground">
-              Are you sure you want to delete this problem statement? If any teams have selected it, deletion will be safely rejected.
+          <div className="relative w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-primary/10 text-primary">
+                <Globe size={24} />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-foreground">Confirm Publication</h3>
+                <p className="text-xs text-muted-foreground">This action makes problem statements publicly visible.</p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border bg-surface p-4 text-xs space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Target Version:</span>
+                <span className="font-bold text-foreground">v{currentRelease?.version_number} ({currentRelease?.label})</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Approved Challenges:</span>
+                <span className="font-bold text-emerald-600">{approvedCount} challenges</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Unapproved / Held Items:</span>
+                <span className="font-bold text-amber-600">{drafts.length - approvedCount} items will stay hidden</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Once published, participants accessing <code className="font-mono text-foreground font-semibold">/problem-statements</code> will immediately see the {approvedCount} approved challenge briefs.
             </p>
-            <div className="flex justify-end gap-2.5 pt-2">
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-border">
               <button
-                onClick={() => setDeleteConfirmId(null)}
-                className="rounded-xl border border-border px-3.5 py-1.5 text-xs font-semibold text-muted-foreground"
+                type="button"
+                onClick={() => setIsPublishModalOpen(false)}
+                className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-accent"
               >
                 Cancel
               </button>
               <button
-                onClick={() => handleDeleteStatement(deleteConfirmId)}
-                className="rounded-xl bg-rose-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-rose-700"
+                type="button"
+                onClick={handlePublishRelease}
+                className="rounded-xl bg-primary px-5 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90"
               >
-                Delete Statement
+                Confirm &amp; Publish Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Emergency Unpublish Modal */}
+      {isUnpublishModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-md rounded-3xl border border-destructive/30 bg-card p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-destructive/10 text-destructive">
+                <ShieldAlert size={24} />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-foreground">Emergency Unpublish</h3>
+                <p className="text-xs text-muted-foreground">Withdraw active release from public view</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Are you sure you want to withdraw the active release? The public route <code className="font-mono text-foreground font-semibold">/problem-statements</code> will immediately return to the locked vault holding page.
+            </p>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setIsUnpublishModalOpen(false)}
+                className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-accent"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleUnpublishRelease}
+                className="rounded-xl bg-destructive px-5 py-2 text-xs font-bold text-destructive-foreground hover:bg-destructive/90"
+              >
+                Withdraw Immediately
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Audit Logs Drawer / Modal */}
+      {isAuditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="relative w-full max-w-2xl rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4 my-8">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <History size={18} className="text-primary" />
+                <h3 className="text-base font-bold text-foreground">Problem Statement Audit Trail</h3>
+              </div>
+              <button onClick={() => setIsAuditModalOpen(false)} className="p-1 text-muted-foreground hover:text-foreground">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="max-h-96 overflow-y-auto space-y-2.5 pr-1">
+              {auditLogs.length === 0 ? (
+                <div className="text-xs text-muted-foreground py-8 text-center">No audit logs recorded yet.</div>
+              ) : (
+                auditLogs.map((log) => (
+                  <div key={log.id} className="rounded-2xl border border-border bg-surface p-3 text-xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-foreground">{log.action}</span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {new Date(log.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground flex items-center gap-2">
+                      <span>Actor: {log.actor_name || log.actor_email || 'System'}</span>
+                    </div>
+                    {log.metadata && (
+                      <pre className="mt-1 text-[10px] font-mono bg-card p-2 rounded-xl border border-border/60 overflow-x-auto text-muted-foreground">
+                        {JSON.stringify(log.metadata, null, 2)}
+                      </pre>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="pt-2 border-t border-border flex justify-end">
+              <button
+                onClick={() => setIsAuditModalOpen(false)}
+                className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90"
+              >
+                Close
               </button>
             </div>
           </div>

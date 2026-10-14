@@ -3,7 +3,7 @@ import { withAuth } from '@/lib/middleware/withAuth';
 import { pool } from '@/lib/db';
 import { successResponse, Errors } from '@/lib/utils/response';
 import { logAudit } from '@/lib/auth/telemetry';
-import { OFFICIAL_TRACKS } from '../route';
+import { OFFICIAL_TRACKS } from '@/lib/event/eventConstants';
 
 /**
  * PUT /api/admin/problem-statements/[id]
