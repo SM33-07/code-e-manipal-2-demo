@@ -15,6 +15,7 @@ import { validateCsrf } from '@/lib/auth/csrf';
 import { logAudit, extractClientIp } from '@/lib/auth/telemetry';
 import { logger } from '@/lib/utils/logger';
 import { successResponse, Errors } from '@/lib/utils/response';
+import { revokeTeamSession } from '@/lib/auth/teamSessionLimit';
 
 export async function POST(req: NextRequest) {
   try {
@@ -38,6 +39,12 @@ export async function POST(req: NextRequest) {
       // Continue anyway — the goal is to clear the session
     }
 
+    // Revoke team session slot if tracked
+    const sessionId = req.cookies.get('cem_session_id')?.value || req.headers.get('x-session-id');
+    if (sessionId) {
+      await revokeTeamSession(sessionId).catch(() => {});
+    }
+
     // Record audit log (non-blocking)
     if (user) {
       logAudit({
@@ -50,7 +57,14 @@ export async function POST(req: NextRequest) {
 
     logger.info('Logout successful', { userId: user?.id });
 
-    return successResponse({ message: 'Logged out successfully.' });
+    const res = successResponse({ message: 'Logged out successfully.' });
+    res.cookies.set('cem_session_id', '', {
+      path: '/',
+      maxAge: 0,
+      httpOnly: true,
+      sameSite: 'lax',
+    });
+    return res;
   } catch (err) {
     logger.error('Logout endpoint unexpected error', { error: String(err) });
     return Errors.INTERNAL();

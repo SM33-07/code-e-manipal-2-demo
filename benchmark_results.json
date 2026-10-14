@@ -1,0 +1,259 @@
+{
+  "timestamp": "2026-10-14T19:43:48.767Z",
+  "environment": "staging",
+  "http": [
+    {
+      "endpoint": "/",
+      "stats": {
+        "count": 25,
+        "min": 53,
+        "max": 201,
+        "avg": 121,
+        "p50": 122,
+        "p90": 141,
+        "p95": 158,
+        "p99": 201
+      },
+      "statusCodes": {
+        "200": 25
+      },
+      "sampleHeaders": {
+        "cache-control": "no-cache, must-revalidate",
+        "x-matched-path": null,
+        "content-type": "text/html; charset=utf-8"
+      }
+    },
+    {
+      "endpoint": "/timeline",
+      "stats": {
+        "count": 25,
+        "min": 80,
+        "max": 142,
+        "avg": 105,
+        "p50": 106,
+        "p90": 120,
+        "p95": 125,
+        "p99": 142
+      },
+      "statusCodes": {
+        "200": 25
+      },
+      "sampleHeaders": {
+        "cache-control": "no-cache, must-revalidate",
+        "x-matched-path": null,
+        "content-type": "text/html; charset=utf-8"
+      }
+    },
+    {
+      "endpoint": "/problem-statements",
+      "stats": {
+        "count": 25,
+        "min": 60,
+        "max": 240,
+        "avg": 90,
+        "p50": 81,
+        "p90": 101,
+        "p95": 105,
+        "p99": 240
+      },
+      "statusCodes": {
+        "200": 25
+      },
+      "sampleHeaders": {
+        "cache-control": "no-cache, must-revalidate",
+        "x-matched-path": null,
+        "content-type": "text/html; charset=utf-8"
+      }
+    },
+    {
+      "endpoint": "/api/timeline",
+      "stats": {
+        "count": 25,
+        "min": 50,
+        "max": 393,
+        "avg": 89,
+        "p50": 53,
+        "p90": 320,
+        "p95": 328,
+        "p99": 393
+      },
+      "statusCodes": {
+        "200": 25
+      },
+      "sampleHeaders": {
+        "cache-control": "public, s-maxage=5, stale-while-revalidate=15",
+        "x-matched-path": null,
+        "content-type": "application/json"
+      }
+    },
+    {
+      "endpoint": "/api/problem-statements",
+      "stats": {
+        "count": 25,
+        "min": 46,
+        "max": 310,
+        "avg": 61,
+        "p50": 51,
+        "p90": 54,
+        "p95": 58,
+        "p99": 310
+      },
+      "statusCodes": {
+        "200": 25
+      },
+      "sampleHeaders": {
+        "cache-control": "public, s-maxage=30, stale-while-revalidate=60",
+        "x-matched-path": null,
+        "content-type": "application/json"
+      }
+    },
+    {
+      "endpoint": "/login",
+      "stats": {
+        "count": 25,
+        "min": 54,
+        "max": 112,
+        "avg": 79,
+        "p50": 81,
+        "p90": 92,
+        "p95": 96,
+        "p99": 112
+      },
+      "statusCodes": {
+        "200": 25
+      },
+      "sampleHeaders": {
+        "cache-control": "no-cache, must-revalidate",
+        "x-matched-path": null,
+        "content-type": "text/html; charset=utf-8"
+      }
+    },
+    {
+      "endpoint": "/dashboard",
+      "stats": {
+        "count": 25,
+        "min": 67,
+        "max": 106,
+        "avg": 82,
+        "p50": 80,
+        "p90": 94,
+        "p95": 105,
+        "p99": 106
+      },
+      "statusCodes": {
+        "200": 25
+      },
+      "sampleHeaders": {
+        "cache-control": "no-cache, must-revalidate",
+        "x-matched-path": null,
+        "content-type": "text/html; charset=utf-8"
+      }
+    },
+    {
+      "endpoint": "/submit",
+      "stats": {
+        "count": 25,
+        "min": 57,
+        "max": 241,
+        "avg": 86,
+        "p50": 80,
+        "p90": 99,
+        "p95": 101,
+        "p99": 241
+      },
+      "statusCodes": {
+        "200": 25
+      },
+      "sampleHeaders": {
+        "cache-control": "no-cache, must-revalidate",
+        "x-matched-path": null,
+        "content-type": "text/html; charset=utf-8"
+      }
+    }
+  ],
+  "database": [
+    {
+      "queryName": "Read Published Timeline Events",
+      "stats": {
+        "count": 25,
+        "min": 36,
+        "max": 400,
+        "avg": 53,
+        "p50": 38,
+        "p90": 41,
+        "p95": 48,
+        "p99": 400
+      }
+    },
+    {
+      "queryName": "Read Approved Problem Statements",
+      "stats": {
+        "count": 25,
+        "min": 37,
+        "max": 42,
+        "avg": 38,
+        "p50": 38,
+        "p90": 41,
+        "p95": 42,
+        "p99": 42
+      }
+    },
+    {
+      "queryName": "Verify Submission Gate & Event Phase",
+      "stats": {
+        "count": 25,
+        "min": 37,
+        "max": 55,
+        "avg": 38,
+        "p50": 37,
+        "p90": 40,
+        "p95": 41,
+        "p99": 55
+      }
+    },
+    {
+      "queryName": "Team Active Sessions Count (Session Enforcement)",
+      "stats": {
+        "count": 25,
+        "min": 36,
+        "max": 41,
+        "avg": 38,
+        "p50": 37,
+        "p90": 39,
+        "p95": 39,
+        "p99": 41
+      }
+    },
+    {
+      "queryName": "Fetch Team Submissions with Category & Review Status",
+      "stats": {
+        "count": 25,
+        "min": 36,
+        "max": 62,
+        "avg": 40,
+        "p50": 38,
+        "p90": 46,
+        "p95": 49,
+        "p99": 62
+      }
+    },
+    {
+      "queryName": "Admin Dashboard Summary Aggregates (Teams, Submissions, Config)",
+      "stats": {
+        "count": 25,
+        "min": 37,
+        "max": 67,
+        "avg": 40,
+        "p50": 38,
+        "p90": 45,
+        "p95": 49,
+        "p99": 67
+      }
+    }
+  ],
+  "pool": {
+    "total": 1,
+    "idle": 1,
+    "waiting": 0
+  }
+}

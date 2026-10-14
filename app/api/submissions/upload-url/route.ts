@@ -1,13 +1,13 @@
 import { NextRequest } from "next/server";
 import crypto from "crypto";
 import { withAuth } from "@/lib/middleware/withAuth";
-import { successResponse, Errors } from "@/lib/utils/response";
+import { successResponse, Errors, NO_CACHE_HEADERS } from "@/lib/utils/response";
 import { logger } from "@/lib/utils/logger";
 import {
   getUserTeamId,
   getSubmissionByTeamId,
-  verifyMutationPhase,
 } from "@/services/submissionService";
+import { verifySubmissionEligibility } from "@/services/submissionGate";
 
 const ALLOWED_ASSET_TYPES = ['screenshot', 'presentation'] as const;
 type AssetType = typeof ALLOWED_ASSET_TYPES[number];
@@ -53,14 +53,19 @@ export const POST = withAuth(async (req, { user, profile }) => {
       return Errors.FORBIDDEN("You must belong to a registered team to upload submission assets.");
     }
 
-    // 2. Event phase enforcement
-    try {
-      await verifyMutationPhase();
-    } catch (phaseErr: any) {
-      if (phaseErr.message === 'EVENT_NOT_STARTED') {
+    // 2. Authoritative server-side submission gate
+    const eligibility = await verifySubmissionEligibility(teamId);
+    if (!eligibility.eligible) {
+      if (eligibility.code === 'SUBMISSIONS_FROZEN_GLOBALLY') {
+        return Errors.FORBIDDEN("Submissions are temporarily frozen globally by event administrators.");
+      }
+      if (eligibility.code === 'TEAM_SUBMISSION_LOCKED') {
+        return Errors.FORBIDDEN("Submissions for your team have been locked by an administrator.");
+      }
+      if (eligibility.code === 'EVENT_NOT_STARTED') {
         return Errors.FORBIDDEN("Hackathon has not started yet. Asset uploads are closed.");
       }
-      return Errors.FORBIDDEN("Submission window is closed. Asset uploads are no longer permitted.");
+      return Errors.FORBIDDEN(eligibility.message || "Submission window is closed. Asset uploads are no longer permitted.");
     }
 
     // 3. Finalization lock enforcement
@@ -187,9 +192,9 @@ export const POST = withAuth(async (req, { user, profile }) => {
       max_file_size: constraints.maxSizeBytes,
       allowed_mime_types: constraints.allowedMimeTypes,
       expires_in_seconds: 600, // 10-minute HMAC expiration window
-    });
+    }, undefined, 200, NO_CACHE_HEADERS);
   } catch (err: any) {
     logger.error('POST /api/submissions/upload-url failed', { error: String(err), userId: user.id });
-    return Errors.INTERNAL();
+    return Errors.INTERNAL('Internal server error', NO_CACHE_HEADERS);
   }
 });

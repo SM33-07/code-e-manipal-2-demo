@@ -5,6 +5,7 @@ import {
   SubmissionInput,
   validateSubmissionForFinalize,
 } from "@/lib/validation/submission";
+import { verifySubmissionEligibility } from './submissionGate';
 
 // Allowed mutable fields for normal update operations
 const ALLOWED_SUBMISSION_FIELDS = [
@@ -31,23 +32,15 @@ const ALLOWED_SUBMISSION_FIELDS = [
  * Checks team_members first, then profiles.team_id.
  */
 export async function getUserTeamId(userId: string): Promise<string | null> {
-  const { rows: memberRows } = await query(
-    'SELECT team_id FROM public.team_members WHERE user_id = $1 LIMIT 1',
+  const { rows } = await query(
+    `SELECT team_id FROM (
+       SELECT team_id FROM public.team_members WHERE user_id = $1 AND team_id IS NOT NULL
+       UNION ALL
+       SELECT team_id FROM public.profiles WHERE id = $1 AND team_id IS NOT NULL
+     ) sub LIMIT 1`,
     [userId]
   );
-  if (memberRows.length > 0 && memberRows[0].team_id) {
-    return memberRows[0].team_id;
-  }
-
-  const { rows: profileRows } = await query(
-    'SELECT team_id FROM public.profiles WHERE id = $1 AND team_id IS NOT NULL LIMIT 1',
-    [userId]
-  );
-  if (profileRows.length > 0 && profileRows[0].team_id) {
-    return profileRows[0].team_id;
-  }
-
-  return null;
+  return rows.length > 0 && rows[0].team_id ? rows[0].team_id : null;
 }
 
 /**
@@ -169,19 +162,34 @@ export async function listSubmissions(
  * - SUBMISSION: All operations permitted.
  * - SUBMISSION_CLOSED+: All mutations barred for participants.
  */
-export async function verifyMutationPhase(client?: any, isFinalizing = false): Promise<EventPhase> {
-  let eventPhase: EventPhase;
+export async function verifyMutationPhase(client?: any, isFinalizing = false, teamId?: string): Promise<EventPhase> {
+  if (teamId) {
+    const eligibility = await verifySubmissionEligibility(teamId, { client, isFinalizing });
+    if (!eligibility.eligible) {
+      const err = new Error(eligibility.code || 'SUBMISSION_NOT_ALLOWED');
+      (err as any).userMessage = eligibility.message;
+      throw err;
+    }
+    return 'SUBMISSION';
+  }
 
+  let configRow: any;
   if (client) {
     const { rows } = await client.query(
-      'SELECT event_phase FROM public.event_config WHERE id = 1 FOR UPDATE'
+      'SELECT event_phase, global_freeze FROM public.event_config WHERE id = 1 FOR UPDATE'
     );
     if (rows.length === 0) throw new Error('CONFIG_NOT_FOUND');
-    eventPhase = rows[0].event_phase;
+    configRow = rows[0];
   } else {
-    const config = await getEventConfigState();
-    eventPhase = config.event_phase;
+    const { rows } = await query('SELECT event_phase, global_freeze FROM public.event_config WHERE id = 1');
+    configRow = rows[0] || {};
   }
+
+  if (configRow.global_freeze) {
+    throw new Error('SUBMISSIONS_FROZEN_GLOBALLY');
+  }
+
+  const eventPhase: EventPhase = configRow.event_phase || 'NOT_STARTED';
 
   if (eventPhase === 'NOT_STARTED') {
     throw new Error('EVENT_NOT_STARTED');
@@ -206,12 +214,12 @@ export async function verifyMutationPhase(client?: any, isFinalizing = false): P
 /**
  * Creates a new canonical draft submission for a team.
  * Enforces:
- * - Phase boundary check.
+ * - Authoritative server-side submission gate (phase, global freeze, team lock, deadline).
  * - Single canonical submission via UNIQUE(team_id) constraint.
  * - Initial draft state (`status = 'draft'`, `is_locked = false`, `final_submitted_at = null`).
  */
 export async function createSubmission(teamId: string, input: SubmissionInput) {
-  await verifyMutationPhase();
+  await verifyMutationPhase(undefined, false, teamId);
 
   try {
     const { rows } = await query(
@@ -282,8 +290,8 @@ export async function updateSubmission(
     try {
       await client.query('BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ');
 
-      // 1. Lock event_config and verify phase
-      await verifyMutationPhase(client, false);
+      // 1. Lock event_config and verify phase and submission eligibility
+      await verifyMutationPhase(client, false, teamId);
 
       // 2. Lock submission row
       const { rows: subRows } = await client.query(
@@ -410,6 +418,15 @@ export async function finalizeSubmissionTransaction(id: string, userId: string) 
       if (!isMember) {
         await client.query('ROLLBACK');
         throw new Error('FORBIDDEN_NOT_TEAM_MEMBER');
+      }
+
+      // 4. Authoritative submission eligibility gate (Precedence: Phase -> Global Freeze -> Team Lock -> Deadline/Extension)
+      const eligibility = await verifySubmissionEligibility(sub.team_id, { client, isFinalizing: true });
+      if (!eligibility.eligible) {
+        await client.query('ROLLBACK');
+        const err = new Error(eligibility.code || 'SUBMISSION_WINDOW_CLOSED');
+        (err as any).userMessage = eligibility.message;
+        throw err;
       }
 
       // 4. Verify submission is in draft state and unlocked

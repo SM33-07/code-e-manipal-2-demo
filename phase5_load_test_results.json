@@ -1,0 +1,86 @@
+{
+  "runId": "P5_1792007241883",
+  "timestamp": "2026-10-14T19:48:18.502Z",
+  "environment": "staging (cem_staging)",
+  "results": {
+    "scenario1": {
+      "count": 5,
+      "min": 358,
+      "max": 633,
+      "avg": 420,
+      "p50": 367,
+      "p90": 633,
+      "p95": 633,
+      "p99": 633
+    },
+    "scenario2": {
+      "count": 20,
+      "min": 414,
+      "max": 1482,
+      "avg": 781,
+      "p50": 749,
+      "p90": 996,
+      "p95": 1482,
+      "p99": 1482
+    },
+    "scenario3": {
+      "count": 215,
+      "min": 352,
+      "max": 5125,
+      "avg": 2096,
+      "p50": 1937,
+      "p90": 3733,
+      "p95": 4299,
+      "p99": 4661,
+      "totalDurationSec": "34.57",
+      "successCount": 215,
+      "failCount": 0
+    },
+    "scenario4": {
+      "count": 30,
+      "min": 365,
+      "max": 4438,
+      "avg": 2469,
+      "p50": 2733,
+      "p90": 4188,
+      "p95": 4315,
+      "p99": 4438,
+      "durationSec": "4.44",
+      "successCount": 30
+    },
+    "scenario5": {
+      "5": {
+        "durationMs": 41,
+        "avgPerQuery": 8
+      },
+      "15": {
+        "durationMs": 49,
+        "avgPerQuery": 3
+      },
+      "30": {
+        "durationMs": 55,
+        "avgPerQuery": 2
+      }
+    },
+    "scenario6": {
+      "durationMs": 130,
+      "success": true
+    },
+    "scenario7": {
+      "durationMs": 122,
+      "lockVerified": true
+    },
+    "scenario8": {
+      "freezeEnforced": true,
+      "blockedRatio": "5/5"
+    },
+    "scenario9": {
+      "recovered": true,
+      "attempts": 1
+    },
+    "scenario10": {
+      "isolationVerified": true,
+      "crossTeamLeaks": 0
+    }
+  }
+}

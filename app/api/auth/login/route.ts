@@ -29,6 +29,9 @@ import { Errors, successResponse } from '@/lib/utils/response';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 import { query } from '@/lib/db';
+import { getUserTeamId } from '@/services/submissionService';
+import { registerTeamSession, TEAM_MAX_CONCURRENT_SESSIONS } from '@/lib/auth/teamSessionLimit';
+import crypto from 'crypto';
 
 /** Generic error message for enumeration resistance (ADR-007) */
 const GENERIC_AUTH_ERROR = 'Invalid identifier or password.';
@@ -89,48 +92,66 @@ export async function POST(req: NextRequest) {
         return Errors.INTERNAL('Database temporarily unavailable. Please retry.');
       }
     } else {
+      const rawUpper = trimmedInput.toUpperCase();
+      const rawCompact = rawUpper.replace(/[\s-]/g, '');
       const normalized = normalizeIdentifier(trimmedInput);
       const normalizedLogin = normalizeLoginId(trimmedInput);
-      identityKey = normalized?.canonical || normalizedLogin?.canonical || trimmedInput.toUpperCase();
-      const compactKey = identityKey.replace(/-/g, '');
+      const canonicalKey = normalized?.canonical || normalizedLogin?.canonical || rawUpper;
+      const compactCanonical = canonicalKey.replace(/-/g, '');
 
-      // Look up the authoritative email from Azure profiles using either the
-      // canonical identifier, unhyphenated form, or the separate personalized login_id.
-      let profileEmail: string | null = null;
+      // Resolve profile:
+      // Step A: First look up by exact login_id (case-insensitive) using the raw input or compact form
+      let resolvedProfile: any = null;
       try {
-        const { rows } = await query(
-          `SELECT id, email, identifier, login_id, is_disabled FROM public.profiles
-           WHERE UPPER(TRIM(identifier)) = $1
-              OR UPPER(TRIM(identifier)) = $2
-              OR UPPER(TRIM(COALESCE(login_id, ''))) = $1
+        const { rows: loginRows } = await query(
+          `SELECT id, email, identifier, login_id, role, is_disabled FROM public.profiles
+           WHERE UPPER(TRIM(COALESCE(login_id, ''))) = $1
               OR UPPER(TRIM(COALESCE(login_id, ''))) = $2
            LIMIT 2`,
-          [identityKey, compactKey]
+          [rawUpper, rawCompact]
         );
-        if (rows.length > 1) {
-          logger.warn('Ambiguous profile identifier rejected during login', { identityKey });
+
+        if (loginRows.length === 1) {
+          resolvedProfile = loginRows[0];
+        } else if (loginRows.length > 1) {
+          logger.warn('Ambiguous profile login_id rejected during login', { identityKey: rawUpper });
           await serverSleep(200);
           return NextResponse.json({ error: GENERIC_AUTH_ERROR }, { status: 401 });
-        }
-        if (rows.length === 1 && rows[0].is_disabled) {
-          logger.warn('Login attempt for disabled profile by identifier rejected', { identityKey });
-          await serverSleep(200);
-          return NextResponse.json({ error: GENERIC_AUTH_ERROR }, { status: 401 });
-        }
-        if (rows.length === 1 && rows[0].email) {
-          profileEmail = rows[0].email;
-          if (rows[0].identifier) {
-            identityKey = rows[0].identifier;
+        } else {
+          // Step B: If not matched by login_id, look up by canonical identifier
+          const { rows: idRows } = await query(
+            `SELECT id, email, identifier, login_id, role, is_disabled FROM public.profiles
+             WHERE UPPER(TRIM(identifier)) = $1
+                OR UPPER(TRIM(identifier)) = $2
+                OR UPPER(TRIM(identifier)) = $3
+             LIMIT 2`,
+            [canonicalKey, compactCanonical, rawUpper]
+          );
+
+          if (idRows.length === 1) {
+            resolvedProfile = idRows[0];
+          } else if (idRows.length > 1) {
+            logger.warn('Ambiguous profile identifier rejected during login', { identityKey: canonicalKey });
+            await serverSleep(200);
+            return NextResponse.json({ error: GENERIC_AUTH_ERROR }, { status: 401 });
           }
         }
       } catch (dbErr) {
-        logger.error('Database error during identifier profile lookup', { identityKey, error: String(dbErr) });
+        logger.error('Database error during identifier profile lookup', { rawUpper, error: String(dbErr) });
         return Errors.INTERNAL('Database temporarily unavailable. Please retry.');
       }
 
-      if (profileEmail) {
-        syntheticEmail = profileEmail;
+      if (resolvedProfile) {
+        if (resolvedProfile.is_disabled) {
+          logger.warn('Login attempt for disabled profile by identifier rejected', { identityKey: resolvedProfile.identifier || rawUpper });
+          await serverSleep(200);
+          return NextResponse.json({ error: GENERIC_AUTH_ERROR }, { status: 401 });
+        }
+
+        identityKey = resolvedProfile.identifier || resolvedProfile.login_id || rawUpper;
+        syntheticEmail = resolvedProfile.email || identifierToEmail(identityKey);
       } else if (normalized) {
+        identityKey = normalized.canonical;
         syntheticEmail = identifierToEmail(identityKey);
       } else {
         logger.debug('Login attempt with invalid identifier format', {
@@ -186,6 +207,17 @@ export async function POST(req: NextRequest) {
 
     // ── Step 7: Return result or enforce account status ──
     if (!success) {
+      if (
+        authError?.message?.toLowerCase().includes('rate limit') ||
+        authError?.message?.toLowerCase().includes('too many requests')
+      ) {
+        logger.warn('Upstream authentication rate limit reached', { identityKey, ipHash });
+        return NextResponse.json(
+          { error: 'Too many requests. Please wait a moment and try again.' },
+          { status: 429 }
+        );
+      }
+
       logger.info('Login failed', { identityKey, ipHash });
 
       const response: Record<string, any> = {
@@ -281,7 +313,52 @@ export async function POST(req: NextRequest) {
 
     logger.info('Login successful', { identityKey, userId: data.user!.id });
 
-    return successResponse({
+    // ── Step 9: Atomic Team Concurrent Session Enforcement (Max 5 per team) ──
+    const userTeamId = await getUserTeamId(data.user!.id);
+    let assignedSessionId: string | undefined = undefined;
+
+    if (userTeamId) {
+      const incomingSessionId = body.session_id || req.cookies.get('cem_session_id')?.value;
+      const tokenHash = data.session?.access_token
+        ? crypto.createHash('sha256').update(data.session.access_token).digest('hex').substring(0, 32)
+        : crypto.randomUUID();
+      const finalSessionId = incomingSessionId || `sess_${tokenHash}`;
+      assignedSessionId = finalSessionId;
+
+      const sessionReg = await registerTeamSession({
+        sessionId: finalSessionId,
+        teamId: userTeamId,
+        userId: data.user!.id,
+        ipHash,
+        userAgentSummary: summarizeUserAgent(userAgent),
+        ttlSeconds: data.session?.expires_in || 86400,
+      });
+
+      if (!sessionReg.allowed) {
+        // Invalidate GoTrue session so no usable session token survives
+        try {
+          if (data.session?.access_token) {
+            await supabase.auth.admin.signOut(data.session.access_token);
+          }
+        } catch (signOutErr) {
+          logger.warn('Failed to invalidate GoTrue session on session-limit rejection', {
+            error: String(signOutErr),
+          });
+        }
+
+        return NextResponse.json(
+          {
+            error: sessionReg.message || 'Team concurrent session limit reached.',
+            code: sessionReg.reason || 'TEAM_SESSION_LIMIT_EXCEEDED',
+            active_count: sessionReg.activeCount,
+            max_allowed: TEAM_MAX_CONCURRENT_SESSIONS,
+          },
+          { status: 429 }
+        );
+      }
+    }
+
+    const responseObj = successResponse({
       user: {
         id: data.user!.id,
         email: data.user!.email,
@@ -291,10 +368,24 @@ export async function POST(req: NextRequest) {
         access_token: data.session?.access_token,
         refresh_token: data.session?.refresh_token,
         expires_at: data.session?.expires_at,
+        session_id: assignedSessionId,
       },
     });
+
+    if (assignedSessionId) {
+      responseObj.cookies.set('cem_session_id', assignedSessionId, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+        maxAge: 86400,
+      });
+    }
+
+    return responseObj;
   } catch (err) {
     logger.error('Login endpoint unexpected error', { error: String(err) });
     return Errors.INTERNAL();
   }
 }
+

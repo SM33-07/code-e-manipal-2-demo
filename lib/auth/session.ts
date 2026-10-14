@@ -16,11 +16,12 @@
  */
 
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { headers } from 'next/headers';
+import { headers, cookies } from 'next/headers';
 import { query } from '@/lib/db';
 import type { Profile, UserRole } from '@/types';
 import type { User } from '@supabase/supabase-js';
 import { logger } from '@/lib/utils/logger';
+import { verifyTeamSessionActive } from './teamSessionLimit';
 
 export interface ValidatedSession {
   /** Supabase GoTrue user object */
@@ -113,7 +114,25 @@ export async function validateSession(): Promise<
       }
     }
 
-    // 5. Session is valid
+    // 5. Check team active session revocation/expiry (if session_id cookie or header present)
+    try {
+      const cookieStore = await cookies();
+      const sessionId = headerList.get('x-session-id') || cookieStore.get('cem_session_id')?.value;
+      if (sessionId) {
+        const isSessionActive = await verifyTeamSessionActive(sessionId);
+        if (!isSessionActive) {
+          logger.info('Session validation: revoked or expired team session rejected', {
+            userId: user.id,
+            sessionId,
+          });
+          return { session: null, error: 'FORCE_LOGOUT' };
+        }
+      }
+    } catch {
+      // Non-blocking if cookies/headers cannot be resolved
+    }
+
+    // 6. Session is valid
     return {
       session: { user, profile },
       error: null,

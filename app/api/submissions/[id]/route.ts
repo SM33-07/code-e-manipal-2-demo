@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { withAuth } from "@/lib/middleware/withAuth";
-import { successResponse, Errors } from "@/lib/utils/response";
+import { successResponse, Errors, NO_CACHE_HEADERS } from "@/lib/utils/response";
 import { isValidUUID } from "@/lib/utils/validate";
 import { logger } from "@/lib/utils/logger";
 import { query } from "@/lib/db";
@@ -17,26 +17,27 @@ import { validateUpdateSubmission } from "@/lib/validation/submission";
  *
  * Strict resource ownership verification:
  * - Participant: CANNOT read other teams' submissions. Allowed only if user belongs to submission.team_id.
- * - Judge: Allowed only if assigned to this submission.
+ *   Returns non-disclosing 404 (NOT_FOUND) if submission does not exist or belongs to another team.
+ * - Judge: Allowed only if assigned to this submission. Non-disclosing 404 if not assigned.
  * - Admin: Allowed.
  */
 export const GET = withAuth(async (req, { user, profile, params }) => {
   const id = params?.id!;
 
   if (!isValidUUID(id)) {
-    return Errors.BAD_REQUEST("Invalid submission ID format.");
+    return Errors.BAD_REQUEST("Invalid submission ID format.", undefined, NO_CACHE_HEADERS);
   }
 
   try {
     const submission = await getSubmissionById(id);
     if (!submission) {
-      return Errors.NOT_FOUND("Submission");
+      return Errors.NOT_FOUND("Submission", NO_CACHE_HEADERS);
     }
 
     if (profile.role === 'participant') {
       const userTeamId = await getUserTeamId(user.id);
       if (!userTeamId || submission.team_id !== userTeamId) {
-        return Errors.FORBIDDEN("Access denied: You can only view your own team's submission.");
+        return Errors.NOT_FOUND("Submission", NO_CACHE_HEADERS);
       }
     } else if (profile.role === 'judge') {
       const { rows: assignment } = await query(
@@ -44,15 +45,15 @@ export const GET = withAuth(async (req, { user, profile, params }) => {
         [user.id, id]
       );
       if (assignment.length === 0) {
-        return Errors.FORBIDDEN("Access denied: You are not assigned to evaluate this submission.");
+        return Errors.NOT_FOUND("Submission", NO_CACHE_HEADERS);
       }
     }
 
     logger.info('GET /api/submissions/[id]', { submissionId: id, userId: user.id });
-    return successResponse(submission);
+    return successResponse(submission, undefined, 200, NO_CACHE_HEADERS);
   } catch (err: any) {
     logger.error('GET /api/submissions/[id] failed', { error: String(err), id, userId: user.id });
-    return Errors.INTERNAL();
+    return Errors.INTERNAL('Internal server error', NO_CACHE_HEADERS);
   }
 });
 
@@ -86,55 +87,61 @@ export const PUT = withAuth(async (req, { user, profile, params }) => {
     // Verify existing submission ownership before parsing body
     const existing = await getSubmissionById(id);
     if (!existing) {
-      return Errors.NOT_FOUND("Submission");
+      return Errors.NOT_FOUND("Submission", NO_CACHE_HEADERS);
     }
 
     if (profile.role === 'participant' && existing.team_id !== userTeamId) {
-      return Errors.FORBIDDEN("Access denied: You cannot edit another team's submission.");
+      return Errors.NOT_FOUND("Submission", NO_CACHE_HEADERS);
     }
 
     if (existing.status === 'submitted' || existing.is_locked === true) {
-      return Errors.FORBIDDEN("Submission is finalized and locked. Further modifications are prohibited.");
+      return Errors.FORBIDDEN("Submission is finalized and locked. Further modifications are prohibited.", NO_CACHE_HEADERS);
     }
 
     let body: any;
     try {
       body = await req.json();
     } catch {
-      return Errors.BAD_REQUEST("Invalid JSON body.");
+      return Errors.BAD_REQUEST("Invalid JSON body.", undefined, NO_CACHE_HEADERS);
     }
 
     const validation = validateUpdateSubmission(body);
     if (!validation.valid || !validation.data) {
-      return Errors.BAD_REQUEST("Validation failed", { errors: validation.errors });
+      return Errors.BAD_REQUEST("Validation failed", { errors: validation.errors }, NO_CACHE_HEADERS);
     }
 
     if (Object.keys(validation.data).length === 0) {
-      return Errors.BAD_REQUEST("No valid fields provided for update.");
+      return Errors.BAD_REQUEST("No valid fields provided for update.", undefined, NO_CACHE_HEADERS);
     }
 
     const updated = await updateSubmission(id, existing.team_id, validation.data);
     logger.info('PUT /api/submissions/[id]', { submissionId: id, userId: user.id });
-    return successResponse(updated);
+    return successResponse(updated, undefined, 200, NO_CACHE_HEADERS);
   } catch (err: any) {
     if (err.message === 'EVENT_NOT_STARTED') {
-      return Errors.FORBIDDEN("Hackathon has not started yet.");
+      return Errors.FORBIDDEN("Hackathon has not started yet.", NO_CACHE_HEADERS);
+    }
+    if (err.message === 'SUBMISSIONS_FROZEN_GLOBALLY') {
+      return Errors.FORBIDDEN("Submissions are temporarily frozen globally by event administrators.", NO_CACHE_HEADERS);
+    }
+    if (err.message === 'TEAM_SUBMISSION_LOCKED') {
+      return Errors.FORBIDDEN("Submissions for your team have been locked by an administrator.", NO_CACHE_HEADERS);
     }
     if (err.message === 'SUBMISSION_WINDOW_CLOSED') {
-      return Errors.FORBIDDEN("Submission window is closed.");
+      return Errors.FORBIDDEN("Submission window is closed.", NO_CACHE_HEADERS);
     }
     if (err.message === 'SUBMISSION_LOCKED') {
-      return Errors.FORBIDDEN("Submission is finalized and locked. Further modifications are prohibited.");
+      return Errors.FORBIDDEN("Submission is finalized and locked. Further modifications are prohibited.", NO_CACHE_HEADERS);
     }
     if (err.message === 'FORBIDDEN_NOT_TEAM_MEMBER') {
-      return Errors.FORBIDDEN("Access denied: You are not a member of this team.");
+      return Errors.NOT_FOUND("Submission", NO_CACHE_HEADERS);
     }
     if (err.message === 'SERIALIZATION_FAILURE_EXHAUSTED') {
-      return Errors.CONFLICT("Concurrent modification conflict. Please retry.");
+      return Errors.CONFLICT("Concurrent modification conflict. Please retry.", NO_CACHE_HEADERS);
     }
 
     logger.error('PUT /api/submissions/[id] failed', { error: String(err), id, userId: user.id });
-    return Errors.INTERNAL();
+    return Errors.INTERNAL('Internal server error', NO_CACHE_HEADERS);
   }
 });
 
