@@ -22,6 +22,11 @@ describe('Admin & Judge Provisioning: Roster & Invariant Validation', () => {
     assert.ok(emails.includes('abhinav.ong@gmail.com'));
     assert.ok(emails.includes('yashsrivastava3745@gmail.com'));
     assert.ok(emails.includes('sohammore3312@gmail.com'));
+
+    // Regression: ADMIN-01 and bootstrap email must NOT be present in active roster
+    assert.ok(!emails.includes('admin@learnit-muj.com'), 'admin@learnit-muj.com must not be in active roster');
+    const identifiers = validRecords.map(r => r.target_identifier);
+    assert.ok(!identifiers.includes('ADMIN-01'), 'ADMIN-01 must not be in active roster');
   });
 
   test('2. Rejects placeholder template data with clear errors', () => {
@@ -129,5 +134,82 @@ describe('Password Setup UI & API Contract', () => {
     assert.ok(content.includes("withAuth(async"), 'Must protect route with withAuth middleware');
     assert.ok(content.includes("'admin'"), 'Must require admin role');
     assert.ok(content.includes('public.audit_logs'), 'Must query authoritative public.audit_logs');
+  });
+});
+
+describe('Alphanumeric Participant Roster & Provisioning Pipeline', () => {
+  const csvPath = path.resolve(process.cwd(), 'code_e_manipal_team_leader_logins_alphanumeric.csv');
+  const hasAlphanumericCsv = fs.existsSync(csvPath);
+
+  test('1. Validates authoritative alphanumeric CSV with exact 86 rows and correct formats', { skip: !hasAlphanumericCsv }, async () => {
+    assert.ok(fs.existsSync(csvPath), 'Authoritative CSV must exist');
+    const content = fs.readFileSync(csvPath, 'utf8');
+    const rows = parseCSV(content);
+    const result = validateRoster(rows);
+
+    assert.equal(result.valid, true, `CSV must be valid: ${result.errors.join(', ')}`);
+    assert.equal(result.totalTeams, 86, 'Expected exactly 86 teams in roster');
+    assert.equal(result.duplicateNames.length, 0, 'Zero duplicate team names allowed');
+
+    // All passcodes must be 8 alphanumeric chars with letters and digits
+    for (const team of result.teams) {
+      assert.equal(team.passcode.length, 8);
+      assert.match(team.passcode, /^[a-zA-Z0-9]{8}$/);
+      assert.match(team.passcode, /[a-zA-Z]/);
+      assert.match(team.passcode, /[0-9]/);
+    }
+  });
+
+  test('2. Rejects malformed passcodes (less than 8 chars, numbers-only, letters-only)', async () => {
+    const { validateRoster } = await import('../scripts/validate-csv.mjs');
+    const header = ['Team ID', 'Team Name', 'Login ID', 'Temporary Passcode', 'Primary Contact (verify team leader)', 'Contact Email'];
+    const badRows = [
+      header,
+      ['TEAM001', 'Team One', 'TEAM001', '12345678', 'Leader One', 'lead1@gmail.com'], // numbers only
+      ['TEAM002', 'Team Two', 'TEAM002', 'abcdefgh', 'Leader Two', 'lead2@gmail.com'], // letters only
+      ['TEAM003', 'Team Three', 'TEAM003', 'Short5', 'Leader Three', 'lead3@gmail.com'],   // 6 chars
+      ['TEAM004', 'Team Four', 'TEAM004', 'TooLongPass123', 'Leader Four', 'lead4@gmail.com'], // 14 chars
+    ];
+    const result = validateRoster(badRows);
+    assert.equal(result.valid, false);
+    assert.equal(result.errors.length, 4);
+  });
+
+  test('3. Correctly normalizes student ID and non-email contact identifiers to canonical identities', async () => {
+    const { normalizeRosterEmail } = await import('../scripts/validate-csv.mjs');
+    // MUJ student ID without domain
+    const mujNorm = normalizeRosterEmail('TEAM074', 'samreen.2502051478');
+    assert.equal(mujNorm.email, 'samreen.2502051478@muj.manipal.edu');
+    assert.equal(mujNorm.normalized, true);
+
+    // Non-email token
+    const tokenNorm = normalizeRosterEmail('TEAM024', 'Lotna');
+    assert.equal(tokenNorm.email, 'team-024@auth.codeemanipal.in');
+    assert.equal(tokenNorm.normalized, true);
+
+    // Regular valid email is untouched
+    const normal = normalizeRosterEmail('TEAM001', 'valid.user@gmail.com');
+    assert.equal(normal.email, 'valid.user@gmail.com');
+    assert.equal(normal.normalized, false);
+  });
+
+  test('4. Admin reset route enforces role-specific password policies', () => {
+    const resetRoutePath = path.resolve(process.cwd(), 'app/api/admin/users/[id]/reset-password/route.ts');
+    assert.ok(fs.existsSync(resetRoutePath), 'reset-password route must exist');
+    const content = fs.readFileSync(resetRoutePath, 'utf8');
+
+    // Participant policy
+    assert.ok(content.includes('generateParticipantPasscode(8)'), 'Must use 8-char participant passcode generator');
+    assert.ok(content.includes('newPassword.length !== 8'), 'Must validate 8-char length for participants on custom reset');
+
+    // Admin & Judge policies
+    assert.ok(content.includes('generateAdminPassword(18)'), 'Must use 18-char admin password generator');
+    assert.ok(content.includes('generateJudgePassword(16)'), 'Must use 16-char judge password generator');
+
+    // Cache-Control: no-store
+    assert.ok(content.includes('no-store'), 'Must include no-store headers');
+
+    // Session invalidation
+    assert.ok(content.includes('force_logout_before = NOW()'), 'Must invalidate sessions via force_logout_before');
   });
 });

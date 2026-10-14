@@ -41,7 +41,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
 }
 
 // ── Passwords & Helpers ─────────────────────────────────────────────────────
-const EVENT_CHARSET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+const NUMERIC_CHARSET = '0123456789';
 
 function randomCharacter(charset) {
   const limit = Math.floor(256 / charset.length) * charset.length;
@@ -55,7 +55,7 @@ function randomCharacter(charset) {
 function generateEventPassword(length = 8) {
   let result = '';
   for (let i = 0; i < length; i++) {
-    result += randomCharacter(EVENT_CHARSET);
+    result += randomCharacter(NUMERIC_CHARSET);
   }
   return result;
 }
