@@ -53,8 +53,8 @@ export const POST = withAuth(async (req, { user: adminUser, params }) => {
           return Errors.BAD_REQUEST('Admin passwords must be at least 16 characters containing uppercase, lowercase, and numeric characters');
         }
       } else if (targetUser.role === 'judge') {
-        if (newPassword.length < 16 || !/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
-          return Errors.BAD_REQUEST('Judge passwords must be at least 16 characters containing uppercase, lowercase, and numeric characters');
+        if (newPassword.length !== 8 || !/^[a-zA-Z0-9]{8}$/.test(newPassword) || !/[a-zA-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+          return Errors.BAD_REQUEST('Judge passcodes must be exactly 8 alphanumeric characters containing at least one letter and one digit');
         }
       } else if (targetUser.role === 'participant') {
         if (newPassword.length !== 8 || !/^[a-zA-Z0-9]{8}$/.test(newPassword) || !/[a-zA-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
@@ -66,10 +66,11 @@ export const POST = withAuth(async (req, { user: adminUser, params }) => {
       }
     } else {
       // Auto-generate based on strict role separation policy
+      // Judge passcodes are 8-digit alphanumeric, resettable by admin just like participant passcodes (legacy: generateJudgePassword(16))
       newPassword = targetUser.role === 'admin'
         ? generateAdminPassword(18)
         : targetUser.role === 'judge'
-        ? generateJudgePassword(16)
+        ? generateJudgePassword(8)
         : generateParticipantPasscode(8);
     }
 

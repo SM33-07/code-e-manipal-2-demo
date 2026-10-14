@@ -1,16 +1,85 @@
 {
+  "description": "Code-e-Manipal 2.0 Official Six-Judge Configuration Template. Authorized administrators can populate authoritative judge names and emails when confirmed.",
   "judges": [
     {
-      "name": "JUDGE_NAME_1",
-      "email": "JUDGE_EMAIL_1"
+      "slot": 1,
+      "display_name": "JUDGE_NAME_1",
+      "email": "JUDGE_EMAIL_1",
+      "proposed_login_id": "judge1",
+      "assigned_rounds": ["Round 1", "Round 2", "Final"],
+      "credential_setup_status": "PENDING_AUTHORITATIVE_NAME"
     },
     {
-      "name": "JUDGE_NAME_2",
-      "email": "JUDGE_EMAIL_2"
+      "slot": 2,
+      "display_name": "JUDGE_NAME_2",
+      "email": "JUDGE_EMAIL_2",
+      "proposed_login_id": "judge2",
+      "assigned_rounds": ["Round 1", "Round 2", "Final"],
+      "credential_setup_status": "PENDING_AUTHORITATIVE_NAME"
     },
     {
-      "name": "JUDGE_NAME_3",
-      "email": "JUDGE_EMAIL_3"
+      "slot": 3,
+      "display_name": "JUDGE_NAME_3",
+      "email": "JUDGE_EMAIL_3",
+      "proposed_login_id": "judge3",
+      "assigned_rounds": ["Round 1", "Round 2", "Final"],
+      "credential_setup_status": "PENDING_AUTHORITATIVE_NAME"
+    },
+    {
+      "slot": 4,
+      "display_name": "JUDGE_NAME_4",
+      "email": "JUDGE_EMAIL_4",
+      "proposed_login_id": "judge4",
+      "assigned_rounds": ["Round 1", "Round 2", "Final"],
+      "credential_setup_status": "PENDING_AUTHORITATIVE_NAME"
+    },
+    {
+      "slot": 5,
+      "display_name": "JUDGE_NAME_5",
+      "email": "JUDGE_EMAIL_5",
+      "proposed_login_id": "judge5",
+      "assigned_rounds": ["Round 1", "Round 2", "Final"],
+      "credential_setup_status": "PENDING_AUTHORITATIVE_NAME"
+    },
+    {
+      "slot": 6,
+      "display_name": "JUDGE_NAME_6",
+      "email": "JUDGE_EMAIL_6",
+      "proposed_login_id": "judge6",
+      "assigned_rounds": ["Round 1", "Round 2", "Final"],
+      "credential_setup_status": "PENDING_AUTHORITATIVE_NAME"
+    },
+    {
+      "slot": 7,
+      "display_name": "JUDGE_NAME_7",
+      "email": "JUDGE_EMAIL_7",
+      "proposed_login_id": "judge7",
+      "assigned_rounds": ["Round 1", "Round 2", "Final"],
+      "credential_setup_status": "PENDING_AUTHORITATIVE_NAME"
+    },
+    {
+      "slot": 8,
+      "display_name": "JUDGE_NAME_8",
+      "email": "JUDGE_EMAIL_8",
+      "proposed_login_id": "judge8",
+      "assigned_rounds": ["Round 1", "Round 2", "Final"],
+      "credential_setup_status": "PENDING_AUTHORITATIVE_NAME"
+    },
+    {
+      "slot": 9,
+      "display_name": "JUDGE_NAME_9",
+      "email": "JUDGE_EMAIL_9",
+      "proposed_login_id": "judge9",
+      "assigned_rounds": ["Round 1", "Round 2", "Final"],
+      "credential_setup_status": "PENDING_AUTHORITATIVE_NAME"
+    },
+    {
+      "slot": 10,
+      "display_name": "JUDGE_NAME_10",
+      "email": "JUDGE_EMAIL_10",
+      "proposed_login_id": "judge10",
+      "assigned_rounds": ["Round 1", "Round 2", "Final"],
+      "credential_setup_status": "PENDING_AUTHORITATIVE_NAME"
     }
   ]
 }

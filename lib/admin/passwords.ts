@@ -35,17 +35,28 @@ export function generateParticipantPasscode(length = 8): string {
 }
 
 /**
- * Generates an event-issued password for judge accounts.
- * Must be at least 16 characters, containing uppercase, lowercase, and numeric characters.
+ * Generates an event-issued password/passcode for judge accounts.
+ * Defaults to 8 alphanumeric characters ('a'-'z', 'A'-'Z', '0'-'9'), containing
+ * at least one letter and at least one digit (matching participant passcode policy).
  */
-export function generateJudgePassword(length = 16): string {
-  const safeLength = Math.max(16, length);
+export function generateJudgePassword(length = 8): string {
+  if (length === 8) {
+    return generateParticipantPasscode(8);
+  }
+  const safeLength = Math.max(8, length);
   while (true) {
     const candidate = generatePassword(safeLength, ADMIN_JUDGE_CHARSET);
     if (/[A-Z]/.test(candidate) && /[a-z]/.test(candidate) && /[0-9]/.test(candidate)) {
       return candidate;
     }
   }
+}
+
+/**
+ * Generates an 8-character alphanumeric judge passcode.
+ */
+export function generateJudgePasscode(length = 8): string {
+  return generateParticipantPasscode(length);
 }
 
 /**

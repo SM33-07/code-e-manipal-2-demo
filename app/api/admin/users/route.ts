@@ -8,7 +8,7 @@ import { logger } from '@/lib/utils/logger';
 import { query } from '@/lib/db';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { bulkDeactivateEventAccounts } from '@/lib/admin/credentials';
-import { provisionAccount, transitionAccountRole, ProvisioningError } from '@/lib/admin/provisioning';
+import { provisionAccount, transitionAccountRole, updateAccountLoginId, ProvisioningError } from '@/lib/admin/provisioning';
 
 const VALID_ROLES: UserRole[] = ['participant', 'judge', 'admin'];
 
@@ -85,6 +85,32 @@ export const POST = withAuth(async (req, { user: adminUser }) => {
         message: `Successfully deactivated ${count} event accounts.`,
         deactivated_count: count,
       });
+    }
+
+    // ── Edit Personalized Login ID (Judges / Admins) ──────────
+    if (action === 'edit-login-id') {
+      const { user_id, new_login_id } = body;
+      if (!user_id || !isValidUUID(user_id)) {
+        return Errors.BAD_REQUEST('A valid user_id is required');
+      }
+      if (!new_login_id || typeof new_login_id !== 'string') {
+        return Errors.BAD_REQUEST('A valid new_login_id is required');
+      }
+
+      try {
+        const updated = await updateAccountLoginId(user_id, new_login_id, adminUser.id);
+        return successResponse(updated, {
+          message: `Login ID for ${updated.name || updated.email} successfully updated to "${updated.login_id}".`,
+        });
+      } catch (error) {
+        if (error instanceof ProvisioningError) {
+          if (error.status === 409) return Errors.CONFLICT(error.message);
+          if (error.status === 400) return Errors.BAD_REQUEST(error.message);
+          if (error.status === 404) return Errors.NOT_FOUND('User profile');
+          return Errors.INTERNAL(error.message);
+        }
+        throw error;
+      }
     }
 
     // ── Account Enable / Disable Toggle ───────────────────────

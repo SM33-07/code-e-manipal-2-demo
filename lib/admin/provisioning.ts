@@ -1,10 +1,10 @@
 import crypto from 'crypto';
-import { createSupabaseAdminClient } from '@/lib/supabase/admin';
-import { generateAdminPassword, generateEventPassword, generateJudgePassword, generateParticipantPasscode } from '@/lib/admin/passwords';
-import { identifierToEmail, normalizeIdentifier, personalizedLoginId } from '@/lib/auth/identifier';
-import { pool, query } from '@/lib/db';
-import type { UserRole } from '@/types';
-import { logger } from '@/lib/utils/logger';
+import { createSupabaseAdminClient } from '../supabase/admin.ts';
+import { generateAdminPassword, generateEventPassword, generateJudgePassword, generateParticipantPasscode } from './passwords.ts';
+import { identifierToEmail, normalizeIdentifier, personalizedLoginId } from '../auth/identifier.ts';
+import { pool, query } from '../db.ts';
+import type { UserRole } from '../../types/index.d.ts';
+import { logger } from '../utils/logger.ts';
 
 const CANONICAL_PREFIX: Record<UserRole, string> = { participant: 'TEAM', judge: 'JUDGE', admin: 'ADMIN' };
 
@@ -45,7 +45,7 @@ async function findAuthUserByEmail(email: string) {
   for (let page = 1; page <= 10; page += 1) {
     const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 100 });
     if (error) throw new ProvisioningError('Unable to inspect existing authentication accounts', 500);
-    const user = data.users.find((candidate) => candidate.email?.toLowerCase() === email.toLowerCase());
+    const user = data.users.find((candidate: any) => candidate.email?.toLowerCase() === email.toLowerCase());
     if (user) return user;
     if (data.users.length < 100) break;
   }
@@ -144,7 +144,7 @@ export async function provisionAccount(input: ProvisionAccountInput, actorId?: s
         ? generateAdminPassword(18)
         : input.role === 'participant'
         ? generateParticipantPasscode(8)
-        : generateJudgePassword(16)
+        : generateJudgePassword(8)
     );
     const metadata = { name, role: input.role, identifier, login_id: loginId };
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: metadata });
@@ -317,6 +317,109 @@ export async function transitionAccountRole(userId: string, nextRole: UserRole, 
     if (error instanceof ProvisioningError) throw error;
     logger.error('Role transition failed', { userId, nextRole, error: error instanceof Error ? error.message : String(error) });
     throw new ProvisioningError('Role transition failed', 500);
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Safely updates an account's personalized login ID (e.g. for judges or admins)
+ * while preserving the canonical Auth UUID, profile record, and role.
+ *
+ * Requirements (Phase 6 Section 11.2):
+ * - Update authoritative identifier mapping atomically.
+ * - Preserve underlying Auth UUID.
+ * - Preserve canonical profile.
+ * - Reject collisions safely (409 Conflict).
+ * - Synchronize auth.users metadata.
+ * - Record audit trail in public.audit_logs.
+ * - Ensure old identifier no longer resolves.
+ */
+export async function updateAccountLoginId(
+  userId: string,
+  newLoginId: string,
+  actorId: string
+) {
+  const trimmed = newLoginId.trim();
+  if (trimmed.length < 3 || trimmed.length > 50) {
+    throw new ProvisioningError('Login ID must be between 3 and 50 characters', 400);
+  }
+  if (trimmed.includes('@') || /\s/.test(trimmed)) {
+    throw new ProvisioningError('Login ID cannot contain spaces or "@" symbols', 400);
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('code-e-manipal-account-provisioning'))");
+
+    const { rows: currentRows } = await client.query(
+      'SELECT id, name, email, role, identifier, login_id FROM public.profiles WHERE id = $1 FOR UPDATE',
+      [userId]
+    );
+    const current = currentRows[0];
+    if (!current) throw new ProvisioningError('Profile not found', 404);
+
+    // Collision check: verify new login_id doesn't collide with existing profile's identifier or login_id
+    const { rows: collisionRows } = await client.query(
+      `SELECT id, role, identifier, login_id FROM public.profiles
+       WHERE id <> $1
+         AND (UPPER(BTRIM(COALESCE(login_id, ''))) = UPPER(BTRIM($2))
+           OR UPPER(BTRIM(identifier)) = UPPER(BTRIM($2)))
+       LIMIT 1`,
+      [userId, trimmed]
+    );
+
+    if (collisionRows.length > 0) {
+      throw new ProvisioningError(`Login ID "${trimmed}" is already in use by another account`, 409);
+    }
+
+    // Update profile in Azure Postgres
+    const { rows: updatedRows } = await client.query(
+      `UPDATE public.profiles
+       SET login_id = $1, updated_at = NOW()
+       WHERE id = $2
+       RETURNING *`,
+      [trimmed, userId]
+    );
+    const updated = updatedRows[0];
+
+    // Synchronize Supabase Auth raw_user_meta_data
+    await client.query(
+      `UPDATE auth.users
+       SET raw_user_meta_data = jsonb_set(
+         COALESCE(raw_user_meta_data, '{}'::jsonb),
+         '{login_id}',
+         to_jsonb($1::text),
+         true
+       )
+       WHERE id = $2`,
+      [trimmed, userId]
+    );
+
+    // Record audit event
+    await client.query(
+      `INSERT INTO public.audit_logs (user_id, action, target_table, target_id, details)
+       VALUES ($1, 'USER_LOGIN_ID_CHANGED', 'profiles', $2, $3)`,
+      [
+        actorId,
+        userId,
+        JSON.stringify({
+          previous_login_id: current.login_id || null,
+          new_login_id: trimmed,
+          user_role: current.role,
+          canonical_identifier: current.identifier,
+        }),
+      ]
+    );
+
+    await client.query('COMMIT');
+    return updated;
+  } catch (error) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    if (error instanceof ProvisioningError) throw error;
+    logger.error('Failed to update login ID', { userId, newLoginId: trimmed, error: String(error) });
+    throw new ProvisioningError('Failed to update login ID', 500);
   } finally {
     client.release();
   }
