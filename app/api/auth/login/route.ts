@@ -62,6 +62,32 @@ export async function POST(req: NextRequest) {
     if (trimmedInput.includes('@')) {
       identityKey = trimmedInput.toLowerCase();
       syntheticEmail = identityKey;
+
+      // Authoritative pre-check for email logins: fail closed on DB error, reject disabled accounts
+      try {
+        const { rows } = await query(
+          `SELECT id, email, identifier, login_id, is_disabled FROM public.profiles
+           WHERE LOWER(TRIM(email)) = $1
+           LIMIT 2`,
+          [identityKey]
+        );
+        if (rows.length > 1) {
+          logger.warn('Ambiguous profile email rejected during login', { identityKey });
+          await serverSleep(200);
+          return NextResponse.json({ error: GENERIC_AUTH_ERROR }, { status: 401 });
+        }
+        if (rows.length === 1 && rows[0].is_disabled) {
+          logger.warn('Login attempt for disabled profile by email rejected', { identityKey });
+          await serverSleep(200);
+          return NextResponse.json({ error: GENERIC_AUTH_ERROR }, { status: 401 });
+        }
+        if (rows.length === 1 && rows[0].identifier) {
+          identityKey = rows[0].identifier;
+        }
+      } catch (dbErr) {
+        logger.error('Database error during email profile pre-lookup', { identityKey, error: String(dbErr) });
+        return Errors.INTERNAL('Database temporarily unavailable. Please retry.');
+      }
     } else {
       const normalized = normalizeIdentifier(trimmedInput);
       const normalizedLogin = normalizeLoginId(trimmedInput);
@@ -73,16 +99,21 @@ export async function POST(req: NextRequest) {
       let profileEmail: string | null = null;
       try {
         const { rows } = await query(
-          `SELECT email, identifier, login_id FROM public.profiles
+          `SELECT id, email, identifier, login_id, is_disabled FROM public.profiles
            WHERE UPPER(TRIM(identifier)) = $1
               OR UPPER(TRIM(identifier)) = $2
-              OR UPPER(TRIM(login_id)) = $1
-              OR UPPER(TRIM(login_id)) = $2
+              OR UPPER(TRIM(COALESCE(login_id, ''))) = $1
+              OR UPPER(TRIM(COALESCE(login_id, ''))) = $2
            LIMIT 2`,
           [identityKey, compactKey]
         );
         if (rows.length > 1) {
           logger.warn('Ambiguous profile identifier rejected during login', { identityKey });
+          await serverSleep(200);
+          return NextResponse.json({ error: GENERIC_AUTH_ERROR }, { status: 401 });
+        }
+        if (rows.length === 1 && rows[0].is_disabled) {
+          logger.warn('Login attempt for disabled profile by identifier rejected', { identityKey });
           await serverSleep(200);
           return NextResponse.json({ error: GENERIC_AUTH_ERROR }, { status: 401 });
         }
@@ -93,7 +124,8 @@ export async function POST(req: NextRequest) {
           }
         }
       } catch (dbErr) {
-        logger.warn('Failed to query profile for identifier', { identityKey, error: String(dbErr) });
+        logger.error('Database error during identifier profile lookup', { identityKey, error: String(dbErr) });
+        return Errors.INTERNAL('Database temporarily unavailable. Please retry.');
       }
 
       if (profileEmail) {
@@ -152,7 +184,7 @@ export async function POST(req: NextRequest) {
       await serverSleep(throttle.delayMs);
     }
 
-    // ── Step 7: Return result ──
+    // ── Step 7: Return result or enforce account status ──
     if (!success) {
       logger.info('Login failed', { identityKey, ipHash });
 
@@ -169,7 +201,76 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(response, { status: 401 });
     }
 
-    // Success — log audit event
+    // ── Step 8: Authoritative Account Status & Identity Resolution ──
+    // Resolve the authenticated Supabase Auth UUID to the corresponding canonical profile in Azure PostgreSQL.
+    let authenticatedProfile: any = null;
+    try {
+      const { rows } = await query(
+        `SELECT id, name, email, role, identifier, login_id, is_disabled, force_logout_before
+         FROM public.profiles
+         WHERE id = $1
+         LIMIT 1`,
+        [data.user!.id]
+      );
+      if (rows.length === 0) {
+        logger.warn('Authenticated user has no corresponding profile in database', { userId: data.user!.id });
+        return NextResponse.json({ error: GENERIC_AUTH_ERROR }, { status: 401 });
+      }
+      authenticatedProfile = rows[0];
+    } catch (dbErr) {
+      logger.error('Database error verifying account status for authenticated user', {
+        userId: data.user!.id,
+        error: String(dbErr),
+      });
+      // Fail closed if account status cannot be verified due to a database error
+      return Errors.INTERNAL('Database temporarily unavailable. Please retry.');
+    }
+
+    // Reject disabled accounts before issuing or returning usable session tokens
+    if (authenticatedProfile.is_disabled) {
+      logger.warn('Login attempt for disabled account rejected after password authentication', {
+        userId: data.user!.id,
+        identifier: authenticatedProfile.identifier,
+      });
+      // Invalidate the session in GoTrue to ensure no usable session token survives
+      try {
+        if (data.session?.access_token) {
+          await supabase.auth.admin.signOut(data.session.access_token);
+        }
+      } catch (signOutErr) {
+        logger.warn('Failed to invalidate GoTrue session for disabled account', { error: String(signOutErr) });
+      }
+      return NextResponse.json({ error: GENERIC_AUTH_ERROR }, { status: 401 });
+    }
+
+    // Verify identity alignment: do not let an email, identifier, or profile mismatch authenticate a different account
+    if (
+      authenticatedProfile.email &&
+      data.user!.email &&
+      authenticatedProfile.email.toLowerCase() !== data.user!.email.toLowerCase()
+    ) {
+      logger.error('Account identity conflict between Auth user and database profile', {
+        authUserId: data.user!.id,
+        authEmail: data.user!.email,
+        profileEmail: authenticatedProfile.email,
+      });
+      return NextResponse.json({ error: GENERIC_AUTH_ERROR }, { status: 401 });
+    }
+
+    // Active verified account: clear past force_logout_before to establish fresh session
+    try {
+      await query(
+        'UPDATE public.profiles SET force_logout_before = NULL, updated_at = NOW() WHERE id = $1',
+        [data.user!.id]
+      );
+    } catch (clearErr) {
+      logger.warn('Failed to clear force_logout_before on successful login', {
+        userId: data.user!.id,
+        error: String(clearErr),
+      });
+    }
+
+    // Log audit event
     logAudit({
       userId: data.user!.id,
       action: 'LOGIN_SUCCESS',

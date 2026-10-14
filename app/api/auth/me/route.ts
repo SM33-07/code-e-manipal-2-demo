@@ -27,6 +27,8 @@ export async function GET(_req: NextRequest) {
       switch (result.error) {
         case 'DISABLED':
           return Errors.FORBIDDEN();
+        case 'DB_ERROR':
+          return Errors.INTERNAL('Database temporarily unavailable. Please retry.');
         case 'UNAUTHENTICATED':
         case 'FORCE_LOGOUT':
         case 'NO_PROFILE':
