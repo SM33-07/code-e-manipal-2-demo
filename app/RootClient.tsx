@@ -162,7 +162,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         <div className={`relative z-10 min-h-screen ${isFullBleedRoute ? "pt-20" : isLanding ? "pt-16 pb-12 sm:pt-20" : "pt-24 pb-12"}`}>
           {children}
         </div>
-        {!isPortalRoute && <ScrollReveal as="div"><SiteFooter /></ScrollReveal>}
+        {!isProtectedPortalRoute && <ScrollReveal as="div"><SiteFooter /></ScrollReveal>}
       </div>
     </>
   )
