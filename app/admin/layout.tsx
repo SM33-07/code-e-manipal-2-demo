@@ -24,7 +24,8 @@ import { useAuth } from "@/components/AuthProvider";
 const sideNav = [
   { label: "Operations Center", icon: LayoutDashboard, href: "/admin" },
   { label: "Event Control",     icon: Radio,           href: "/admin/event" },
-  { label: "Problem Statements",icon: FileQuestion,    href: "/problem-statements" },
+  { label: "Timeline Schedule", icon: Radio,           href: "/admin/timeline" },
+  { label: "Problem Statements",icon: FileQuestion,    href: "/admin/problem-statements" },
   { label: "Teams & Roster",    icon: Users,           href: "/admin/teams" },
   { label: "Submissions",       icon: FileCode,        href: "/admin/submissions" },
   { label: "Judging Operations",icon: Gavel,           href: "/admin/judging" },
