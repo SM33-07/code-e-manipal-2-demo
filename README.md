@@ -112,4 +112,4 @@ A high-performance, features-rich web portal designed to coordinate, submit, sho
 
 ## 📝 License
 
-Distributed under the MIT License. See [LICENSE](file:///c:/Soham/Coding/GitHub/Code-E-Manipal_Portal/LICENSE) for more details.
+Distributed under the MIT License. See [LICENSE](file:///c:/Soham/Coding/GitHub/Code-E-Manipal_Portal/LICENSE) for more details
