@@ -62,47 +62,74 @@ export async function isUserInTeam(userId: string, teamId: string): Promise<bool
  */
 export async function getSubmissionById(id: string) {
   const { rows } = await query(
-    'SELECT * FROM public.submissions WHERE id = $1 AND deleted_at IS NULL LIMIT 1',
+    `SELECT s.*,
+       (
+         SELECT json_build_object(
+           'id', t.id,
+           'name', t.name,
+           'hackathon', t.hackathon,
+           'track', t.track,
+           'team_members', COALESCE(
+             json_agg(
+               json_build_object(
+                 'user_id', tm.user_id,
+                 'role', tm.role,
+                 'profiles', json_build_object('name', p.name, 'avatar_url', p.avatar_url)
+               )
+             ) FILTER (WHERE tm.user_id IS NOT NULL),
+             '[]'::json
+           )
+         )
+         FROM public.teams t
+         LEFT JOIN public.team_members tm ON tm.team_id = t.id
+         LEFT JOIN public.profiles p ON p.id = tm.user_id
+         WHERE t.id = s.team_id
+         GROUP BY t.id
+       ) AS teams
+     FROM public.submissions s
+     WHERE s.id = $1 AND s.deleted_at IS NULL
+     LIMIT 1`,
     [id]
   );
-  const submission = rows[0];
-  if (!submission) return null;
-
-  // Join team and team members
-  const teamRes = await query(
-    `SELECT t.id, t.name, t.hackathon, t.track,
-       COALESCE(
-         json_agg(
-           json_build_object(
-             'user_id', tm.user_id,
-             'role', tm.role,
-             'profiles', json_build_object('name', p.name, 'avatar_url', p.avatar_url)
-           )
-         ) FILTER (WHERE tm.user_id IS NOT NULL),
-         '[]'
-       ) AS team_members
-     FROM public.teams t
-     LEFT JOIN public.team_members tm ON tm.team_id = t.id
-     LEFT JOIN public.profiles p ON p.id = tm.user_id
-     WHERE t.id = $1
-     GROUP BY t.id`,
-    [submission.team_id]
-  );
-  submission.teams = teamRes.rows[0] || null;
-
-  return submission;
+  return rows[0] || null;
 }
 
 /**
  * Fetches the single canonical submission for a team.
+ * Optimized single-turn query avoiding 3 sequential roundtrips.
  */
 export async function getSubmissionByTeamId(teamId: string) {
   const { rows } = await query(
-    'SELECT * FROM public.submissions WHERE team_id = $1 AND deleted_at IS NULL LIMIT 1',
+    `SELECT s.*,
+       (
+         SELECT json_build_object(
+           'id', t.id,
+           'name', t.name,
+           'hackathon', t.hackathon,
+           'track', t.track,
+           'team_members', COALESCE(
+             json_agg(
+               json_build_object(
+                 'user_id', tm.user_id,
+                 'role', tm.role,
+                 'profiles', json_build_object('name', p.name, 'avatar_url', p.avatar_url)
+               )
+             ) FILTER (WHERE tm.user_id IS NOT NULL),
+             '[]'::json
+           )
+         )
+         FROM public.teams t
+         LEFT JOIN public.team_members tm ON tm.team_id = t.id
+         LEFT JOIN public.profiles p ON p.id = tm.user_id
+         WHERE t.id = s.team_id
+         GROUP BY t.id
+       ) AS teams
+     FROM public.submissions s
+     WHERE s.team_id = $1 AND s.deleted_at IS NULL
+     LIMIT 1`,
     [teamId]
   );
-  if (rows.length === 0) return null;
-  return getSubmissionById(rows[0].id);
+  return rows[0] || null;
 }
 
 /**

@@ -58,7 +58,10 @@ export default function Navbar({ className, portal = false }: { className?: stri
   const [team, setTeam] = useState<{ deadline_extension?: string | null } | null>(null);
 
   useEffect(() => {
+    let timerId: NodeJS.Timeout;
+
     const fetchTimer = async () => {
+      if (typeof document !== "undefined" && document.hidden) return;
       try {
         const res = await fetch("/api/event-config");
         if (res.ok) {
@@ -71,9 +74,18 @@ export default function Navbar({ className, portal = false }: { className?: stri
     };
 
     fetchTimer();
-    const interval = setInterval(fetchTimer, 5000); // Poll every 5 seconds for responsive publishing state
+    // Poll every 15s matching /api/event-config s-maxage=15 cache policy
+    timerId = setInterval(fetchTimer, 15000);
 
-    return () => clearInterval(interval);
+    const handleVisibility = () => {
+      if (!document.hidden) fetchTimer();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearInterval(timerId);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, []);
 
   useEffect(() => {
@@ -82,7 +94,10 @@ export default function Navbar({ className, portal = false }: { className?: stri
       return;
     }
 
+    let teamTimerId: NodeJS.Timeout;
+
     const fetchTeam = async () => {
+      if (typeof document !== "undefined" && document.hidden) return;
       try {
         const res = await fetch("/api/teams");
         if (res.ok) {
@@ -95,8 +110,17 @@ export default function Navbar({ className, portal = false }: { className?: stri
     };
 
     fetchTeam();
-    const interval = setInterval(fetchTeam, 30000); // Poll every 30 seconds
-    return () => clearInterval(interval);
+    teamTimerId = setInterval(fetchTeam, 30000);
+
+    const handleTeamVisibility = () => {
+      if (!document.hidden) fetchTeam();
+    };
+    document.addEventListener("visibilitychange", handleTeamVisibility);
+
+    return () => {
+      clearInterval(teamTimerId);
+      document.removeEventListener("visibilitychange", handleTeamVisibility);
+    };
   }, [user]);
 
   useEffect(() => {

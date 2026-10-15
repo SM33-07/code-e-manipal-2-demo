@@ -117,8 +117,8 @@ function shuffleArray<T>(arr: T[]): T[] {
  * Auto-assign all active judges to all submitted assignments round-robin
  */
 export async function autoAssignAllJudges(): Promise<number> {
-  // Get all judges
-  const judgeRes = await query("SELECT id FROM public.profiles WHERE role = 'judge'");
+  // Get all active judges
+  const judgeRes = await query("SELECT id FROM public.profiles WHERE role = 'judge' AND is_disabled = false");
   const judges = judgeRes.rows;
   if (!judges || judges.length === 0) return 0;
 
@@ -143,19 +143,20 @@ export async function autoAssignAllJudges(): Promise<number> {
   // Clear existing assignments for these submissions
   await query('DELETE FROM public.judge_assignments WHERE submission_id = ANY($1::uuid[])', [subIds]);
 
-  // Bulk insert new assignments within a transaction
-  await query('BEGIN');
-  try {
-    for (const assign of assignments) {
-      await query(
-        'INSERT INTO public.judge_assignments (judge_id, submission_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-        [assign.judge_id, assign.submission_id]
-      );
-    }
-    await query('COMMIT');
-  } catch (err) {
-    await query('ROLLBACK');
-    throw err;
+  // Bulk insert new assignments in a single parameterized multi-row query
+  if (assignments.length > 0) {
+    const values: any[] = [];
+    const valueClauses = assignments.map((a, idx) => {
+      values.push(a.judge_id, a.submission_id);
+      return `($${idx * 2 + 1}, $${idx * 2 + 2})`;
+    });
+
+    await query(
+      `INSERT INTO public.judge_assignments (judge_id, submission_id)
+       VALUES ${valueClauses.join(', ')}
+       ON CONFLICT DO NOTHING`,
+      values
+    );
   }
 
   return assignments.length;
