@@ -59,57 +59,6 @@ A high-performance, features-rich web portal designed to coordinate, submit, sho
 └── utils/                # Utility helper functions
 ```
 
----
-
-## ⚙️ Getting Started
-
-### 📋 Prerequisites
-* [Node.js](https://nodejs.org/) (v18.x or later recommended)
-* A PostgreSQL Database (Azure or local instance)
-* A Supabase project (for Authentication)
-
-### 💻 Installation
-
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/LearnIT-MUJ/Code-E-Manipal_Portal.git
-   cd Code-E-Manipal_Portal
-   ```
-
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-
-3. **Configure Environment Variables**:
-   Create a `.env.local` file in the root directory and configure the following variables:
-   ```env
-   # Supabase Credentials
-   SUPABASE_URL=your_supabase_project_url
-   SUPABASE_ANON_KEY=your_supabase_anon_key
-   SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-
-   # Azure PostgreSQL Connection
-   DATABASE_URL=postgres://user:password@host:port/database_name?sslmode=verify-full
-
-   # Hackathon Config
-   REGISTRATION_ROUND=1
-   ```
-
-4. **Run the Development Server**:
-   ```bash
-   npm run dev
-   ```
-   Open [http://localhost:3000](http://localhost:3000) in your browser to view the application.
-
-5. **Build for Production**:
-   ```bash
-   npm run build
-   npm run start
-   ```
-
----
-
 ## 📝 License
 
-Distributed under the MIT License. See [LICENSE](file:///c:/Soham/Coding/GitHub/Code-E-Manipal_Portal/LICENSE) for more details
+Distributed under the MIT License. See [LICENSE](file:///c:/Soham/Coding/GitHub/Code-E-Manipal_Portal/LICENSE) for more details.
