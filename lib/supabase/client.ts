@@ -5,7 +5,11 @@ export function createClient() {
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
   if (supabaseUrl && supabaseKey) {
-    return createBrowserClient(supabaseUrl, supabaseKey);
+    try {
+      return createBrowserClient(supabaseUrl, supabaseKey);
+    } catch {
+      // Fallback to secure client proxy if browser client cannot be instantiated
+    }
   }
 
   // Secure client proxy: delegates authentication actions to server routes
