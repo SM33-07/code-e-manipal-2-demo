@@ -1,7 +1,6 @@
 "use client"
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
-import { createClient } from "@/lib/supabase/client"
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react"
 
 interface AuthContextType {
   user: any | null
@@ -22,12 +21,11 @@ type ProfileResponse = {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const supabase = useMemo(() => createClient(), [])
   const [user, setUser] = useState<any | null>(null)
   const [role, setRole] = useState("participant")
   const [loading, setLoading] = useState(true)
 
-  const hydrateProfile = useCallback(async (fallbackUser: any, token?: string | null) => {
+  const hydrateProfile = useCallback(async (token?: string | null, fallbackUser?: any) => {
     const headers: Record<string, string> = {}
     if (token) {
       headers["Authorization"] = `Bearer ${token}`
@@ -45,13 +43,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!account) throw new Error("Profile details are unavailable.")
 
     const hydratedUser = {
-      ...fallbackUser,
+      ...(fallbackUser || {}),
       id: account.user.id,
       email: account.user.email,
       user_metadata: {
         ...(fallbackUser?.user_metadata || {}),
         name: account.profile.name || account.user.identifier || "User",
         identifier: account.user.identifier,
+        role: account.profile.role,
       },
     }
 
@@ -93,51 +92,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        let sessionUser: any = null
-        let accessToken: string | null = null
-
         try {
-          const { data, error } = await supabase.auth.getSession()
-          if (!error && data?.session?.user) {
-            sessionUser = data.session.user
-            accessToken = data.session.access_token
-          }
+          await hydrateProfile()
         } catch {
-          // getSession failed (e.g., storage corruption or network failure)
-        }
-
-        if (!active) return
-
-        if (!sessionUser) {
-          if (active) setLoading(false)
-          return
-        }
-
-        try {
-          await hydrateProfile(sessionUser, accessToken)
-        } catch {
-          // Do NOT destroy sessions if the user is on an authentication onboarding/recovery route
-          // or possesses a recovery/invite URL parameter
-          const isAuthRoute =
-            typeof window !== "undefined" && window.location.pathname.startsWith("/auth/")
-          const isRecoveryContext =
-            typeof window !== "undefined" &&
-            (window.location.pathname === "/auth/setup-password" ||
-             window.location.hash.includes("type=recovery") ||
-             window.location.hash.includes("type=invite") ||
-             window.location.hash.includes("access_token=") ||
-             window.location.search.includes("type=recovery") ||
-             window.location.search.includes("type=invite") ||
-             window.location.search.includes("token_hash=") ||
-             window.location.search.includes("code="))
-
-          if (!isAuthRoute && !isRecoveryContext) {
-            try {
-              await supabase.auth.signOut()
-            } catch {
-              // Sign out error ignored during recovery
-            }
-          }
           if (active) {
             setUser(null)
             setRole("participant")
@@ -160,32 +117,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     restoreSession()
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!session?.user) {
-        if (active) {
-          setUser(null)
-          setRole("participant")
-          setLoading(false)
-        }
-      } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-        if (active && !isRestoring) {
-          try {
-            await hydrateProfile(session.user, session.access_token)
-          } catch {
-            // Profile hydration error caught gracefully
-          } finally {
-            if (active) setLoading(false)
-          }
-        }
-      }
-    })
-
     return () => {
       active = false
       clearTimeout(safetyTimer)
-      listener.subscription.unsubscribe()
     }
-  }, [hydrateProfile, supabase])
+  }, [hydrateProfile])
 
   const login = async (identifier: string, password: string) => {
     const response = await fetch("/api/auth/login", {
@@ -198,11 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!response.ok) throw new Error(payload.error || "Unable to sign in.")
 
     const session = payload.data?.session
-    if (!session?.access_token || !session?.refresh_token) throw new Error("Unable to establish a secure session.")
-    const { data, error } = await supabase.auth.setSession({ access_token: session.access_token, refresh_token: session.refresh_token })
-    if (error || !data.user) throw new Error(error?.message || "Unable to establish a secure session.")
-
-    const hydrated = await hydrateProfile(data.user, session.access_token)
+    const hydrated = await hydrateProfile(session?.access_token, payload.data?.user)
     return { user: hydrated.user, role: hydrated.role }
   }
 
@@ -215,7 +147,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Continue even if network fails
     }
-    await supabase.auth.signOut();
     setUser(null);
     setRole("participant");
   };

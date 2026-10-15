@@ -11,7 +11,7 @@ export async function getTeamById(id: string): Promise<Team | null> {
 
   const membersRes = await query(
     `SELECT tm.*,
-            json_build_object('name', COALESCE(tm.name, p.name), 'avatar_url', p.avatar_url, 'email', COALESCE(tm.email, p.email)) AS profiles
+            json_build_object('name', p.name, 'avatar_url', p.avatar_url, 'email', p.email) AS profiles
      FROM public.team_members tm
      LEFT JOIN public.profiles p ON p.id = tm.user_id
      WHERE tm.team_id = $1
@@ -172,7 +172,7 @@ export async function listAllTeams(): Promise<Team[]> {
 
   const membersRes = await query(
     `SELECT tm.*,
-            json_build_object('name', COALESCE(tm.name, p.name), 'avatar_url', p.avatar_url, 'email', COALESCE(tm.email, p.email)) AS profiles
+            json_build_object('name', p.name, 'avatar_url', p.avatar_url, 'email', p.email) AS profiles
      FROM public.team_members tm
      LEFT JOIN public.profiles p ON p.id = tm.user_id
      ORDER BY (tm.role = 'leader') DESC, tm.joined_at ASC`
@@ -201,7 +201,7 @@ export async function getTeamMembers(teamId: string): Promise<any[]> {
   const res = await query(
     `SELECT 
        tm.*,
-       json_build_object('name', COALESCE(tm.name, p.name), 'avatar_url', p.avatar_url, 'email', COALESCE(tm.email, p.email)) AS profiles
+       json_build_object('name', p.name, 'avatar_url', p.avatar_url, 'email', p.email) AS profiles
      FROM public.team_members tm
      LEFT JOIN public.profiles p ON p.id = tm.user_id
      WHERE tm.team_id = $1

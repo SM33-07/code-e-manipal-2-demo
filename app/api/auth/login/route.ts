@@ -27,6 +27,8 @@ import { logAudit } from '@/lib/auth/telemetry';
 import { logger } from '@/lib/utils/logger';
 import { Errors, successResponse } from '@/lib/utils/response';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
 
 import { query } from '@/lib/db';
 import { getUserTeamId } from '@/services/submissionService';
@@ -358,6 +360,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Set server-side session cookies so the client never needs client-side Supabase keys
+    if (data.session?.access_token && data.session?.refresh_token) {
+      try {
+        const serverSupabase = await createSupabaseServerClient();
+        await serverSupabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
+      } catch (sessErr) {
+        logger.warn('Failed setting server-side session cookies on login', { error: String(sessErr) });
+      }
+    }
+
     const responseObj = successResponse({
       user: {
         id: data.user!.id,
@@ -371,6 +386,13 @@ export async function POST(req: NextRequest) {
         session_id: assignedSessionId,
       },
     });
+
+    try {
+      const cookieStore = await cookies();
+      cookieStore.getAll().forEach((c) => {
+        responseObj.cookies.set(c.name, c.value);
+      });
+    } catch (_) {}
 
     if (assignedSessionId) {
       responseObj.cookies.set('cem_session_id', assignedSessionId, {

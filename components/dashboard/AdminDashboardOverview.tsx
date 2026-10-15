@@ -47,7 +47,7 @@ export function AdminDashboardOverview() {
     if (isManual) setRefreshing(true);
     try {
       const [teamsRes, subsRes, cfgRes, usersRes] = await Promise.all([
-        fetch('/api/teams'),
+        fetch('/api/teams?all=true'),
         fetch('/api/submissions'),
         fetch('/api/event-config'),
         fetch('/api/admin/users'),

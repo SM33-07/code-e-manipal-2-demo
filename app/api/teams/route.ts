@@ -28,9 +28,7 @@ export const GET = withAuth(async (req, { user, profile }) => {
 
     const team = await getTeamByUserId(user.id);
 
-    if (!team) return Errors.NOT_FOUND('Team');
-
-    return successResponse(team);
+    return successResponse(team || null);
   } catch (err) {
     logger.error('GET /api/teams', { error: String(err), userId: user.id });
     return Errors.INTERNAL();

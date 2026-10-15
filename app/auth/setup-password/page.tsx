@@ -201,7 +201,7 @@ export default function SetupPasswordPage() {
     };
 
     // Listen for auth state events (e.g. PASSWORD_RECOVERY)
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
       if (event === "PASSWORD_RECOVERY" && session) {
         try { sessionStorage.setItem("cem_recovery_active", "1"); } catch (_) {}
         setIsRecoveryFlow(true);
