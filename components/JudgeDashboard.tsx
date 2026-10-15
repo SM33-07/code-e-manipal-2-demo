@@ -417,6 +417,13 @@ export function JudgeDashboard({ judgeId, judgeName, onLogout }: Props) {
             <SubmissionList
               submissions={activePageSubmissions}
               onSelectSubmission={openEvaluation}
+              totalAssigned={allCount}
+              onResetFilters={() => {
+                setSearchQuery("");
+                setStatusFilter("all");
+                setCurrentPage(1);
+              }}
+              onRefresh={loadAssignments}
             />
 
             {/* Grid Pagination Actions */}
