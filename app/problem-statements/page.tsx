@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Metadata } from "next";
-import { Sparkles, Layers, QrCode, AlertCircle, AlertTriangle } from "lucide-react";
+import { Sparkles, Layers, QrCode, AlertCircle, AlertTriangle, Clock } from "lucide-react";
 import { getPublicProblemStatements } from "@/services/problemStatementService";
 import { ProblemStatementsList } from "./ProblemStatementsList";
 
@@ -12,7 +12,23 @@ export const metadata: Metadata = {
 };
 
 export default async function ProblemStatementsPage() {
-  const { isPublished, release, statements, tracks } = await getPublicProblemStatements();
+  let isPublished = false;
+  let release: any = null;
+  let statements: any[] = [];
+  let tracks: string[] = [];
+  let fetchFailed = false;
+
+  try {
+    const data = await getPublicProblemStatements();
+    isPublished = data.isPublished;
+    release = data.release;
+    statements = data.statements;
+    tracks = data.tracks;
+  } catch (err) {
+    console.error("Failed to load problem statements in page:", err);
+    fetchFailed = true;
+  }
+
   const showContent = isPublished && statements.length > 0;
   const trackCount = tracks.length;
   const challengeCount = statements.length;
@@ -27,7 +43,9 @@ export default async function ProblemStatementsPage() {
 
         <div className="relative max-w-3xl space-y-4">
           <div className="inline-flex items-center gap-2 rounded-full border border-secondary/40 bg-secondary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-secondary">
-            {`OFFICIAL RELEASE V${release?.version || 2} · LIVE`}
+            {showContent
+              ? `OFFICIAL RELEASE V${release?.version || 2} · LIVE`
+              : 'CATALOGUE RELEASE · SCHEDULED'}
           </div>
 
           <h1 className="text-3xl font-black tracking-tight text-foreground sm:text-5xl font-serif">
@@ -35,7 +53,9 @@ export default async function ProblemStatementsPage() {
           </h1>
 
           <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-            The official Code-e-Manipal 2.0 challenge briefs are live ({release?.label || 'Final Event Release'}). Review technical constraints, evaluation protocols, and deliverables across all 9 competition tracks.
+            {showContent
+              ? `The official Code-e-Manipal 2.0 challenge briefs are live (${release?.label || 'Final Event Release'}). Review technical constraints, evaluation protocols, and deliverables across all 9 competition tracks.`
+              : 'The official Code-e-Manipal 2.0 challenge briefs are scheduled for release by the organizing committee. Review technical constraints, evaluation protocols, and deliverables across all 9 competition tracks once officially unlocked.'}
           </p>
 
           {/* Quick Metrics & QR Destination Pill */}
@@ -76,16 +96,28 @@ export default async function ProblemStatementsPage() {
         <section className="space-y-6">
           <ProblemStatementsList statements={statements} tracks={tracks} />
         </section>
-      ) : (
-        <section className="rounded-3xl border border-border bg-card p-8 text-center shadow-sm sm:p-12">
+      ) : fetchFailed ? (
+        <section className="rounded-3xl border border-destructive/30 bg-card p-8 text-center shadow-sm sm:p-12">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-destructive/15 text-destructive">
             <AlertTriangle size={32} />
           </div>
           <h2 className="mt-4 text-2xl font-bold text-foreground font-serif">
-            Catalogue Temporarily Unavailable
+            Unable to Load Problem Statements
           </h2>
           <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground">
-            The problem statement catalogue is currently undergoing scheduled synchronization. Please refresh this page or check back shortly.
+            A temporary connection issue prevented loading the challenge catalogue. Please refresh this page or contact technical support if the issue persists.
+          </p>
+        </section>
+      ) : (
+        <section className="rounded-3xl border border-border bg-card p-8 text-center shadow-sm sm:p-12">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary/15 text-secondary">
+            <Clock size={32} />
+          </div>
+          <h2 className="mt-4 text-2xl font-bold text-foreground font-serif">
+            Problem Statements Scheduled for Release
+          </h2>
+          <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground">
+            The official problem statement catalogue is scheduled for publication by the event committee. All 35 challenge briefs across 9 competition tracks will be unlocked here at the designated competition release time.
           </p>
         </section>
       )}
