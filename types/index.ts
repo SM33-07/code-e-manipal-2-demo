@@ -34,9 +34,16 @@ export interface Team {
 }
 
 export interface TeamMember {
+  id?: string;
   team_id: string;
-  user_id: string;
+  user_id?: string | null;
   role: TeamMemberRole;
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  college?: string | null;
+  study_year?: string | null;
+  is_verified?: boolean;
   joined_at: string;
   profiles?: Pick<Profile, 'name' | 'avatar_url' | 'email'>;
 }

@@ -38,9 +38,9 @@ const HACKATHON_CONFIG = {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function mapApiTeamToInfo(team: any): TeamInfo {
   const members: TeamMember[] = (team.team_members || []).map((m: any) => ({
-    id: m.user_id,
-    name: m.profiles?.name || m.name || "Unknown",
-    email: m.profiles?.email || m.email || "",
+    id: m.id || m.user_id,
+    name: m.name || m.profiles?.name || "Unknown",
+    email: m.email || m.profiles?.email || "",
     joinedAt: m.joined_at,
   }));
   const leader = team.team_members?.find((m: any) => m.role === "leader");
