@@ -32,7 +32,7 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-export const revalidate = 60; // 60s ISR caching
+export const dynamic = "force-dynamic";
 
 function getTrackIcon(track: string) {
   const t = track.toLowerCase();

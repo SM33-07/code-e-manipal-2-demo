@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPublicProblemStatements } from '@/services/problemStatementService';
 import { Errors } from '@/lib/utils/response';
 
-export const revalidate = 60; // 60-second ISR caching, revalidated immediately upon admin publication
+export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/problem-statements
