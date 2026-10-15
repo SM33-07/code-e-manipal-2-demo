@@ -30,8 +30,8 @@ if (!stagingServiceRoleKey || typeof stagingServiceRoleKey !== 'string' || stagi
   process.exit(1);
 }
 
-const stagingSupabaseUrl = process.env.STAGING_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const stagingAnonKey = process.env.STAGING_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const stagingSupabaseUrl = process.env.STAGING_SUPABASE_URL || process.env.SUPABASE_URL || '';
+const stagingAnonKey = process.env.STAGING_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
 
 const stagingEnvContent = `# Code-e-Manipal 2.0 — Staging Environment Configuration
 # ISOLATION GUARANTEE: Dedicated Staging Database + Dedicated Staging Supabase Auth Project
@@ -40,8 +40,8 @@ const stagingEnvContent = `# Code-e-Manipal 2.0 — Staging Environment Configur
 DATABASE_URL=${stagingDbUrl}
 
 # 2. Staging Supabase Auth Project
-NEXT_PUBLIC_SUPABASE_URL=${stagingSupabaseUrl}
-NEXT_PUBLIC_SUPABASE_ANON_KEY=${stagingAnonKey}
+SUPABASE_URL=${stagingSupabaseUrl}
+SUPABASE_ANON_KEY=${stagingAnonKey}
 SUPABASE_SERVICE_ROLE_KEY=${stagingServiceRoleKey.trim()}
 
 # 3. Application URLs (Staging Local / Rehearsal)

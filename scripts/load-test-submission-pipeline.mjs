@@ -19,7 +19,7 @@ import crypto from 'crypto';
 
 // ── Environment Verification & Safety Guardrails ────────────────────────────
 const dbUrl = process.env.DATABASE_URL;
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseUrl = process.env.SUPABASE_URL;
 
 if (!dbUrl) {
   console.error('❌ FATAL: DATABASE_URL is missing. Run with --env-file=.env.staging');
@@ -214,7 +214,7 @@ async function main() {
         const duration = Math.round(performance.now() - startTime);
         return { success: true, duration, submissionId: subId };
       } catch (err) {
-        await client.query('ROLLBACK').catch(() => {});
+        await client.query('ROLLBACK').catch(() => { });
         const duration = Math.round(performance.now() - startTime);
         return { success: false, duration, error: err.message };
       } finally {

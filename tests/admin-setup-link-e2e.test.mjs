@@ -6,9 +6,9 @@ import { getSetupPasswordRedirectUrl, getCanonicalSiteUrl } from '../lib/auth/si
 import { generateAdminPassword } from '../lib/admin/passwords.ts';
 
 const databaseUrl = process.env.DATABASE_URL;
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
 if (!databaseUrl || !supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
   console.error('Missing required environment variables. Run with --env-file=.env.staging');

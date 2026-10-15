@@ -45,7 +45,7 @@ const args = process.argv.slice(2);
 const targetEnvArg = (args.find((a) => a.startsWith('--env=')) || '').replace('--env=', '').toLowerCase();
 const isExecute = args.includes('--execute');
 const confirmArg = (args.find((a) => a.startsWith('--confirm=')) || '').replace('--confirm=', '').toLowerCase() === 'yes' ||
-                   (args.includes('--confirm') && args[args.indexOf('--confirm') + 1] === 'yes');
+  (args.includes('--confirm') && args[args.indexOf('--confirm') + 1] === 'yes');
 const verifyOnly = args.includes('--verify-only');
 
 if (!targetEnvArg || !ENV_TARGETS[targetEnvArg]) {
@@ -55,11 +55,11 @@ if (!targetEnvArg || !ENV_TARGETS[targetEnvArg]) {
 
 const targetConfig = ENV_TARGETS[targetEnvArg];
 const dbUrl = process.env.DATABASE_URL;
-const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const sbUrl = process.env.SUPABASE_URL;
 const sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!dbUrl || !sbUrl || !sbKey) {
-  console.error('❌ Error: DATABASE_URL, NEXT_PUBLIC_SUPABASE_URL, and SUPABASE_SERVICE_ROLE_KEY must be set in environment.');
+  console.error('❌ Error: DATABASE_URL, SUPABASE_URL, and SUPABASE_SERVICE_ROLE_KEY must be set in environment.');
   process.exit(1);
 }
 
@@ -163,14 +163,14 @@ async function run() {
       const { teamId, loginId, canonicalIdentifier, teamName, authEmail, contactName, officialPasscode } = cred;
 
       const existingProfile = profileByLoginId.get(loginId.toUpperCase()) ||
-                              profileByIdentifier.get(canonicalIdentifier.toUpperCase()) ||
-                              profileByEmail.get(authEmail.toLowerCase());
+        profileByIdentifier.get(canonicalIdentifier.toUpperCase()) ||
+        profileByEmail.get(authEmail.toLowerCase());
 
       const existingAuth = (existingProfile && authById.get(existingProfile.id)) ||
-                           authByEmail.get(authEmail.toLowerCase()) || null;
+        authByEmail.get(authEmail.toLowerCase()) || null;
 
       const existingTeam = teamByName.get(teamName.trim().toLowerCase()) ||
-                           teamByInviteCode.get(teamId.toUpperCase()) || null;
+        teamByInviteCode.get(teamId.toUpperCase()) || null;
 
       classification.push({
         teamId,

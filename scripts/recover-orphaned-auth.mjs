@@ -21,13 +21,13 @@ import { Client } from 'pg';
 import { createClient } from '@supabase/supabase-js';
 
 const databaseUrl = process.env.DATABASE_URL;
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 function checkEnv() {
   const missing = [];
   if (!databaseUrl) missing.push('DATABASE_URL');
-  if (!supabaseUrl) missing.push('NEXT_PUBLIC_SUPABASE_URL');
+  if (!supabaseUrl) missing.push('SUPABASE_URL');
   if (!supabaseServiceKey) missing.push('SUPABASE_SERVICE_ROLE_KEY');
 
   if (missing.length > 0) {
@@ -82,7 +82,7 @@ async function recoverUser(authId, pgClient, supabase) {
   // Also clean up Supabase cloud profiles table if present
   try {
     await supabase.from('profiles').delete().eq('id', authId);
-  } catch (_) {}
+  } catch (_) { }
 
   console.log(`   ✅ Successfully removed orphaned Auth user ${authId}.`);
   return { success: true, status: 'RECOVERED', email: authData.user.email };

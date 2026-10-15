@@ -28,7 +28,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // ── Environment Verification ────────────────────────────────────────────────
 const databaseUrl = process.env.DATABASE_URL;
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!databaseUrl) {
@@ -36,7 +36,7 @@ if (!databaseUrl) {
   process.exit(1);
 }
 if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('❌ Error: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing. Please run with --env-file=.env.local');
+  console.error('❌ Error: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing. Please run with --env-file=.env.local');
   process.exit(1);
 }
 
@@ -649,7 +649,7 @@ async function provisionSingleLeader(record, client, supabase, capabilities, adm
     };
   } catch (error) {
     // Compensating rollback
-    try { await client.query('ROLLBACK'); } catch (_) {}
+    try { await client.query('ROLLBACK'); } catch (_) { }
 
     if (createdAuthId) {
       const { error: delErr } = await supabase.auth.admin.deleteUser(createdAuthId);
@@ -663,7 +663,7 @@ async function provisionSingleLeader(record, client, supabase, capabilities, adm
                VALUES (gen_random_uuid(), $1, 'COMPENSATING_AUTH_DELETE', 'PENDING_AUTH_CLEANUP', $2)`,
               [createdAuthId, delErr.message]
             );
-          } catch (_) {}
+          } catch (_) { }
         }
       }
     }
@@ -834,7 +834,7 @@ Options:
   for (let i = 0; i < readyToCreate.length; i++) {
     const item = readyToCreate[i];
     process.stdout.write(`[${i + 1}/${readyToCreate.length}] Provisioning ${item.loginId} (${item.teamName})... `);
-    
+
     const result = await provisionSingleLeader(item, client, supabase, capabilities, adminActorId);
     if (result.success) {
       successfulProvisionings.push(result);

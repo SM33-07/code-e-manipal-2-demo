@@ -10,7 +10,7 @@ async function main() {
   console.log('================================================================\n');
 
   // 1. Verify Environment
-  const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const sbUrl = process.env.SUPABASE_URL || '';
   const sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
   const dbUrl = process.env.DATABASE_URL || '';
 

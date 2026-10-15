@@ -85,8 +85,8 @@ A high-performance, features-rich web portal designed to coordinate, submit, sho
    Create a `.env.local` file in the root directory and configure the following variables:
    ```env
    # Supabase Credentials
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   SUPABASE_URL=your_supabase_project_url
+   SUPABASE_ANON_KEY=your_supabase_anon_key
    SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
    # Azure PostgreSQL Connection

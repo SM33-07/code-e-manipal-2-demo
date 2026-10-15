@@ -28,7 +28,7 @@ import { Client } from 'pg';
 import { createClient } from '@supabase/supabase-js';
 
 const databaseUrl = process.env.DATABASE_URL;
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!databaseUrl || !supabaseUrl || !supabaseServiceKey) {
@@ -211,7 +211,7 @@ async function main() {
       console.log('🎉 ADITYA GOYAL RECONCILIATION COMPLETED SUCCESSFULLY.');
       console.log('================================================================');
     } catch (txErr) {
-      await client.query('ROLLBACK').catch(() => {});
+      await client.query('ROLLBACK').catch(() => { });
       if (createdNewAuth && authId) {
         console.warn(`   ⚠️ Executing compensating rollback: deleting newly created Supabase Auth user ${authId}...`);
         await supabase.auth.admin.deleteUser(authId).catch(delErr => {

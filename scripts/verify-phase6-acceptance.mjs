@@ -42,8 +42,8 @@ import {
 
 // ── Environment Guardrail ───────────────────────────────────────────────────
 const dbUrl = process.env.DATABASE_URL;
-const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const sbAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const sbUrl = process.env.SUPABASE_URL;
+const sbAnonKey = process.env.SUPABASE_ANON_KEY;
 const sbServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!dbUrl || !sbUrl || !sbServiceKey) {

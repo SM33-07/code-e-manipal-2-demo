@@ -29,7 +29,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // ── Environment Verification ────────────────────────────────────────────────
 const databaseUrl = process.env.DATABASE_URL;
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 let siteUrl = 'http://localhost:3000';
 
@@ -108,7 +108,7 @@ export function assertConnectionBoundaries(options = {}) {
 function checkEnv(sendInvitations = false, isProduction = false, isStaging = false) {
   const missing = [];
   if (!databaseUrl) missing.push('DATABASE_URL');
-  if (!supabaseUrl) missing.push('NEXT_PUBLIC_SUPABASE_URL');
+  if (!supabaseUrl) missing.push('SUPABASE_URL');
   if (!supabaseServiceKey) missing.push('SUPABASE_SERVICE_ROLE_KEY');
 
   if (missing.length > 0) {
@@ -220,7 +220,7 @@ export async function issuePasswordSetupInvitation(supabase, pgClient, options =
             userId,
             JSON.stringify(auditDetails),
           ]
-        ).catch(() => {});
+        ).catch(() => { });
       }
 
       return {
@@ -259,8 +259,8 @@ export async function issuePasswordSetupInvitation(supabase, pgClient, options =
       const finalStatus = customSuccess
         ? 'DISPATCHED_TO_CUSTOM_MAILER'
         : customErrMessage
-        ? 'CUSTOM_DISPATCH_FAILED'
-        : 'LINK_GENERATED_NO_DELIVERY_HANDLER';
+          ? 'CUSTOM_DISPATCH_FAILED'
+          : 'LINK_GENERATED_NO_DELIVERY_HANDLER';
 
       const auditDetails = {
         role,
@@ -322,7 +322,7 @@ export async function issuePasswordSetupInvitation(supabase, pgClient, options =
             userId,
             JSON.stringify(auditDetails),
           ]
-        ).catch(() => {});
+        ).catch(() => { });
       }
 
       return {
@@ -687,16 +687,16 @@ async function runSyntheticTest(pgClient, supabase) {
 
     return { success: true };
   } catch (err) {
-    await pgClient.query('ROLLBACK').catch(() => {});
+    await pgClient.query('ROLLBACK').catch(() => { });
     console.error(`   ❌ Synthetic test failed: ${err.message}`);
     return { success: false, error: err.message };
   } finally {
     console.log(`4. Tearing down synthetic test records...`);
     if (authUserId) {
-      await pgClient.query(`DELETE FROM public.audit_logs WHERE user_id = $1`, [authUserId]).catch(() => {});
-      await pgClient.query(`DELETE FROM public.profiles WHERE id = $1`, [authUserId]).catch(() => {});
-      await pgClient.query(`DELETE FROM auth.users WHERE id = $1`, [authUserId]).catch(() => {});
-      await supabase.auth.admin.deleteUser(authUserId).catch(() => {});
+      await pgClient.query(`DELETE FROM public.audit_logs WHERE user_id = $1`, [authUserId]).catch(() => { });
+      await pgClient.query(`DELETE FROM public.profiles WHERE id = $1`, [authUserId]).catch(() => { });
+      await pgClient.query(`DELETE FROM auth.users WHERE id = $1`, [authUserId]).catch(() => { });
+      await supabase.auth.admin.deleteUser(authUserId).catch(() => { });
       console.log(`   ✅ Synthetic cleanup completed successfully.`);
     }
   }
@@ -915,7 +915,7 @@ async function executeProvisioning(plans, pgClient, supabase, options = {}) {
         delivery_status: deliveryStatus,
       });
     } catch (stepErr) {
-      await pgClient.query('ROLLBACK').catch(() => {});
+      await pgClient.query('ROLLBACK').catch(() => { });
       console.error(`   ❌ Failed processing ${email}: ${stepErr.message}`);
 
       // Compensating Rollback if Auth user was created during this step
@@ -925,7 +925,7 @@ async function executeProvisioning(plans, pgClient, supabase, options = {}) {
           const { error: delErr } = await supabase.auth.admin.deleteUser(newlyCreatedAuthId);
           try {
             await supabase.from('profiles').delete().eq('id', newlyCreatedAuthId);
-          } catch (_) {}
+          } catch (_) { }
           if (delErr) {
             console.error(`   🔥 CRITICAL: Compensating delete failed for ${newlyCreatedAuthId}: ${delErr.message}`);
             recordDeadLetter({

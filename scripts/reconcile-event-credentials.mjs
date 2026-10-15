@@ -191,8 +191,8 @@ export async function reconcileEnvironment(envName, dbUrl, sbUrl, sbKey, officia
 
       // Find profile
       let existingProfile = profileByLoginId.get(loginId.toUpperCase()) ||
-                            profileByIdentifier.get(canonicalIdentifier.toUpperCase()) ||
-                            profileByEmail.get(authEmail.toLowerCase());
+        profileByIdentifier.get(canonicalIdentifier.toUpperCase()) ||
+        profileByEmail.get(authEmail.toLowerCase());
 
       // Find Auth User
       let existingAuth = null;
@@ -297,7 +297,7 @@ async function main() {
   console.log(`Official Credentials Set: ${officialCredentials.length} teams loaded.`);
 
   const dbUrl = process.env.DATABASE_URL;
-  const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const sbUrl = process.env.SUPABASE_URL;
   const sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const envName = process.argv[2] || 'TARGET';
 

@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 test('Supabase Auth GoTrue API: Caller-Supplied ID Acceptance Test', async (t) => {
   // Safety Boundary: verify running against staging Supabase project
-  assert.ok(supabaseUrl, 'NEXT_PUBLIC_SUPABASE_URL is required');
+  assert.ok(supabaseUrl, 'SUPABASE_URL is required');
   assert.ok(supabaseServiceKey, 'SUPABASE_SERVICE_ROLE_KEY is required');
   assert.match(
     supabaseUrl,
@@ -27,7 +27,7 @@ test('Supabase Auth GoTrue API: Caller-Supplied ID Acceptance Test', async (t) =
     // Teardown: ensure test identity is purged
     try {
       await supabase.auth.admin.deleteUser(callerSuppliedUuid);
-    } catch (_) {}
+    } catch (_) { }
   });
 
   await t.test('1. GoTrue createUser accepts caller-supplied id', async () => {

@@ -2,12 +2,12 @@ import pg from 'pg';
 import { createClient } from '@supabase/supabase-js';
 
 const databaseUrl = process.env.DATABASE_URL;
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const proposedPassword = process.env.PROPOSED_PASSWORD;
 
 if (!databaseUrl || !supabaseUrl || !supabaseServiceKey) {
-  console.error('❌ Error: Missing required environment variables (DATABASE_URL, NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY).');
+  console.error('❌ Error: Missing required environment variables (DATABASE_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY).');
   process.exit(1);
 }
 
@@ -304,7 +304,7 @@ async function main() {
 
     // 6. Test Authentication & Session Limits
     console.log('\n6. Testing Login & Authentication Flow...');
-    
+
     // Test A: Direct Supabase Auth signInWithPassword using email
     const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
       email: ROOM_118_TEAM.leaderEmail,

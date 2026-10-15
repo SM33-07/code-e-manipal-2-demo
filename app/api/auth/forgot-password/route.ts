@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Verify required server configuration
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
       logger.error('POST /api/auth/forgot-password: missing required Supabase server configuration');
       return NextResponse.json(
         { error: 'Authentication service temporarily misconfigured. Please contact support.' },

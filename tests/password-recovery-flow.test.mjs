@@ -384,7 +384,7 @@ describe('Recovery Verification & Delivery Resiliency (Comprehensive Diagnostics
 
   test('6. Missing server environment configuration: returns 500 cleanly without unhandled exception', () => {
     function validateServerConfiguration(env) {
-      if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+      if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
         return {
           status: 500,
           error: 'Authentication service temporarily misconfigured. Please contact support.',
@@ -394,10 +394,10 @@ describe('Recovery Verification & Delivery Resiliency (Comprehensive Diagnostics
     }
 
     assert.equal(validateServerConfiguration({}).status, 500);
-    assert.equal(validateServerConfiguration({ NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co' }).status, 500);
+    assert.equal(validateServerConfiguration({ SUPABASE_URL: 'https://test.supabase.co' }).status, 500);
     assert.equal(
       validateServerConfiguration({
-        NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
+        SUPABASE_URL: 'https://test.supabase.co',
         SUPABASE_SERVICE_ROLE_KEY: 'secret-role-key',
       }).status,
       200
@@ -496,13 +496,13 @@ describe('Phase 3: Production Supabase Password Recovery Verification (All 14 Te
       const isRecoveryError =
         (hash.includes('error=') || search.includes('error=')) &&
         (hash.includes('otp_') ||
-         search.includes('otp_') ||
-         hash.includes('access_denied') ||
-         search.includes('access_denied') ||
-         hash.includes('invalid_grant') ||
-         search.includes('invalid_grant') ||
-         hash.includes('expired') ||
-         search.includes('expired'));
+          search.includes('otp_') ||
+          hash.includes('access_denied') ||
+          search.includes('access_denied') ||
+          hash.includes('invalid_grant') ||
+          search.includes('invalid_grant') ||
+          hash.includes('expired') ||
+          search.includes('expired'));
 
       if (isRecoveryHash || isRecoverySearch || isRecoveryError) {
         return {

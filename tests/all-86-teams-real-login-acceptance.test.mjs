@@ -5,7 +5,7 @@ import pg from 'pg';
 import { createClient } from '@supabase/supabase-js';
 
 const dbUrl = process.env.DATABASE_URL;
-const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const sbUrl = process.env.SUPABASE_URL;
 const sbServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!dbUrl || !dbUrl.includes('cem_staging')) {

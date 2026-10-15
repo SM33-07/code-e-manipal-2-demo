@@ -26,13 +26,13 @@ import { createClient } from '@supabase/supabase-js';
 
 // ── Environment Verification ────────────────────────────────────────────────
 const databaseUrl = process.env.DATABASE_URL;
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 function checkEnv() {
   const missing = [];
   if (!databaseUrl) missing.push('DATABASE_URL');
-  if (!supabaseUrl) missing.push('NEXT_PUBLIC_SUPABASE_URL');
+  if (!supabaseUrl) missing.push('SUPABASE_URL');
   if (!supabaseServiceKey) missing.push('SUPABASE_SERVICE_ROLE_KEY');
 
   if (missing.length > 0) {
@@ -144,7 +144,7 @@ export async function discoverSystemState(pgClient, supabase) {
   try {
     const shadowRes = await pgClient.query(`SELECT id, email FROM auth.users;`);
     shadowUsers = shadowRes.rows;
-  } catch (_) {}
+  } catch (_) { }
 
   // 5. Fetch Supabase Auth users
   const authUsers = [];
@@ -160,21 +160,21 @@ export async function discoverSystemState(pgClient, supabase) {
   try {
     const regRes = await pgClient.query(`SELECT id, email, name, team_name FROM public.hackathon_registrations;`);
     registrations = regRes.rows;
-  } catch (_) {}
+  } catch (_) { }
 
   // 7. Check for submissions referencing teams or users
   let submissions = [];
   try {
     const subRes = await pgClient.query(`SELECT id, team_id, emergency_override_by FROM public.submissions;`);
     submissions = subRes.rows;
-  } catch (_) {}
+  } catch (_) { }
 
   // 8. Check for review history referencing judges
   let reviews = [];
   try {
     const revRes = await pgClient.query(`SELECT id, judge_id, changed_by FROM public.review_history;`);
     reviews = revRes.rows;
-  } catch (_) {}
+  } catch (_) { }
 
   return {
     profiles: profilesRes.rows,
@@ -555,7 +555,7 @@ export async function executeCleanup(plan, pgClient, supabase) {
         `, [profileIdsToDelete]);
         console.log(`   ✅ Deleted ${delShadow.rowCount} shadow auth.users row(s)`);
         results.deletedShadows = delShadow.rows;
-      } catch (_) {}
+      } catch (_) { }
     }
 
     // F. Record cleanup audit log event
@@ -578,7 +578,7 @@ export async function executeCleanup(plan, pgClient, supabase) {
     await pgClient.query('COMMIT');
     console.log(`   ✅ Azure PostgreSQL transaction committed successfully.`);
   } catch (txErr) {
-    await pgClient.query('ROLLBACK').catch(() => {});
+    await pgClient.query('ROLLBACK').catch(() => { });
     console.error(`   ❌ Azure PostgreSQL cleanup transaction failed:`, txErr.message);
     throw txErr;
   }

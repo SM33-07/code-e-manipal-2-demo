@@ -23,7 +23,7 @@ import { parseCSV, validateRoster } from './validate-csv.mjs';
 import { generateParticipantPasscode, generateAdminPassword, generateJudgePassword } from '../lib/admin/passwords.ts';
 
 const databaseUrl = process.env.DATABASE_URL;
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!databaseUrl || !supabaseUrl || !supabaseServiceKey) {
@@ -195,12 +195,12 @@ async function main() {
 
     // ── Phase D: Test Admin Password Reset End-to-End on Disposable Accounts ──
     console.log('\n--- Phase D: Admin Panel Password Reset End-to-End (Disposable Test Accounts) ---');
-    
+
     // Test 1: Disposable Participant Reset
     const dispPartEmail = 'disposable-participant@staging-test.codeemanipal.in';
     const dispPartInitPass = 'InitPass99';
     console.log('1. Setting up isolated disposable participant account...');
-    
+
     let dispPartAuthUser = null;
     try {
       const { data: createPart, error: createPartErr } = await supabase.auth.admin.createUser({
@@ -272,7 +272,7 @@ async function main() {
     const dispAdminEmail = 'disposable-admin@staging-test.codeemanipal.in';
     const dispAdminInitPass = 'InitialAdminSecret123!';
     console.log('\n2. Setting up isolated disposable admin account...');
-    
+
     let dispAdminAuthUser = null;
     try {
       const { data: createAdmin, error: createAdminErr } = await supabase.auth.admin.createUser({

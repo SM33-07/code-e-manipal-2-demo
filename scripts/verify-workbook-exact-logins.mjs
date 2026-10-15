@@ -71,8 +71,8 @@ async function main() {
   console.log('================================================================\n');
 
   // Verify Environment
-  const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-  const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  const sbUrl = process.env.SUPABASE_URL || '';
+  const sbKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
   const dbUrl = process.env.DATABASE_URL || '';
 
   const parsedSb = new URL(sbUrl);
