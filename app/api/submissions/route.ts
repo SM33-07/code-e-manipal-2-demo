@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { withAuth } from "@/lib/middleware/withAuth";
-import { successResponse, Errors } from "@/lib/utils/response";
+import { successResponse, Errors, NO_CACHE_HEADERS } from "@/lib/utils/response";
 import { logger } from "@/lib/utils/logger";
 import {
   getUserTeamId,
@@ -29,12 +29,12 @@ export const GET = withAuth(async (req, { user, profile }) => {
     if (profile.role === 'participant') {
       const userTeamId = await getUserTeamId(user.id);
       if (!userTeamId) {
-        return successResponse([], { total: 0 });
+        return successResponse([], { total: 0 }, 200, NO_CACHE_HEADERS);
       }
 
       const submission = await getSubmissionByTeamId(userTeamId);
       const items = submission ? [submission] : [];
-      return successResponse(items, { total: items.length });
+      return successResponse(items, { total: items.length }, 200, NO_CACHE_HEADERS);
     }
 
     if (profile.role === 'judge') {
@@ -42,7 +42,7 @@ export const GET = withAuth(async (req, { user, profile }) => {
         { limit, offset },
         { category, search, judgeId: user.id }
       );
-      return successResponse(result.submissions, { total: result.total });
+      return successResponse(result.submissions, { total: result.total }, 200, NO_CACHE_HEADERS);
     }
 
     // Admin role
@@ -50,10 +50,10 @@ export const GET = withAuth(async (req, { user, profile }) => {
       { limit, offset },
       { category, search }
     );
-    return successResponse(result.submissions, { total: result.total });
+    return successResponse(result.submissions, { total: result.total }, 200, NO_CACHE_HEADERS);
   } catch (err: any) {
     logger.error('GET /api/submissions failed', { error: String(err), userId: user.id });
-    return Errors.INTERNAL();
+    return Errors.INTERNAL('Internal server error', NO_CACHE_HEADERS);
   }
 });
 
@@ -97,6 +97,12 @@ export const POST = withAuth(async (req, { user, profile }) => {
   } catch (err: any) {
     if (err.message === 'EVENT_NOT_STARTED') {
       return Errors.FORBIDDEN("Hackathon has not started yet. Submissions are closed.");
+    }
+    if (err.message === 'SUBMISSIONS_FROZEN_GLOBALLY') {
+      return Errors.FORBIDDEN("Submissions are temporarily frozen globally by event administrators.");
+    }
+    if (err.message === 'TEAM_SUBMISSION_LOCKED') {
+      return Errors.FORBIDDEN("Submissions for your team have been locked by an administrator.");
     }
     if (err.message === 'SUBMISSION_WINDOW_CLOSED') {
       return Errors.FORBIDDEN("Submission window is closed.");

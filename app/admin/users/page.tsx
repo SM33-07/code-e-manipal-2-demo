@@ -55,6 +55,21 @@ export default function AdminUsersPage() {
   const [recoveryReason, setRecoveryReason] = useState('');
   const [isInaccessibleSubmitting, setIsInaccessibleSubmitting] = useState(false);
 
+  // Team Assignment State
+  const [showAssignTeamModal, setShowAssignTeamModal] = useState(false);
+  const [assignTeamUser, setAssignTeamUser] = useState<Profile | null>(null);
+  const [availableTeams, setAvailableTeams] = useState<Array<{ id: string; name: string; invite_code?: string; member_count?: number }>>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState('');
+  const [selectedTeamRole, setSelectedTeamRole] = useState<'member' | 'leader'>('member');
+  const [isAssigningTeam, setIsAssigningTeam] = useState(false);
+  const [teamSearchQuery, setTeamSearchQuery] = useState('');
+
+  // Sorting & Pagination State
+  const [sortField, setSortField] = useState<'name' | 'role' | 'identifier' | 'team_name' | 'is_disabled' | 'created_at'>('name');
+  const [sortAsc, setSortAsc] = useState<boolean>(true);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(25);
+
   // Bulk Generator State
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkRole, setBulkRole] = useState<'participant' | 'judge'>('participant');
@@ -250,6 +265,88 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleOpenAssignTeam = async (user: Profile) => {
+    setAssignTeamUser(user);
+    setSelectedTeamId(user.team_id || '');
+    setSelectedTeamRole((user.team_member_role as 'leader' | 'member') || 'member');
+    setTeamSearchQuery('');
+    setShowAssignTeamModal(true);
+
+    try {
+      const res = await fetch('/api/admin/teams');
+      if (res.ok) {
+        const json = await res.json();
+        setAvailableTeams(json.data || []);
+      }
+    } catch {
+      // Ignore teams fetch failure, user can retry
+    }
+  };
+
+  const handleAssignTeamSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignTeamUser || !selectedTeamId) return;
+
+    try {
+      setIsAssigningTeam(true);
+      setError(null);
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'assign-team',
+          user_id: assignTeamUser.id,
+          team_id: selectedTeamId,
+          team_role: selectedTeamRole,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to assign team');
+
+      setSuccessMsg(data.message || 'Team successfully assigned.');
+      setShowAssignTeamModal(false);
+      fetchUsers();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsAssigningTeam(false);
+    }
+  };
+
+  const handleUnassignTeam = async (user: Profile) => {
+    if (!confirm(`Are you sure you want to unassign ${user.name || user.email} from ${user.team_name || 'their team'}?`)) {
+      return;
+    }
+
+    try {
+      setError(null);
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'unassign-team',
+          user_id: user.id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to unassign team');
+
+      setSuccessMsg(data.message || 'Participant unassigned from team.');
+      fetchUsers();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
+  };
+
   const handleBulkGenerate = async (downloadCsv = false) => {
     try {
       setIsGenerating(true);
@@ -384,6 +481,28 @@ export default function AdminUsersPage() {
       p.team_id?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesRole && matchesStatus && matchesSearch;
   });
+
+  // Sort profiles
+  const sortedProfiles = [...filteredProfiles].sort((a, b) => {
+    let aVal: any = a[sortField] || '';
+    let bVal: any = b[sortField] || '';
+    if (sortField === 'created_at') {
+      aVal = new Date(a.created_at).getTime();
+      bVal = new Date(b.created_at).getTime();
+    } else {
+      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+    }
+    if (aVal < bVal) return sortAsc ? -1 : 1;
+    if (aVal > bVal) return sortAsc ? 1 : -1;
+    return 0;
+  });
+
+  const totalPages = pageSize === -1 ? 1 : Math.max(1, Math.ceil(sortedProfiles.length / pageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const paginatedProfiles = pageSize === -1
+    ? sortedProfiles
+    : sortedProfiles.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
 
   const totalUsers = profiles.length;
   const adminCount = profiles.filter((p) => p.role === 'admin').length;
@@ -538,13 +657,58 @@ export default function AdminUsersPage() {
       {/* Users Table */}
       <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-xs">
         <table className="w-full text-left text-sm text-foreground">
-          <thead className="bg-muted/50 text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
+          <thead className="bg-muted/50 text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border select-none">
             <tr>
-              <th className="px-4 py-3.5">User</th>
-              <th className="px-4 py-3.5">Role</th>
-              <th className="px-4 py-3.5">Identifier / Badge</th>
-              <th className="px-4 py-3.5">Team Association</th>
-              <th className="px-4 py-3.5">Status</th>
+              <th
+                onClick={() => handleSort('name')}
+                className="px-4 py-3.5 cursor-pointer hover:text-foreground transition-colors"
+                title="Click to sort by User Name"
+              >
+                <div className="flex items-center gap-1">
+                  <span>User</span>
+                  {sortField === 'name' && <span className="text-[10px] text-primary">{sortAsc ? '▲' : '▼'}</span>}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort('role')}
+                className="px-4 py-3.5 cursor-pointer hover:text-foreground transition-colors"
+                title="Click to sort by Role"
+              >
+                <div className="flex items-center gap-1">
+                  <span>Role</span>
+                  {sortField === 'role' && <span className="text-[10px] text-primary">{sortAsc ? '▲' : '▼'}</span>}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort('identifier')}
+                className="px-4 py-3.5 cursor-pointer hover:text-foreground transition-colors"
+                title="Click to sort by Identifier"
+              >
+                <div className="flex items-center gap-1">
+                  <span>Identifier / Badge</span>
+                  {sortField === 'identifier' && <span className="text-[10px] text-primary">{sortAsc ? '▲' : '▼'}</span>}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort('team_name')}
+                className="px-4 py-3.5 cursor-pointer hover:text-foreground transition-colors"
+                title="Click to sort by Team"
+              >
+                <div className="flex items-center gap-1">
+                  <span>Team Association</span>
+                  {sortField === 'team_name' && <span className="text-[10px] text-primary">{sortAsc ? '▲' : '▼'}</span>}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort('is_disabled')}
+                className="px-4 py-3.5 cursor-pointer hover:text-foreground transition-colors"
+                title="Click to sort by Status"
+              >
+                <div className="flex items-center gap-1">
+                  <span>Status</span>
+                  {sortField === 'is_disabled' && <span className="text-[10px] text-primary">{sortAsc ? '▲' : '▼'}</span>}
+                </div>
+              </th>
               <th className="px-4 py-3.5 text-right">Actions</th>
             </tr>
           </thead>
@@ -555,14 +719,14 @@ export default function AdminUsersPage() {
                   Loading users...
                 </td>
               </tr>
-            ) : filteredProfiles.length === 0 ? (
+            ) : paginatedProfiles.length === 0 ? (
               <tr>
                 <td colSpan={6} className="p-8 text-center text-muted-foreground font-medium">
                   No users found matching filters.
                 </td>
               </tr>
             ) : (
-              filteredProfiles.map((user) => (
+              paginatedProfiles.map((user) => (
                 <tr key={user.id} className="hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-3">
                     <div className="font-semibold text-foreground">{user.name || 'Unnamed'}</div>
@@ -618,11 +782,40 @@ export default function AdminUsersPage() {
                             ID: {user.team_id.slice(0, 8)}…
                           </span>
                         </div>
+                        <div className="flex items-center gap-1.5 pt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAssignTeam(user)}
+                            className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+                            title="Change team assignment"
+                          >
+                            Change
+                          </button>
+                          <span className="text-[10px] text-muted-foreground">•</span>
+                          <button
+                            type="button"
+                            onClick={() => handleUnassignTeam(user)}
+                            className="text-[11px] font-semibold text-destructive hover:underline cursor-pointer"
+                            title="Unassign participant from team"
+                          >
+                            Unassign
+                          </button>
+                        </div>
                       </div>
                     ) : (
-                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-                        Unassigned
-                      </span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                          Unassigned
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAssignTeam(user)}
+                          className="text-xs font-semibold px-2 py-0.5 rounded-md bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition-colors cursor-pointer"
+                          title="Assign participant to a team"
+                        >
+                          + Assign Team
+                        </button>
+                      </div>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -693,6 +886,66 @@ export default function AdminUsersPage() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Pagination Controls */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-card p-3 rounded-2xl border border-border text-sm text-muted-foreground shadow-xs">
+        <div className="flex items-center gap-2 text-xs">
+          <span>Showing</span>
+          <strong className="text-foreground">
+            {sortedProfiles.length === 0
+              ? 0
+              : (safeCurrentPage - 1) * (pageSize === -1 ? sortedProfiles.length : pageSize) + 1}
+          </strong>
+          <span>to</span>
+          <strong className="text-foreground">
+            {pageSize === -1 ? sortedProfiles.length : Math.min(safeCurrentPage * pageSize, sortedProfiles.length)}
+          </strong>
+          <span>of</span>
+          <strong className="text-foreground">{sortedProfiles.length}</strong>
+          <span>users</span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-xs">
+            <span>Per page:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="px-2 py-1 rounded-lg bg-background border border-border text-foreground text-xs focus:outline-none"
+            >
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value={-1}>All</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={safeCurrentPage <= 1}
+              className="px-2.5 py-1 text-xs rounded-lg border border-border bg-background hover:bg-accent text-foreground disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition-colors"
+            >
+              Previous
+            </button>
+            <span className="text-xs px-2 text-foreground font-semibold">
+              {safeCurrentPage} / {totalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={safeCurrentPage >= totalPages}
+              className="px-2.5 py-1 text-xs rounded-lg border border-border bg-background hover:bg-accent text-foreground disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Single Account Provisioning Modal */}
@@ -811,7 +1064,14 @@ export default function AdminUsersPage() {
               <strong>Notice:</strong> Zero Plaintext Persistence. This password will never be shown again and is not stored in plaintext in the database.
             </p>
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted-foreground">User Email</label>
+              <label className="text-xs font-semibold text-muted-foreground">User / Login ID</label>
+              <div className="text-sm font-medium text-foreground">
+                {resetPasswordResult.user.name} ({resetPasswordResult.user.login_id || resetPasswordResult.user.identifier || resetPasswordResult.user.email})
+                <span className="ml-2 text-xs uppercase px-2 py-0.5 rounded-full bg-muted font-mono text-muted-foreground">{resetPasswordResult.user.role}</span>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Account Email</label>
               <div className="text-sm font-medium text-foreground">{resetPasswordResult.user.email}</div>
             </div>
             <div className="space-y-1">
@@ -1094,6 +1354,111 @@ export default function AdminUsersPage() {
                   className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {isInaccessibleSubmitting ? 'Updating & Dispatching…' : 'Update Email & Send Reset Link'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Team Assignment Modal */}
+      {showAssignTeamModal && assignTeamUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-card border border-border rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl text-foreground">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-lg font-bold">Assign Team to Participant</h3>
+              <button
+                type="button"
+                onClick={() => setShowAssignTeamModal(false)}
+                className="text-muted-foreground hover:text-foreground text-sm font-bold p-1 rounded-lg hover:bg-muted cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-800 dark:text-blue-300 text-xs">
+              <p className="font-semibold">{assignTeamUser.name || 'Unnamed Participant'}</p>
+              <p className="text-[11px] opacity-80">{assignTeamUser.email} • ID: {assignTeamUser.identifier || '—'}</p>
+              {assignTeamUser.team_name && (
+                <p className="mt-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                  Currently assigned to: {assignTeamUser.team_name}
+                </p>
+              )}
+            </div>
+
+            <form onSubmit={handleAssignTeamSubmit} className="space-y-4 text-sm">
+              <div>
+                <label className="font-semibold text-muted-foreground block mb-1">Search Teams</label>
+                <input
+                  type="text"
+                  placeholder="Filter teams by name or code..."
+                  value={teamSearchQuery}
+                  onChange={(e) => setTeamSearchQuery(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary mb-2"
+                />
+                <label className="font-semibold text-muted-foreground block mb-1">
+                  Select Team <span className="text-destructive">*</span>
+                </label>
+                <select
+                  required
+                  value={selectedTeamId}
+                  onChange={(e) => setSelectedTeamId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">-- Choose a team --</option>
+                  {availableTeams
+                    .filter((t) =>
+                      teamSearchQuery === '' ||
+                      t.name.toLowerCase().includes(teamSearchQuery.toLowerCase()) ||
+                      (t.invite_code && t.invite_code.toLowerCase().includes(teamSearchQuery.toLowerCase()))
+                    )
+                    .map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} {t.invite_code ? `(${t.invite_code})` : ''} {t.member_count !== undefined ? `— ${t.member_count}/6 members` : ''}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="font-semibold text-muted-foreground block mb-1">Team Role</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="team_role"
+                      value="member"
+                      checked={selectedTeamRole === 'member'}
+                      onChange={() => setSelectedTeamRole('member')}
+                    />
+                    <span>Member</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="team_role"
+                      value="leader"
+                      checked={selectedTeamRole === 'leader'}
+                      onChange={() => setSelectedTeamRole('leader')}
+                    />
+                    <span>Team Leader</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-border flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAssignTeamModal(false)}
+                  className="px-4 py-2 rounded-xl bg-muted hover:bg-accent text-foreground border border-border font-medium transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAssigningTeam || !selectedTeamId}
+                  className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {isAssigningTeam ? 'Assigning…' : 'Save Assignment'}
                 </button>
               </div>
             </form>

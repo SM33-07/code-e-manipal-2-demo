@@ -8,7 +8,7 @@ import { logger } from '@/lib/utils/logger';
 import { query } from '@/lib/db';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { bulkDeactivateEventAccounts } from '@/lib/admin/credentials';
-import { provisionAccount, transitionAccountRole, ProvisioningError } from '@/lib/admin/provisioning';
+import { provisionAccount, transitionAccountRole, updateAccountLoginId, ProvisioningError } from '@/lib/admin/provisioning';
 
 const VALID_ROLES: UserRole[] = ['participant', 'judge', 'admin'];
 
@@ -34,7 +34,7 @@ export const GET = withAuth(async (req) => {
         `SELECT al.*, p.name AS actor_name, p.email AS actor_email
          FROM public.audit_logs al
          LEFT JOIN public.profiles p ON p.id = al.user_id
-         WHERE al.action IN ('USER_PASSWORD_RESET', 'USER_FORCE_LOGOUT', 'BULK_CREDENTIALS_GENERATED', 'BULK_ACCOUNTS_DEACTIVATED', 'USER_ROLE_CHANGED', 'USER_STATUS_TOGGLED')
+         WHERE al.action IN ('USER_PASSWORD_RESET', 'USER_FORCE_LOGOUT', 'BULK_CREDENTIALS_GENERATED', 'BULK_ACCOUNTS_DEACTIVATED', 'USER_ROLE_CHANGED', 'USER_STATUS_TOGGLED', 'USER_TEAM_ASSIGNED', 'USER_TEAM_UNASSIGNED')
          ORDER BY al.created_at DESC
          LIMIT 50`
       );
@@ -85,6 +85,32 @@ export const POST = withAuth(async (req, { user: adminUser }) => {
         message: `Successfully deactivated ${count} event accounts.`,
         deactivated_count: count,
       });
+    }
+
+    // ── Edit Personalized Login ID (Judges / Admins) ──────────
+    if (action === 'edit-login-id') {
+      const { user_id, new_login_id } = body;
+      if (!user_id || !isValidUUID(user_id)) {
+        return Errors.BAD_REQUEST('A valid user_id is required');
+      }
+      if (!new_login_id || typeof new_login_id !== 'string') {
+        return Errors.BAD_REQUEST('A valid new_login_id is required');
+      }
+
+      try {
+        const updated = await updateAccountLoginId(user_id, new_login_id, adminUser.id);
+        return successResponse(updated, {
+          message: `Login ID for ${updated.name || updated.email} successfully updated to "${updated.login_id}".`,
+        });
+      } catch (error) {
+        if (error instanceof ProvisioningError) {
+          if (error.status === 409) return Errors.CONFLICT(error.message);
+          if (error.status === 400) return Errors.BAD_REQUEST(error.message);
+          if (error.status === 404) return Errors.NOT_FOUND('User profile');
+          return Errors.INTERNAL(error.message);
+        }
+        throw error;
+      }
     }
 
     // ── Account Enable / Disable Toggle ───────────────────────
@@ -138,6 +164,140 @@ export const POST = withAuth(async (req, { user: adminUser }) => {
       return successResponse(updated[0], {
         message: `User account has been ${newStatus ? 'disabled' : 'enabled'}.`,
       });
+    }
+
+    // ── Assign Participant to Team ───────────────────────────
+    if (action === 'assign-team') {
+      const { team_id, team_role } = body;
+      if (!user_id || !isValidUUID(user_id)) {
+        return Errors.BAD_REQUEST('A valid user_id is required');
+      }
+      if (!team_id || !isValidUUID(team_id)) {
+        return Errors.BAD_REQUEST('A valid team_id is required');
+      }
+
+      // Check target user profile
+      const { rows: profileRows } = await query(
+        'SELECT id, name, email, role, identifier, team_id, is_disabled FROM public.profiles WHERE id = $1 LIMIT 1',
+        [user_id]
+      );
+      if (profileRows.length === 0) return Errors.NOT_FOUND('User profile');
+      const targetUser = profileRows[0];
+
+      if (targetUser.role !== 'participant') {
+        return Errors.BAD_REQUEST(`Only participants can be assigned to teams (current role: ${targetUser.role})`);
+      }
+
+      // Check target team
+      const { rows: teamRows } = await query(
+        'SELECT id, name, invite_code FROM public.teams WHERE id = $1 LIMIT 1',
+        [team_id]
+      );
+      if (teamRows.length === 0) return Errors.NOT_FOUND('Target team');
+      const targetTeam = teamRows[0];
+
+      // Check capacity (max 6 members)
+      const { rows: existingMembers } = await query(
+        'SELECT user_id FROM public.team_members WHERE team_id = $1',
+        [team_id]
+      );
+      const isAlreadyInTeam = existingMembers.some((m) => m.user_id === user_id);
+      if (!isAlreadyInTeam && existingMembers.length >= 6) {
+        return Errors.BAD_REQUEST(`Team "${targetTeam.name}" is already at full capacity (6 members maximum)`);
+      }
+
+      const assignedRole = team_role === 'leader' ? 'leader' : 'member';
+
+      // Perform assignment: remove existing team memberships for this user, insert new one, update profile
+      await query('DELETE FROM public.team_members WHERE user_id = $1', [user_id]);
+      await query(
+        'INSERT INTO public.team_members (team_id, user_id, role) VALUES ($1, $2, $3)',
+        [team_id, user_id, assignedRole]
+      );
+      const { rows: updatedProfiles } = await query(
+        'UPDATE public.profiles SET team_id = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+        [team_id, user_id]
+      );
+
+      // Record audit log
+      await query(
+        `INSERT INTO public.audit_logs (user_id, action, target_table, target_id, details)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [
+          adminUser.id,
+          'USER_TEAM_ASSIGNED',
+          'profiles',
+          user_id,
+          JSON.stringify({
+            target_email: targetUser.email,
+            target_identifier: targetUser.identifier,
+            previous_team_id: targetUser.team_id,
+            new_team_id: team_id,
+            team_name: targetTeam.name,
+            team_role: assignedRole,
+          }),
+        ]
+      );
+
+      return successResponse(
+        {
+          profile: updatedProfiles[0],
+          team: targetTeam,
+          team_role: assignedRole,
+        },
+        { message: `Participant ${targetUser.name || targetUser.email} assigned to team "${targetTeam.name}".` }
+      );
+    }
+
+    // ── Unassign Participant from Team ─────────────────────────
+    if (action === 'unassign-team') {
+      if (!user_id || !isValidUUID(user_id)) {
+        return Errors.BAD_REQUEST('A valid user_id is required');
+      }
+
+      const { rows: profileRows } = await query(
+        `SELECT p.id, p.name, p.email, p.role, p.identifier, p.team_id, t.name as team_name
+         FROM public.profiles p
+         LEFT JOIN public.teams t ON p.team_id = t.id
+         WHERE p.id = $1 LIMIT 1`,
+        [user_id]
+      );
+      if (profileRows.length === 0) return Errors.NOT_FOUND('User profile');
+      const targetUser = profileRows[0];
+
+      if (!targetUser.team_id) {
+        return Errors.BAD_REQUEST('Participant is not currently assigned to any team');
+      }
+
+      // Remove from team_members and clear profile team_id
+      await query('DELETE FROM public.team_members WHERE user_id = $1', [user_id]);
+      const { rows: updatedProfiles } = await query(
+        'UPDATE public.profiles SET team_id = NULL, updated_at = NOW() WHERE id = $1 RETURNING *',
+        [user_id]
+      );
+
+      // Record audit log
+      await query(
+        `INSERT INTO public.audit_logs (user_id, action, target_table, target_id, details)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [
+          adminUser.id,
+          'USER_TEAM_UNASSIGNED',
+          'profiles',
+          user_id,
+          JSON.stringify({
+            target_email: targetUser.email,
+            target_identifier: targetUser.identifier,
+            removed_team_id: targetUser.team_id,
+            removed_team_name: targetUser.team_name,
+          }),
+        ]
+      );
+
+      return successResponse(
+        { profile: updatedProfiles[0] },
+        { message: `Participant ${targetUser.name || targetUser.email} unassigned from team.` }
+      );
     }
 
     // ── Create User Account ────────────────────────────────────

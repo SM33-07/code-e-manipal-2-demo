@@ -1,16 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   CalendarDays,
   Clock,
   MapPin,
   CheckCircle2,
-  Radio,
   Flame,
   ArrowRight,
-  Sparkles,
   Lock,
 } from "lucide-react";
 import { Timeline, TimelineEntry } from "@/components/ui/timeline";
@@ -27,21 +25,21 @@ interface ScheduleItem {
 }
 
 const RAW_SCHEDULE: ScheduleItem[] = [
-  // Online Phase
+  // Online Phase (Pre-Event Onboarding)
   {
     id: "onl-1",
-    time: "27 Sep – 11 Oct 2026",
-    title: "Round 1: Online Assessment (MCQ on Unstop)",
+    time: "06 OCT, 10:00 AM",
+    title: "Round 1: Online Assessment (MCQ) on Unstop",
     location: "Unstop Platform",
     description:
-      "10-question online qualifier covering Programming Fundamentals, Logical Reasoning, Computer Science Fundamentals, and Problem Solving / Output Prediction (10 mins, 10 marks, no negative marking). Registration and assessment window closes 11 October 2026, 11:59 PM IST.",
+      "45 questions on unstop covering Programming fundamentals, Logical Reasoning, Computer Science fundamentals, and Problem Solving. Result out within 48 hrs. 120 teams to qualify for the next stage. Registration link would be shared in our bio on 1st of Oct, 2026 at 12:00 PM.",
     phase: "online",
     type: "checkpoint",
     status: "completed",
   },
   {
     id: "onl-2",
-    time: "11 Oct 2026",
+    time: "11 OCT, 2026",
     title: "National Shortlist Announcement",
     location: "Unstop & Official Portal",
     description:
@@ -52,7 +50,7 @@ const RAW_SCHEDULE: ScheduleItem[] = [
   },
   {
     id: "onl-3",
-    time: "Prior to Finale",
+    time: "PRIOR TO FINALE",
     title: "Portal Provisioning & Workspace Activation",
     location: "Online Portal",
     description:
@@ -63,7 +61,7 @@ const RAW_SCHEDULE: ScheduleItem[] = [
   },
   {
     id: "onl-4",
-    time: "Oct 14, 06:00 PM",
+    time: "OCT 14, 06:00 PM",
     title: "Pre-Hack Briefing & System Verification",
     location: "Online / Discord",
     description:
@@ -73,147 +71,115 @@ const RAW_SCHEDULE: ScheduleItem[] = [
     status: "completed",
   },
 
-  // Day 1: 15 October 2026
+  // Day 1 — 15 October 2026 (Authoritative UPDATED TIMELINE.pdf)
   {
     id: "d1-1",
-    time: "08:30 AM – 09:30 AM",
-    title: "Participant Reporting & Physical Verification",
-    location: "Ground Floor Lobby, Academic Block, MUJ",
+    time: "9:00 AM – 11:00 AM",
+    title: "Registration Open",
+    location: "ABI",
     description:
-      "Physical check-in, ID badge distribution, Wi-Fi configuration, and table allocation for verified teams.",
+      "Participant check-in, registration kit distribution, Wi-Fi configuration, and workstation table allocation at ABI.",
     phase: "day1",
     type: "hospitality",
     status: "completed",
   },
   {
     id: "d1-2",
-    time: "09:30 AM – 10:30 AM",
-    title: "Grand Opening Ceremony & Welcome Address",
-    location: "Main Auditorium, MUJ",
+    time: "11:00 AM – 1:00 PM",
+    title: "Opening Ceremony",
+    location: "Vasanti Pai",
     description:
-      "Keynote addresses by university leadership and industry partners, followed by introduction of the jury and mentors.",
+      "Grand opening ceremony, keynote address by university leadership and partners, followed by introduction of mentors and jury.",
     phase: "day1",
     type: "ceremony",
     status: "completed",
   },
   {
     id: "d1-3",
-    time: "10:30 AM",
-    title: "Problem Statements Released & 36-Hour Hack Begins",
-    location: "Central Hack Area & Online Portal",
+    time: "1:00 PM – 2:30 PM",
+    title: "Lunch",
+    location: "Old Mess, AB1",
     description:
-      "Official challenge briefs unlocked. The 36-hour hackathon timer commences. Teams begin sprint development.",
+      "Buffet lunch provided for all registered participants, mentors, and organizing staff at Old Mess, AB1.",
+    phase: "day1",
+    type: "hospitality",
+    status: "upcoming",
+  },
+  {
+    id: "d1-4",
+    time: "2:00 PM – 7:00 PM",
+    title: "Project Making",
+    location: "Team Workstations",
+    description:
+      "Problem statement closes at 4:00 PM. 36-hour sprint development commences across all project tracks.",
     phase: "day1",
     type: "hack",
     status: "current",
   },
   {
-    id: "d1-4",
-    time: "01:00 PM – 02:30 PM",
-    title: "Lunch & Networking Break",
-    location: "Food Court / Mess Area",
-    description:
-      "Buffet lunch provided for all registered participants, mentors, and organizing staff.",
-    phase: "day1",
-    type: "hospitality",
-    status: "upcoming",
-  },
-  {
     id: "d1-5",
-    time: "04:30 PM – 07:00 PM",
-    title: "Mentorship Round 1 — Feasibility & Architecture Check",
-    location: "Team Workstations",
+    time: "8:00 PM – 9:30 PM",
+    title: "Dinner",
+    location: "Old Mess, AB1",
     description:
-      "Assigned domain mentors visit team stations to review initial system architecture, tech stack feasibility, and challenge alignment.",
-    phase: "day1",
-    type: "checkpoint",
-    status: "upcoming",
-  },
-  {
-    id: "d1-6",
-    time: "08:30 PM – 10:00 PM",
-    title: "Dinner & Refreshments",
-    location: "Food Court / Mess Area",
-    description:
-      "Dinner service. Midnight caffeine stations open throughout the night.",
-    phase: "day1",
-    type: "hospitality",
-    status: "upcoming",
-  },
-  {
-    id: "d1-7",
-    time: "11:30 PM – Midnight",
-    title: "Midnight Progress Check-in & Snack Surge",
-    location: "Central Hack Area",
-    description:
-      "Quick status ping by the organizing committee. Energy snacks, Red Bull, and tea/coffee distributed.",
+      "Dinner service at Old Mess, AB1. Midnight caffeine and refreshment stations open throughout the night.",
     phase: "day1",
     type: "hospitality",
     status: "upcoming",
   },
 
-  // Day 2: 16 October 2026
+  // Day 2 — 16 October 2026 (Authoritative UPDATED TIMELINE.pdf)
   {
     id: "d2-1",
-    time: "03:00 AM – 05:00 AM",
-    title: "Late Night Coding & Quiet Sprint",
-    location: "Central Hack Area",
+    time: "6:00 AM – 7:30 AM",
+    title: "Judging Round 2",
+    location: "Team Workstations",
     description:
-      "Dedicated quiet sprint hours. Chill-out bays and resting zones open.",
+      "7:30 AM: results out. Evaluation of project prototype progress, system architecture, and tech stack execution.",
     phase: "day2",
-    type: "hack",
+    type: "eval",
     status: "upcoming",
   },
   {
     id: "d2-2",
-    time: "07:30 AM – 09:00 AM",
-    title: "Breakfast & Morning Energizer",
-    location: "Food Court / Mess Area",
-    description: "Breakfast service for all active hackers.",
+    time: "8:00 AM – 9:30 AM",
+    title: "Breakfast",
+    location: "Old Mess, AB1",
+    description:
+      "Breakfast service at Old Mess, AB1. Final presentation prep and polish before afternoon demonstrations.",
     phase: "day2",
     type: "hospitality",
     status: "upcoming",
   },
   {
     id: "d2-3",
-    time: "09:30 AM – 11:30 AM",
-    title: "Mentorship Round 2 — Prototype Polish & Demo Preparation",
-    location: "Team Workstations",
+    time: "12:00 PM – 1:00 PM",
+    title: "Lunch",
+    location: "Old Mess, AB1",
     description:
-      "Mentors conduct dry runs of team pitches, live demos, and UI/UX polish reviews before final code freeze.",
+      "Lunch service at Old Mess, AB1 prior to final round jury evaluations.",
     phase: "day2",
-    type: "checkpoint",
+    type: "hospitality",
     status: "upcoming",
   },
   {
     id: "d2-4",
-    time: "12:30 PM SHARP",
-    title: "Hard Code Freeze & Submission Window Closes",
-    location: "Code-e-Manipal Portal",
+    time: "1:00 PM – 3:00 PM",
+    title: "Final Round 3 Judging",
+    location: "Vasanti Pai",
     description:
-      "Absolute deadline. All GitHub commits, live demo URLs, and project summaries must be finalized in the portal.",
-    phase: "day2",
-    type: "checkpoint",
-    status: "locked",
-  },
-  {
-    id: "d2-5",
-    time: "01:30 PM – 04:30 PM",
-    title: "Final Jury Evaluation & Live Demonstrations",
-    location: "Evaluation Labs & Auditoriums",
-    description:
-      "Judges grade teams on the 4 weighted criteria (Innovation, Technical Execution, Demo, Impact) via the dedicated judge console.",
+      "Final jury evaluation, live demonstrations, and prototype pitching before the grand jury panel at Vasanti Pai.",
     phase: "day2",
     type: "eval",
     status: "upcoming",
   },
   {
-    id: "d2-6",
-    time: "05:00 PM – 06:30 PM",
-    title: "Valedictory Ceremony & Award Presentation",
-    location: "Main Auditorium, MUJ",
+    id: "d2-5",
+    time: "3:00 PM – 5:00 PM",
+    title: "Result & Closing Ceremony",
+    location: "Vasanti Pai",
     description:
-      "Announcement of track winners, overall champions, prize distribution, and concluding remarks.",
+      "Valedictory closing ceremony, announcement of track winners and overall champions, and prize distribution at Vasanti Pai.",
     phase: "day2",
     type: "awards",
     status: "upcoming",
@@ -221,14 +187,78 @@ const RAW_SCHEDULE: ScheduleItem[] = [
 ];
 
 const PHASES = [
-  { id: "all", label: "All Phases", badge: "36 Hours" },
-  { id: "online", label: "Online Phase", badge: "Onboarding" },
-  { id: "day1", label: "Day 1 (15 Oct)", badge: "Hacking Starts" },
-  { id: "day2", label: "Day 2 (16 Oct)", badge: "Freeze & Jury" },
+  { id: "all", label: "All Phases", badge: "10/10" },
+  { id: "online", label: "Online Phase", badge: "4 Sessions" },
+  { id: "day1", label: "Day 01 (Oct 15)", badge: "5 Programs" },
+  { id: "day2", label: "Day 02 (Oct 16)", badge: "5 Milestones" },
 ] as const;
 
 export default function TimelinePage() {
   const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>(RAW_SCHEDULE);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  // Authoritative real-time sync with database server clock & published events
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchTimeline = async () => {
+      try {
+        setIsLoading(true);
+        const res = await fetch("/api/timeline", { cache: "no-store" });
+        if (!res.ok) return;
+        const json = await res.json();
+        const serverEvents = json.data?.events;
+
+        if (Array.isArray(serverEvents) && serverEvents.length > 0 && isMounted) {
+          // Merge dynamic database events for Day 1 and Day 2 while preserving pre-event online phase
+          const onlineItems = RAW_SCHEDULE.filter((i) => i.phase === "online");
+          const liveDbItems: ScheduleItem[] = serverEvents.map((e: any) => ({
+            id: e.id,
+            time: e.time_range || `${e.start_time || ''} – ${e.end_time || ''}`,
+            title: e.title,
+            location: e.venue || "Manipal University Jaipur",
+            description: e.description || "",
+            phase: e.day_label === "DAY 1" ? "day1" : "day2",
+            type: (e.event_type as any) || "general",
+            status: e.status || "upcoming",
+          }));
+
+          setScheduleItems([...onlineItems, ...liveDbItems]);
+        }
+      } catch (err) {
+        // Keep current schedule items on network transient failure
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    fetchTimeline();
+
+    // Controlled polling interval (20 seconds)
+    const interval = setInterval(fetchTimeline, 20000);
+
+    // Visibility catch-up (sleeping/background tab wakes up)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchTimeline();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // Network reconnection catch-up
+    const handleOnline = () => {
+      fetchTimeline();
+    };
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, []);
 
   const renderEventCards = (items: ScheduleItem[]) => {
     return (
@@ -308,16 +338,16 @@ export default function TimelinePage() {
   };
 
   // Group into Aceternity Timeline structure
-  const onlineItems = RAW_SCHEDULE.filter((i) => i.phase === "online");
-  const day1Items = RAW_SCHEDULE.filter((i) => i.phase === "day1");
-  const day2Items = RAW_SCHEDULE.filter((i) => i.phase === "day2");
+  const onlineItems = scheduleItems.filter((i) => i.phase === "online");
+  const day1Items = scheduleItems.filter((i) => i.phase === "day1");
+  const day2Items = scheduleItems.filter((i) => i.phase === "day2");
 
   const timelineData: TimelineEntry[] = [];
 
   if (activeFilter === "all" || activeFilter === "online") {
     timelineData.push({
       title: "Online Phase",
-      subtitle: "Pre-Event Onboarding",
+      subtitle: "Key orientation & briefing",
       badge: "Stage 01",
       content: renderEventCards(onlineItems),
     });

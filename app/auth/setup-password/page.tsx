@@ -20,6 +20,7 @@ export default function SetupPasswordPage() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>("participant");
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [isRecoveryFlow, setIsRecoveryFlow] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [shake, setShake] = useState(false);
@@ -64,17 +65,29 @@ export default function SetupPasswordPage() {
           hashParams = new URLSearchParams(window.location.hash.substring(1));
         }
 
+        const rawType = hashParams.get("type") || searchParams.get("type");
+        if (rawType === "recovery" || rawType === "invite" || rawType === "signup" || rawType === "magiclink" || !rawType) {
+          setIsRecoveryFlow(true);
+        }
+
         // 1. Immediately handle explicit provider error in hash or query parameters (e.g. otp_expired)
         const urlError =
           hashParams.get("error_description") ||
           searchParams.get("error_description") ||
           hashParams.get("error") ||
           searchParams.get("error");
+        const errorCode =
+          hashParams.get("error_code") ||
+          searchParams.get("error_code") ||
+          hashParams.get("error") ||
+          searchParams.get("error") ||
+          "";
 
         if (urlError) {
           const decodedError = decodeURIComponent(urlError.replace(/\+/g, " "));
+          const lower = (decodedError + " " + errorCode).toLowerCase();
           setError(
-            decodedError.includes("expired") || decodedError.includes("invalid")
+            lower.includes("expired") || lower.includes("invalid") || lower.includes("consumed") || lower.includes("already")
               ? "Your password setup link is invalid, expired, or has already been used. Please request a new recovery link."
               : decodedError
           );
@@ -95,7 +108,8 @@ export default function SetupPasswordPage() {
             });
 
             if (!setSessionErr && setSessionData?.session) {
-              // Strip sensitive tokens from the browser URL address bar
+              try { sessionStorage.setItem("cem_recovery_active", "1"); } catch (_) {}
+              // Strip sensitive tokens from the browser URL address bar after establishing session
               window.history.replaceState(null, "", window.location.pathname);
               await processSession(setSessionData.session);
               return;
@@ -114,6 +128,7 @@ export default function SetupPasswordPage() {
         if (code) {
           const { data: exchangeData, error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
           if (!exchangeErr && exchangeData?.session) {
+            try { sessionStorage.setItem("cem_recovery_active", "1"); } catch (_) {}
             window.history.replaceState(null, "", window.location.pathname);
             await processSession(exchangeData.session);
             return;
@@ -124,15 +139,17 @@ export default function SetupPasswordPage() {
           }
         }
 
-        // 4. Handle email OTP token hash in search parameters (?token_hash=...&type=recovery)
+        // 4. Handle email OTP token hash in search parameters (?token_hash=...&type=recovery|invite|email)
         const tokenHash = searchParams.get("token_hash");
         const tokenType = searchParams.get("type");
-        if (tokenHash && (tokenType === "recovery" || !tokenType)) {
+        if (tokenHash) {
+          const otpType = (tokenType === "invite" ? "invite" : tokenType === "email" ? "email" : "recovery");
           const { data: otpData, error: otpErr } = await supabase.auth.verifyOtp({
             token_hash: tokenHash,
-            type: "recovery",
+            type: otpType as any,
           });
           if (!otpErr && otpData?.session) {
+            try { sessionStorage.setItem("cem_recovery_active", "1"); } catch (_) {}
             window.history.replaceState(null, "", window.location.pathname);
             await processSession(otpData.session);
             return;
@@ -143,18 +160,30 @@ export default function SetupPasswordPage() {
           }
         }
 
-        // 5. Check for active session in client storage
-        const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-        if (!sessionErr && sessionData?.session) {
-          await processSession(sessionData.session);
-          return;
+        // 5. Check for active session in client storage / cookies
+        const hasRecoveryFlag = typeof window !== "undefined" && sessionStorage.getItem("cem_recovery_active") === "1";
+        const arrivedWithAuthParams = Boolean(
+          rawType ||
+          searchParams.get("code") ||
+          searchParams.get("token_hash") ||
+          hashParams.get("access_token")
+        );
+
+        if (hasRecoveryFlag || arrivedWithAuthParams) {
+          const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+          if (!sessionErr && sessionData?.session?.user) {
+            try { sessionStorage.setItem("cem_recovery_active", "1"); } catch (_) {}
+            await processSession(sessionData.session);
+            return;
+          }
         }
 
         // Delay slightly before declaring token invalid to allow SDK background events
         setTimeout(async () => {
           if (!resolvedRef.current && isMounted) {
             const { data: retrySession } = await supabase.auth.getSession();
-            if (retrySession?.session) {
+            if (retrySession?.session?.user) {
+              try { sessionStorage.setItem("cem_recovery_active", "1"); } catch (_) {}
               await processSession(retrySession.session);
             } else {
               setError("Your password setup link is invalid, expired, or has already been used. Please request a new recovery link.");
@@ -173,8 +202,15 @@ export default function SetupPasswordPage() {
 
     // Listen for auth state events (e.g. PASSWORD_RECOVERY)
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if ((event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") && session) {
+      if (event === "PASSWORD_RECOVERY" && session) {
+        try { sessionStorage.setItem("cem_recovery_active", "1"); } catch (_) {}
+        setIsRecoveryFlow(true);
         await processSession(session);
+      } else if (event === "SIGNED_IN" && session) {
+        const hasRecoveryFlag = typeof window !== "undefined" && sessionStorage.getItem("cem_recovery_active") === "1";
+        if (hasRecoveryFlag) {
+          await processSession(session);
+        }
       }
     });
 
@@ -233,6 +269,10 @@ export default function SetupPasswordPage() {
         triggerError(updateError.message || "Failed to update password.");
         return;
       }
+
+      try {
+        sessionStorage.removeItem("cem_recovery_active");
+      } catch (_) {}
 
       setSuccess(true);
 
@@ -327,13 +367,17 @@ export default function SetupPasswordPage() {
               <span>Code-e-Manipal · Account Security</span>
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Set Your Password
+              {isRecoveryFlow ? "Reset Your Password" : "Set Your Password"}
             </h1>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               {userEmail ? (
-                <>Setting up credentials for <strong className="text-foreground">{userEmail}</strong> ({userRole}).</>
+                isRecoveryFlow ? (
+                  <>Setting new credentials for <strong className="text-foreground">{userEmail}</strong> ({userRole}).</>
+                ) : (
+                  <>Setting up credentials for <strong className="text-foreground">{userEmail}</strong> ({userRole}).</>
+                )
               ) : (
-                "Choose a strong, private password for your provisioned account."
+                "Choose a strong, private password for your account."
               )}
             </p>
           </div>
@@ -342,13 +386,13 @@ export default function SetupPasswordPage() {
           {success ? (
             <div className="p-6 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-center animate-entrance">
               <CheckCircle2 size={40} className="mx-auto text-emerald-500 mb-2" />
-              <h2 className="text-base font-bold text-emerald-700 dark:text-emerald-300">Password Setup Successful</h2>
+              <h2 className="text-base font-bold text-emerald-700 dark:text-emerald-300">Password Updated Successfully</h2>
               <p className="text-xs text-muted-foreground mt-1">
                 Your credentials have been securely registered. Redirecting to your {userRole} console...
               </p>
             </div>
-          ) : error && !userEmail ? (
-            /* Expired / Invalid Token Banner */
+          ) : error && (!userEmail || !resolvedRef.current) ? (
+            /* Expired / Invalid Token / Unauthorized Banner */
             <div className="space-y-6 animate-entrance">
               <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-5 text-left">
                 <div className="flex items-start gap-3.5">
@@ -356,7 +400,11 @@ export default function SetupPasswordPage() {
                     <AlertCircle size={20} />
                   </div>
                   <div className="space-y-1">
-                    <h3 className="text-sm font-bold text-destructive">Link Inactive or Expired</h3>
+                    <h3 className="text-sm font-bold text-destructive">
+                      {error.includes("already signed in") || error.includes("currently signed in")
+                        ? "Active Session Notice"
+                        : "Link Inactive or Expired"}
+                    </h3>
                     <p className="text-xs text-muted-foreground leading-relaxed">{error}</p>
                   </div>
                 </div>
@@ -364,12 +412,21 @@ export default function SetupPasswordPage() {
 
               {/* Action Buttons: Horizontal on tablet/desktop, stacked on mobile */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1">
-                <Link
-                  href={userEmail ? `/auth/forgot-password?email=${encodeURIComponent(userEmail)}` : "/auth/forgot-password"}
-                  className="flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold cursor-pointer transition-colors shadow-sm text-center"
-                >
-                  Request New Reset Link
-                </Link>
+                {error.includes("already signed in") || error.includes("currently signed in") ? (
+                  <Link
+                    href="/dashboard"
+                    className="flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold cursor-pointer transition-colors shadow-sm text-center"
+                  >
+                    Go to Dashboard
+                  </Link>
+                ) : (
+                  <Link
+                    href={userEmail ? `/auth/forgot-password?email=${encodeURIComponent(userEmail)}` : "/auth/forgot-password"}
+                    className="flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold cursor-pointer transition-colors shadow-sm text-center"
+                  >
+                    Request New Reset Link
+                  </Link>
+                )}
                 <Link
                   href="/login"
                   className="flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-surface hover:bg-accent border border-border text-foreground text-xs font-semibold cursor-pointer transition-colors text-center"

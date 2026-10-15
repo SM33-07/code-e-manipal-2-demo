@@ -93,8 +93,14 @@ export async function proxy(req: NextRequest) {
       .maybeSingle();
     const role = profile?.role || 'participant';
 
-    // Prevent authenticated users from staying on /login
-    if (isLoginRoute) {
+    // Prevent authenticated users from staying on /login, unless explicitly requesting re-authentication or logout
+    const hasReauthParam =
+      req.nextUrl.searchParams.has('reauth') ||
+      req.nextUrl.searchParams.has('logout') ||
+      req.nextUrl.searchParams.has('reason') ||
+      req.nextUrl.searchParams.has('error');
+
+    if (isLoginRoute && !hasReauthParam) {
       if (role === 'admin') return NextResponse.redirect(new URL('/admin', req.url));
       if (role === 'judge') return NextResponse.redirect(new URL('/judge', req.url));
       return NextResponse.redirect(new URL('/dashboard', req.url));

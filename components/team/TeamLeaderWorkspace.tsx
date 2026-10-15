@@ -30,7 +30,11 @@ interface Member {
   id: string;
   name: string;
   email: string;
+  phone?: string;
+  college?: string;
+  studyYear?: string;
   role: "leader" | "member";
+  isVerified: boolean;
   joinedAt: string;
 }
 
@@ -74,10 +78,14 @@ export function TeamLeaderWorkspace() {
         const t = teamJson.data;
         if (t) {
           const members: Member[] = (t.team_members || []).map((m: any) => ({
-            id: m.user_id || m.id,
-            name: m.profiles?.name || m.name || (m.role === "leader" ? t.leader_name || "Leader" : "Team Member"),
-            email: m.profiles?.email || m.email || "",
+            id: m.id || m.user_id,
+            name: m.name || m.profiles?.name || (m.role === "leader" ? t.leader_name || "Leader" : "Team Member"),
+            email: m.email || m.profiles?.email || "",
+            phone: m.phone || "",
+            college: m.college || "",
+            studyYear: m.study_year || "",
             role: m.role === "leader" ? "leader" : "member",
+            isVerified: m.is_verified ?? (m.role === "leader"),
             joinedAt: m.joined_at || new Date().toISOString(),
           }));
 
@@ -138,7 +146,7 @@ export function TeamLeaderWorkspace() {
   }
 
   // Fallback if team data isn't provisioned yet
-  const teamInfo = team || {
+  const teamInfo: TeamData = team || {
     id: "TEAM-001",
     name: "Hackathon Squad",
     leaderName: user?.email?.split("@")[0] || "Team Leader",
@@ -152,6 +160,7 @@ export function TeamLeaderWorkspace() {
         name: user?.email?.split("@")[0] || "Team Leader",
         email: user?.email || "leader@code-e-manipal.org",
         role: "leader" as const,
+        isVerified: true,
         joinedAt: new Date().toISOString(),
       },
     ],
@@ -352,18 +361,37 @@ export function TeamLeaderWorkspace() {
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-foreground">{member.name}</span>
                         {member.role === "leader" && (
-                          <span className="px-2 py-0.2 rounded bg-secondary/15 text-secondary border border-secondary/30 text-[10px] font-bold uppercase tracking-wider">
+                          <span className="px-2 py-0.5 rounded bg-secondary/15 text-secondary border border-secondary/30 text-[10px] font-bold uppercase tracking-wider">
                             Leader
                           </span>
                         )}
                       </div>
-                      <span className="text-xs text-muted-foreground">{member.email || "Registered Student"}</span>
+                      <div className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground mt-0.5">
+                        <span>{member.email || "Registered Student"}</span>
+                        {member.college && (
+                          <>
+                            <span>•</span>
+                            <span>{member.college}</span>
+                          </>
+                        )}
+                        {member.studyYear && (
+                          <span className="text-[11px] text-muted-foreground/80">({member.studyYear})</span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  <span className="text-xs text-muted-foreground font-mono hidden sm:inline-block">
-                    Verified
-                  </span>
+                  <div>
+                    {member.isVerified ? (
+                      <span className="px-2 py-0.5 rounded-md bg-success/10 text-success border border-success/30 text-[11px] font-mono font-semibold hidden sm:inline-block">
+                        Verified
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-md bg-muted text-muted-foreground border border-border text-[11px] font-mono font-semibold hidden sm:inline-block">
+                        Registered
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

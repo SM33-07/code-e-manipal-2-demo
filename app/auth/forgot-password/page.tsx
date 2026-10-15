@@ -1,72 +1,29 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Mail, ArrowRight, ArrowLeft, Sparkles, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Sparkles, ShieldAlert, KeyRound, HelpCircle, Mail, Phone } from "lucide-react";
 import clsx from "clsx";
 import { SpecularButton } from "@/components/ui/SpecularButton";
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const VERIFIED_ORGANISERS = [
+  {
+    name: "Yash Sahai (Convener)",
+    email: "yashsrivastava3745@gmail.com",
+    phone: "+91 8707877673",
+  },
+  {
+    name: "Abhinav Aryan (Convener)",
+    email: "abhinav.ong@gmail.com",
+    phone: "+91 9031190278",
+  },
+  {
+    name: "Soham More (Tech Lead)",
+    email: "sohammore3312@gmail.com",
+    phone: "+91 8928500841",
+  },
+];
 
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState("");
-  const [shake, setShake] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const emailParam = params.get("email");
-      if (emailParam) {
-        setEmail(emailParam);
-      }
-    }
-  }, []);
-
-  const triggerError = (msg: string) => {
-    setError(msg);
-    setShake(true);
-    setTimeout(() => setShake(false), 500);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail || !EMAIL_REGEX.test(cleanEmail)) {
-      triggerError("Please enter a valid email address.");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const res = await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: cleanEmail }),
-      });
-
-      const data = await res.json();
-      if (!res.ok && res.status !== 429) {
-        throw new Error(data.error || "Failed to process recovery request.");
-      }
-
-      if (res.status === 429) {
-        triggerError("Too many attempts. Please wait a few minutes before trying again.");
-        return;
-      }
-
-      setSubmitted(true);
-    } catch (err: any) {
-      triggerError(err.message || "An unexpected error occurred. Please try again later.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="relative min-h-[calc(100svh-6rem)] w-full flex items-center justify-center px-4 py-8 sm:px-6">
       {/* Full-Page Background: Jaipur Heritage Architectural Entrance */}
@@ -89,115 +46,104 @@ export default function ForgotPasswordPage() {
       <div className="relative z-10 w-full max-w-[500px]">
         <div
           className={clsx(
-            "w-full rounded-2xl border border-border/80 border-t-2 border-t-primary bg-card/95 text-card-foreground p-6 shadow-xl shadow-black/5 dark:shadow-black/30 backdrop-blur-sm transition-all duration-200 animate-entrance sm:p-8",
-            shake && "animate-shake"
+            "w-full rounded-2xl border border-border/80 border-t-2 border-t-primary bg-card/95 text-card-foreground p-6 shadow-xl shadow-black/5 dark:shadow-black/30 backdrop-blur-sm transition-all duration-200 animate-entrance sm:p-8"
           )}
         >
           {/* Card Header */}
           <div className="mb-6 text-left">
             <div className="mb-2.5 inline-flex items-center gap-1.5 border-b border-secondary/40 pb-1 text-[11px] font-bold uppercase tracking-[0.16em] text-secondary">
               <Sparkles size={12} className="text-secondary" />
-              <span>Code-e-Manipal · Account Recovery</span>
+              <span>Code-e-Manipal · Account Assistance</span>
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Reset Your Password
+              Forgot your passcode?
             </h1>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Enter your registered email address to receive password setup instructions.
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+              Your team login uses an event-issued passcode. If you&apos;ve forgotten it, please contact your team coordinator or an event administrator to have it reset.
             </p>
           </div>
 
-          {submitted ? (
-            /* Success confirmation card */
-            <div className="space-y-5 animate-entrance">
-              <div className="p-6 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-center">
-                <CheckCircle2 size={40} className="mx-auto text-emerald-500 mb-2.5" />
-                <h2 className="text-base font-bold text-emerald-700 dark:text-emerald-300">
-                  Instructions Dispatched
-                </h2>
-                <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                  If an account exists for <strong className="text-foreground">{email}</strong>, you will receive password reset instructions. Please check your inbox and spam folder.
+          {/* Security Note Box */}
+          <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/25 text-left">
+            <div className="flex items-start gap-2.5">
+              <ShieldAlert size={18} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                  Security note: Only authorized event administrators can reset participant passcodes.
+                </p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Automated self-service password reset is disabled to ensure badge integrity and prevent unauthorized roster takeovers during the hackathon.
                 </p>
               </div>
+            </div>
+          </div>
 
-              <div className="p-3.5 rounded-xl bg-muted/40 border border-border text-[11px] text-muted-foreground text-center leading-relaxed">
-                Can&apos;t access your registered email? Contact your team leader or the event Help Desk for verified identity assistance.
-              </div>
-
-              {/* Action Buttons: Responsive row on sm+, stacked on mobile */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1">
-                <Link
-                  href="/login"
-                  className="flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold cursor-pointer transition-colors shadow-sm text-center"
-                >
-                  Return to Login
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => { setSubmitted(false); }}
-                  className="flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-surface hover:bg-accent border border-border text-foreground text-xs font-semibold cursor-pointer transition-colors text-center"
-                >
-                  Try Another Email
-                </button>
+          {/* How to recover step-by-step guidance */}
+          <div className="space-y-3 mb-6 text-left">
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/40 border border-border">
+              <KeyRound size={16} className="text-primary shrink-0 mt-0.5" />
+              <div className="text-xs">
+                <span className="font-semibold text-foreground">In-Person Help Desk:</span>
+                <p className="text-muted-foreground mt-0.5 leading-relaxed">
+                  Visit the Technical Help Desk at the Manipal University Jaipur venue. Provide your Team ID (e.g., TEAM-042) and leader registration proof for an immediate, audited passcode reset.
+                </p>
               </div>
             </div>
-          ) : (
-            /* Recovery Request Form */
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              {error && (
-                <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-xs font-medium text-center">
-                  {error}
-                </div>
-              )}
 
-              <div className="flex flex-col gap-1.5 text-left">
-                <label className="text-xs font-semibold text-foreground">
-                  Registered Email Address
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground">
-                    <Mail size={15} />
-                  </div>
-                  <input
-                    type="email"
-                    autoComplete="email"
-                    placeholder="e.g. name@domain.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    disabled={loading}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-60"
-                  />
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/40 border border-border">
+              <HelpCircle size={16} className="text-secondary shrink-0 mt-0.5" />
+              <div className="text-xs">
+                <span className="font-semibold text-foreground">Coordinator Contacts:</span>
+                <div className="mt-2 space-y-2">
+                  {VERIFIED_ORGANISERS.map((org) => (
+                    <div key={org.email} className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] bg-background/80 p-2 rounded-lg border border-border/60">
+                      <span className="font-medium text-foreground">{org.name}</span>
+                      <div className="flex items-center gap-3 text-muted-foreground">
+                        <a href={`mailto:${org.email}`} className="flex items-center gap-1 hover:text-primary transition-colors">
+                          <Mail size={12} className="text-secondary" />
+                          <span>{org.email}</span>
+                        </a>
+                        <a href={`tel:${org.phone}`} className="flex items-center gap-1 hover:text-primary transition-colors">
+                          <Phone size={12} className="text-secondary" />
+                          <span>{org.phone}</span>
+                        </a>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
+            </div>
+          </div>
 
+          {/* Actions: Back to login & FAQ */}
+          <div className="pt-2 flex flex-col gap-3">
+            <Link href="/login" className="w-full">
               <SpecularButton
-                type="submit"
+                type="button"
                 variant="primary"
-                disabled={loading || !email.trim()}
-                className="w-full mt-2 py-3 cursor-pointer text-sm font-semibold flex items-center justify-center gap-2"
+                className="w-full py-2.5 cursor-pointer text-sm font-semibold flex items-center justify-center gap-2"
               >
-                <span>{loading ? "Sending Instructions..." : "Send Reset Instructions"}</span>
-                {!loading && <ArrowRight size={15} />}
+                <ArrowLeft size={15} />
+                <span>Return to Login</span>
               </SpecularButton>
+            </Link>
 
-              <div className="pt-2 flex items-center justify-between text-xs text-muted-foreground">
-                <Link
-                  href="/login"
-                  className="flex items-center gap-1.5 hover:text-foreground transition-colors font-medium"
-                >
-                  <ArrowLeft size={13} />
-                  <span>Back to Login</span>
-                </Link>
-                <Link
-                  href="/faq"
-                  className="hover:text-secondary transition-colors font-medium"
-                >
-                  Help Desk
-                </Link>
-              </div>
-            </form>
-          )}
+            <div className="pt-2 flex items-center justify-between text-xs text-muted-foreground">
+              <Link
+                href="/login"
+                className="flex items-center gap-1.5 hover:text-foreground transition-colors font-medium"
+              >
+                <ArrowLeft size={13} />
+                <span>Back to Login</span>
+              </Link>
+              <Link
+                href="/faq"
+                className="hover:text-secondary transition-colors font-medium"
+              >
+                View FAQ
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </div>

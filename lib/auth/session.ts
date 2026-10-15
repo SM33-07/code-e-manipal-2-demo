@@ -16,11 +16,12 @@
  */
 
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { headers } from 'next/headers';
+import { headers, cookies } from 'next/headers';
 import { query } from '@/lib/db';
 import type { Profile, UserRole } from '@/types';
 import type { User } from '@supabase/supabase-js';
 import { logger } from '@/lib/utils/logger';
+import { verifyTeamSessionActive } from './teamSessionLimit';
 
 export interface ValidatedSession {
   /** Supabase GoTrue user object */
@@ -43,7 +44,7 @@ export interface ValidatedSession {
  */
 export async function validateSession(): Promise<
   | { session: ValidatedSession; error: null }
-  | { session: null; error: 'UNAUTHENTICATED' | 'DISABLED' | 'FORCE_LOGOUT' | 'NO_PROFILE' }
+  | { session: null; error: 'UNAUTHENTICATED' | 'DISABLED' | 'FORCE_LOGOUT' | 'NO_PROFILE' | 'DB_ERROR' }
 > {
   try {
     // 1. Validate GoTrue session (cookie or Authorization: Bearer <token>)
@@ -59,11 +60,20 @@ export async function validateSession(): Promise<
     }
 
     // 2. Hydrate profile from Azure Postgres (ADR-001: sole authoritative source)
-    let profile = await lookupProfile(user.id);
+    let profile: (Profile & SessionProfileExtensions) | null = null;
+    try {
+      profile = await lookupProfile(user.id);
 
-    // Lazy profile sync if missing (first-login scenario)
-    if (!profile) {
-      profile = await lazyProfileSync(user);
+      // Lazy profile sync if missing (first-login scenario)
+      if (!profile) {
+        profile = await lazyProfileSync(user);
+      }
+    } catch (dbErr) {
+      logger.error('Session validation: database profile query failed', {
+        userId: user.id,
+        error: String(dbErr),
+      });
+      return { session: null, error: 'DB_ERROR' };
     }
 
     if (!profile) {
@@ -88,11 +98,13 @@ export async function validateSession(): Promise<
       const forceLogoutAt = new Date(profile.force_logout_before);
       const sessionCreatedAt = user.created_at ? new Date(user.created_at) : null;
       const lastSignInAt = user.last_sign_in_at ? new Date(user.last_sign_in_at) : null;
+      const userUpdatedAt = user.updated_at ? new Date(user.updated_at) : null;
 
       // Use the most recent session activity timestamp
-      const sessionTimestamp = lastSignInAt || sessionCreatedAt;
+      const sessionTimestamp = lastSignInAt || userUpdatedAt || sessionCreatedAt;
 
-      if (sessionTimestamp && sessionTimestamp < forceLogoutAt) {
+      // Allow a 2000ms clock skew buffer between database server and auth server
+      if (sessionTimestamp && (sessionTimestamp.getTime() + 2000) < forceLogoutAt.getTime()) {
         logger.info('Session validation: force logout enforcement', {
           userId: user.id,
           forceLogoutBefore: forceLogoutAt.toISOString(),
@@ -102,7 +114,25 @@ export async function validateSession(): Promise<
       }
     }
 
-    // 5. Session is valid
+    // 5. Check team active session revocation/expiry (if session_id cookie or header present)
+    try {
+      const cookieStore = await cookies();
+      const sessionId = headerList.get('x-session-id') || cookieStore.get('cem_session_id')?.value;
+      if (sessionId) {
+        const isSessionActive = await verifyTeamSessionActive(sessionId);
+        if (!isSessionActive) {
+          logger.info('Session validation: revoked or expired team session rejected', {
+            userId: user.id,
+            sessionId,
+          });
+          return { session: null, error: 'FORCE_LOGOUT' };
+        }
+      }
+    } catch {
+      // Non-blocking if cookies/headers cannot be resolved
+    }
+
+    // 6. Session is valid
     return {
       session: { user, profile },
       error: null,

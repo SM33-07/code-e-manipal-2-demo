@@ -33,7 +33,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       headers["Authorization"] = `Bearer ${token}`
     }
 
-    const response = await fetch("/api/auth/me", { headers, cache: "no-store" })
+    const response = await fetch("/api/auth/me", {
+      headers,
+      cache: "no-store",
+      signal: AbortSignal.timeout(6000),
+    })
     if (!response.ok) throw new Error("Your session is no longer available.")
 
     const payload = (await response.json()) as ProfileResponse
@@ -58,40 +62,127 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true
+    let isRestoring = false
+
     const restoreSession = async () => {
-      const { data } = await supabase.auth.getSession()
-      if (!active) return
-      if (!data.session?.user) {
-        setLoading(false)
-        return
-      }
+      if (isRestoring) return
+      isRestoring = true
+
       try {
-        await hydrateProfile(data.session.user, data.session.access_token)
-      } catch {
-        // Do NOT destroy sessions if the user is on an authentication onboarding/recovery route
-        const isAuthRoute =
-          typeof window !== "undefined" && window.location.pathname.startsWith("/auth/")
-        if (!isAuthRoute) {
-          await supabase.auth.signOut()
+        // Do not attempt profile hydration or session manipulation if the page is currently
+        // receiving recovery or invitation parameters (they are processed by /auth/setup-password)
+        if (typeof window !== "undefined") {
+          const hash = window.location.hash || ""
+          const search = window.location.search || ""
+          const pathname = window.location.pathname
+          if (
+            pathname === "/auth/setup-password" ||
+            hash.includes("type=recovery") ||
+            hash.includes("type=invite") ||
+            hash.includes("type=signup") ||
+            hash.includes("type=magiclink") ||
+            hash.includes("access_token=") ||
+            search.includes("type=recovery") ||
+            search.includes("type=invite") ||
+            search.includes("type=magiclink") ||
+            search.includes("token_hash=") ||
+            search.includes("code=")
+          ) {
+            if (active) setLoading(false)
+            return
+          }
         }
-        if (active) {
-          setUser(null)
-          setRole("participant")
+
+        let sessionUser: any = null
+        let accessToken: string | null = null
+
+        try {
+          const { data, error } = await supabase.auth.getSession()
+          if (!error && data?.session?.user) {
+            sessionUser = data.session.user
+            accessToken = data.session.access_token
+          }
+        } catch {
+          // getSession failed (e.g., storage corruption or network failure)
+        }
+
+        if (!active) return
+
+        if (!sessionUser) {
+          if (active) setLoading(false)
+          return
+        }
+
+        try {
+          await hydrateProfile(sessionUser, accessToken)
+        } catch {
+          // Do NOT destroy sessions if the user is on an authentication onboarding/recovery route
+          // or possesses a recovery/invite URL parameter
+          const isAuthRoute =
+            typeof window !== "undefined" && window.location.pathname.startsWith("/auth/")
+          const isRecoveryContext =
+            typeof window !== "undefined" &&
+            (window.location.pathname === "/auth/setup-password" ||
+             window.location.hash.includes("type=recovery") ||
+             window.location.hash.includes("type=invite") ||
+             window.location.hash.includes("access_token=") ||
+             window.location.search.includes("type=recovery") ||
+             window.location.search.includes("type=invite") ||
+             window.location.search.includes("token_hash=") ||
+             window.location.search.includes("code="))
+
+          if (!isAuthRoute && !isRecoveryContext) {
+            try {
+              await supabase.auth.signOut()
+            } catch {
+              // Sign out error ignored during recovery
+            }
+          }
+          if (active) {
+            setUser(null)
+            setRole("participant")
+          }
         }
       } finally {
-        if (active) setLoading(false)
+        if (active) {
+          setLoading(false)
+          isRestoring = false
+        }
       }
     }
 
+    // Unconditional bounded fallback timer (5 seconds) to ensure loading ALWAYS settles
+    const safetyTimer = setTimeout(() => {
+      if (active) {
+        setLoading(false)
+      }
+    }, 5000)
+
     restoreSession()
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!session?.user) {
-        setUser(null)
-        setRole("participant")
+        if (active) {
+          setUser(null)
+          setRole("participant")
+          setLoading(false)
+        }
+      } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        if (active && !isRestoring) {
+          try {
+            await hydrateProfile(session.user, session.access_token)
+          } catch {
+            // Profile hydration error caught gracefully
+          } finally {
+            if (active) setLoading(false)
+          }
+        }
       }
     })
+
     return () => {
       active = false
+      clearTimeout(safetyTimer)
       listener.subscription.unsubscribe()
     }
   }, [hydrateProfile, supabase])
@@ -101,6 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ identifier, password }),
+      signal: AbortSignal.timeout(10000),
     })
     const payload = await response.json()
     if (!response.ok) throw new Error(payload.error || "Unable to sign in.")

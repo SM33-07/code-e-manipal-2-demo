@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { withAuth } from '@/lib/middleware/withAuth';
 import { query } from '@/lib/db';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { getSetupPasswordRedirectUrl } from '@/lib/auth/siteUrl';
 import { successResponse, Errors } from '@/lib/utils/response';
 import { logger } from '@/lib/utils/logger';
 import crypto from 'crypto';
@@ -160,8 +161,11 @@ export const PATCH = withAuth(async (req, { user: adminUser }) => {
         }
 
         // Send invite email (user clicks link → logs in / sets password)
+        const setupRedirect = getSetupPasswordRedirectUrl();
         try {
-          await supabase.auth.admin.inviteUserByEmail(reg.email);
+          await supabase.auth.admin.inviteUserByEmail(reg.email, {
+            redirectTo: setupRedirect,
+          });
         } catch (e) {
           // Invite might fail if user already confirmed, that's ok
           logger.warn('Invite email note', { error: String(e) });
@@ -171,6 +175,7 @@ export const PATCH = withAuth(async (req, { user: adminUser }) => {
             await supabase.auth.admin.generateLink({
               type: 'recovery',
               email: reg.email,
+              options: { redirectTo: setupRedirect },
             });
           } catch (e2) {
             logger.warn('Recovery link fallback note', { error: String(e2) });

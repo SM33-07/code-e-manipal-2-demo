@@ -1,4 +1,5 @@
-import { Pool, QueryResultRow } from 'pg';
+import pg, { type QueryResultRow } from 'pg';
+const { Pool } = pg;
 
 const databaseUrl = process.env.DATABASE_URL;
 

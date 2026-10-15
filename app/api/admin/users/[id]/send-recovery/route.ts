@@ -35,14 +35,48 @@ export const POST = withAuth(async (req, { user: adminUser, params }) => {
     const redirectTo = getSetupPasswordRedirectUrl();
     const supabaseAdmin = createSupabaseAdminClient();
 
-    // 2. Dispatch recovery email via Supabase Auth
-    const { error: resetErr } = await supabaseAdmin.auth.resetPasswordForEmail(targetUser.email, {
-      redirectTo,
-    });
+    // 2. Dispatch recovery or setup invite email via Supabase Auth
+    const { data: authUserData, error: getAuthError } = await supabaseAdmin.auth.admin.getUserById(targetUserId);
+    const authUser = authUserData?.user;
+
+    if (getAuthError || !authUser) {
+      logger.warn('Send recovery: Auth user does not exist for profile', {
+        targetUserId,
+        email: targetUser.email,
+        error: getAuthError?.message,
+      });
+      return Errors.NOT_FOUND('User authentication account does not exist in identity provider');
+    }
+
+    if (authUser.email?.toLowerCase() !== targetUser.email?.toLowerCase()) {
+      logger.error('Email mapping conflict between profile and Supabase Auth', {
+        targetUserId,
+        profileEmail: targetUser.email,
+        authEmail: authUser.email,
+      });
+      return Errors.CONFLICT('Profile email does not match authentication account mapping');
+    }
+
+    let resetErr: any = null;
+    let dispatchType = 'recovery';
+
+    if (!authUser.email_confirmed_at) {
+      dispatchType = 'invite';
+      const { error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(targetUser.email, {
+        redirectTo,
+      });
+      resetErr = inviteErr;
+    } else {
+      const { error: recoveryErr } = await supabaseAdmin.auth.resetPasswordForEmail(targetUser.email, {
+        redirectTo,
+      });
+      resetErr = recoveryErr;
+    }
 
     if (resetErr) {
-      logger.error('Failed to trigger resetPasswordForEmail for user', {
+      logger.error('Failed to trigger password setup dispatch for user', {
         targetUserId,
+        dispatchType,
         error: resetErr.message,
       });
       return Errors.INTERNAL(`Auth provider error: ${resetErr.message}`);

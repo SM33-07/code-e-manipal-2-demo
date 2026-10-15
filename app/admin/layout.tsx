@@ -24,7 +24,8 @@ import { useAuth } from "@/components/AuthProvider";
 const sideNav = [
   { label: "Operations Center", icon: LayoutDashboard, href: "/admin" },
   { label: "Event Control",     icon: Radio,           href: "/admin/event" },
-  { label: "Problem Statements",icon: FileQuestion,    href: "/problem-statements" },
+  { label: "Timeline Schedule", icon: Radio,           href: "/admin/event?tab=schedule" },
+  { label: "Problem Statements",icon: FileQuestion,    href: "/admin/problem-statements" },
   { label: "Teams & Roster",    icon: Users,           href: "/admin/teams" },
   { label: "Submissions",       icon: FileCode,        href: "/admin/submissions" },
   { label: "Judging Operations",icon: Gavel,           href: "/admin/judging" },
@@ -39,20 +40,38 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { logout, user, role, loading, isAuthenticated } = useAuth();
+  const [verificationTimedOut, setVerificationTimedOut] = useState(false);
+  const [hasRedirected, setHasRedirected] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Bounded verification safety timeout (5 seconds)
   useEffect(() => {
-    if (!loading && (!isAuthenticated || role !== "admin")) {
-      router.push(isAuthenticated ? "/dashboard" : "/login");
+    if (!loading) return;
+    const timer = setTimeout(() => {
+      setVerificationTimedOut(true);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [loading]);
+
+  // Handle automatic redirect for unauthenticated users after verification completes
+  useEffect(() => {
+    if (loading || hasRedirected) return;
+
+    if (!isAuthenticated) {
+      setHasRedirected(true);
+      const timer = setTimeout(() => {
+        router.push("/login?next=/admin&reason=session_required");
+      }, 1200);
+      return () => clearTimeout(timer);
     }
-  }, [loading, isAuthenticated, role, router]);
+  }, [loading, isAuthenticated, hasRedirected, router]);
 
   const handleLogout = async () => {
     try {
       await logout();
-      router.push("/login");
+      router.push("/login?logout=1");
     } catch {
-      router.push("/login");
+      router.push("/login?logout=1");
     }
   };
 
@@ -65,10 +84,104 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     (item) => pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href))
   )?.label || "Operations Center";
 
-  if (loading || !isAuthenticated || role !== "admin") {
+  // 1. Timed out state — provide explicit user choice rather than infinite spinner
+  if (loading && verificationTimedOut) {
     return (
-      <div className="min-h-[50vh] flex items-center justify-center text-muted-foreground text-sm">
-        Verifying administrator credentials...
+      <div className="min-h-[60vh] flex flex-col items-center justify-center px-4 text-center">
+        <div className="p-6 max-w-md w-full bg-surface-elevated border border-border rounded-2xl shadow-xl">
+          <ShieldAlert size={32} className="text-secondary mx-auto mb-3" />
+          <h2 className="text-base font-bold text-foreground">Verification Timed Out</h2>
+          <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+            Credential verification took longer than expected. This usually occurs if your session has expired, network connectivity was interrupted, or the server is slow to respond.
+          </p>
+          <div className="mt-5 flex flex-col sm:flex-row gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                setVerificationTimedOut(false);
+                window.location.reload();
+              }}
+              className="flex-1 py-2.5 px-3 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:opacity-95 transition-opacity cursor-pointer"
+            >
+              Try Again
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex-1 py-2.5 px-3 text-xs font-semibold rounded-xl bg-secondary/15 border border-secondary/30 text-secondary hover:bg-secondary/25 transition-colors cursor-pointer"
+            >
+              Return to Login
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Loading state within bounded timeout
+  if (loading) {
+    return (
+      <div className="min-h-[50vh] flex flex-col items-center justify-center gap-3 text-muted-foreground text-sm">
+        <div className="relative">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <ShieldAlert size={14} className="absolute inset-0 m-auto text-secondary" />
+        </div>
+        <span className="tracking-wide text-xs">Verifying administrator credentials...</span>
+      </div>
+    );
+  }
+
+  // 3. Unauthenticated state — session missing or expired
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center px-4 text-center">
+        <div className="p-6 max-w-md w-full bg-surface-elevated border border-border rounded-2xl shadow-xl">
+          <ShieldAlert size={32} className="text-secondary mx-auto mb-3" />
+          <h2 className="text-base font-bold text-foreground">Authentication Required</h2>
+          <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+            Your administrator session is no longer active. Directing you to the secure sign-in portal...
+          </p>
+          <div className="mt-5">
+            <button
+              type="button"
+              onClick={() => router.push("/login?next=/admin&reason=session_required")}
+              className="w-full py-2.5 px-4 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:opacity-95 transition-opacity cursor-pointer"
+            >
+              Sign In to Continue
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 4. Authenticated but unauthorized role (e.g. participant or judge)
+  if (role !== "admin") {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center px-4 text-center">
+        <div className="p-6 max-w-md w-full bg-surface-elevated border border-destructive/30 rounded-2xl shadow-xl">
+          <ShieldAlert size={32} className="text-destructive mx-auto mb-3" />
+          <h2 className="text-base font-bold text-foreground">Administrator Privileges Required</h2>
+          <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+            Your current account ({user?.email || "User"}) is registered with role <span className="font-semibold text-foreground uppercase">{role}</span>. Access to the Operations Center is restricted to verified administrators.
+          </p>
+          <div className="mt-5 flex flex-col sm:flex-row gap-2.5">
+            <button
+              type="button"
+              onClick={() => router.push(role === "judge" ? "/judge" : "/dashboard")}
+              className="flex-1 py-2.5 px-3 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:opacity-95 transition-opacity cursor-pointer"
+            >
+              Go to {role === "judge" ? "Judging Portal" : "Team Dashboard"}
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex-1 py-2.5 px-3 text-xs font-semibold rounded-xl bg-surface border border-border text-foreground hover:bg-accent transition-colors cursor-pointer"
+            >
+              Switch Account
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
