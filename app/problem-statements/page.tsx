@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { Metadata } from "next";
-import { Calendar, Clock, Lock, Unlock, QrCode, Sparkles, Layers, BookOpen, AlertCircle } from "lucide-react";
+import { Sparkles, Layers, QrCode, AlertCircle, AlertTriangle } from "lucide-react";
 import { getPublicProblemStatements } from "@/services/problemStatementService";
-import { ProblemStatementsAdminControls } from "./ProblemStatementsAdminControls";
 import { ProblemStatementsList } from "./ProblemStatementsList";
 
-export const revalidate = 60; // 60s ISR caching, revalidated automatically upon admin publication
+export const revalidate = 60; // 60s ISR caching
 
 export const metadata: Metadata = {
   title: "Problem Statements — Code-e-Manipal 2.0",
@@ -20,9 +19,6 @@ export default async function ProblemStatementsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 px-4 py-6 sm:px-6 sm:py-10">
-      {/* Admin Quick Action Controls */}
-      <ProblemStatementsAdminControls published={isPublished} />
-
       {/* Page Header */}
       <header className="relative overflow-hidden rounded-3xl border border-border bg-card/90 p-6 sm:p-10 shadow-sm">
         {/* Subtle decorative background accent */}
@@ -31,10 +27,7 @@ export default async function ProblemStatementsPage() {
 
         <div className="relative max-w-3xl space-y-4">
           <div className="inline-flex items-center gap-2 rounded-full border border-secondary/40 bg-secondary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-secondary">
-            {showContent ? <Unlock size={13} className="text-secondary" /> : <Lock size={13} className="text-secondary" />}
-            {showContent
-              ? `OFFICIAL RELEASE V${release?.version || 2} · LIVE`
-              : "LOCKED · AWAITING PUBLICATION"}
+            {`OFFICIAL RELEASE V${release?.version || 2} · LIVE`}
           </div>
 
           <h1 className="text-3xl font-black tracking-tight text-foreground sm:text-5xl font-serif">
@@ -42,9 +35,7 @@ export default async function ProblemStatementsPage() {
           </h1>
 
           <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-            {showContent
-              ? `The official Code-e-Manipal 2.0 challenge briefs are live (${release?.label || 'Final Event Release'}). Review technical constraints, evaluation protocols, and deliverables across all 9 competition tracks.`
-              : "Problem statements will be available shortly. Official challenge briefs will be released by the organizers in accordance with the canonical event timeline."}
+            The official Code-e-Manipal 2.0 challenge briefs are live ({release?.label || 'Final Event Release'}). Review technical constraints, evaluation protocols, and deliverables across all 9 competition tracks.
           </p>
 
           {/* Quick Metrics & QR Destination Pill */}
@@ -86,30 +77,16 @@ export default async function ProblemStatementsPage() {
           <ProblemStatementsList statements={statements} tracks={tracks} />
         </section>
       ) : (
-        /* Neutral Holding Page — Never leaks draft titles or held items */
         <section className="rounded-3xl border border-border bg-card p-8 text-center shadow-sm sm:p-12">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary/15 text-secondary">
-            <Lock size={32} />
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-destructive/15 text-destructive">
+            <AlertTriangle size={32} />
           </div>
           <h2 className="mt-4 text-2xl font-bold text-foreground font-serif">
-            Problem Statements Will Be Available Shortly
+            Catalogue Temporarily Unavailable
           </h2>
           <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground">
-            The challenge repository is sealed. Official problem statements will be released by the organizers in accordance with the canonical event timeline.
+            The problem statement catalogue is currently undergoing scheduled synchronization. Please refresh this page or check back shortly.
           </p>
-          <div className="mt-6 flex flex-wrap justify-center gap-3">
-            <Link
-              href="/timeline"
-              className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors"
-            >
-              <Calendar size={14} />
-              View Event Timeline
-            </Link>
-            <span className="inline-flex items-center gap-2 rounded-xl bg-secondary/15 px-4 py-2 text-xs font-bold text-secondary">
-              <Clock size={14} />
-              Authoritative Schedule: 15 October 2026
-            </span>
-          </div>
         </section>
       )}
     </div>

@@ -104,8 +104,6 @@ export default function AdminProblemStatementsPage() {
   const [newReleaseLabel, setNewReleaseLabel] = useState('');
   const [newReleaseNotes, setNewReleaseNotes] = useState('');
   const [cloneFromId, setCloneFromId] = useState('');
-  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
-  const [isUnpublishModalOpen, setIsUnpublishModalOpen] = useState(false);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
 
   // Expanded card state
@@ -252,8 +250,8 @@ export default function AdminProblemStatementsPage() {
     }
   };
 
-  // Publish Release
-  const handlePublishRelease = async () => {
+  // Set as Active Catalogue for /problem-statements
+  const handleSetActiveRelease = async () => {
     if (!selectedReleaseId) return;
     try {
       const res = await fetch(`/api/admin/problem-statements/releases/${selectedReleaseId}/publish`, {
@@ -261,29 +259,9 @@ export default function AdminProblemStatementsPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Failed to publish release');
+        throw new Error(json.error || 'Failed to set active release');
       }
-      toast.success(`Release v${json.data.version_number} is now LIVE on /problem-statements!`);
-      setIsPublishModalOpen(false);
-      fetchData(selectedReleaseId);
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  };
-
-  // Emergency Unpublish
-  const handleUnpublishRelease = async () => {
-    if (!selectedReleaseId) return;
-    try {
-      const res = await fetch(`/api/admin/problem-statements/releases/${selectedReleaseId}/unpublish`, {
-        method: 'POST',
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Failed to unpublish release');
-      }
-      toast.warning('Release withdrawn. /problem-statements is now sealed.');
-      setIsUnpublishModalOpen(false);
+      toast.success(`Release v${json.data.version_number} is now the active catalogue on /problem-statements!`);
       fetchData(selectedReleaseId);
     } catch (err: any) {
       toast.error(err.message);
@@ -347,16 +325,13 @@ export default function AdminProblemStatementsPage() {
             New Version
           </button>
           {currentRelease?.is_current_published ? (
-            <button
-              onClick={() => setIsUnpublishModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-destructive px-4 py-2 text-xs font-bold text-destructive-foreground hover:bg-destructive/90 transition-colors shadow-sm"
-            >
-              <Lock size={14} />
-              Emergency Unpublish
-            </button>
+            <span className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 size={14} />
+              Active Public Catalogue
+            </span>
           ) : (
             <button
-              onClick={() => setIsPublishModalOpen(true)}
+              onClick={handleSetActiveRelease}
               disabled={approvedCount === 0}
               className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-colors shadow-sm ${
                 approvedCount > 0
@@ -365,7 +340,7 @@ export default function AdminProblemStatementsPage() {
               }`}
             >
               <Globe size={14} />
-              Publish Approved ({approvedCount})
+              Set as Active Catalogue ({approvedCount})
             </button>
           )}
         </div>
@@ -396,8 +371,8 @@ export default function AdminProblemStatementsPage() {
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
               {currentRelease?.is_current_published
-                ? '🟢 This version is currently LIVE on /problem-statements'
-                : '🟡 This version is in DRAFT. None of its contents are visible to participants.'}
+                ? '🟢 Active public catalogue for /problem-statements (permanently publicly accessible)'
+                : '🟡 Draft / review version. Use "Set as Active Catalogue" to switch public view to this version.'}
             </p>
           </div>
         </div>
@@ -886,96 +861,7 @@ export default function AdminProblemStatementsPage() {
         </div>
       )}
 
-      {/* Publish Confirmation Modal */}
-      {isPublishModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-2xl bg-primary/10 text-primary">
-                <Globe size={24} />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-foreground">Confirm Publication</h3>
-                <p className="text-xs text-muted-foreground">This action makes problem statements publicly visible.</p>
-              </div>
-            </div>
 
-            <div className="rounded-2xl border border-border bg-surface p-4 text-xs space-y-2">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Target Version:</span>
-                <span className="font-bold text-foreground">v{currentRelease?.version_number} ({currentRelease?.label})</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Approved Challenges:</span>
-                <span className="font-bold text-emerald-600">{approvedCount} challenges</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Unapproved / Held Items:</span>
-                <span className="font-bold text-amber-600">{drafts.length - approvedCount} items will stay hidden</span>
-              </div>
-            </div>
-
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Once published, participants accessing <code className="font-mono text-foreground font-semibold">/problem-statements</code> will immediately see the {approvedCount} approved challenge briefs.
-            </p>
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-border">
-              <button
-                type="button"
-                onClick={() => setIsPublishModalOpen(false)}
-                className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-accent"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handlePublishRelease}
-                className="rounded-xl bg-primary px-5 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90"
-              >
-                Confirm &amp; Publish Now
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Emergency Unpublish Modal */}
-      {isUnpublishModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-md rounded-3xl border border-destructive/30 bg-card p-6 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-2xl bg-destructive/10 text-destructive">
-                <ShieldAlert size={24} />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-foreground">Emergency Unpublish</h3>
-                <p className="text-xs text-muted-foreground">Withdraw active release from public view</p>
-              </div>
-            </div>
-
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Are you sure you want to withdraw the active release? The public route <code className="font-mono text-foreground font-semibold">/problem-statements</code> will immediately return to the locked vault holding page.
-            </p>
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-border">
-              <button
-                type="button"
-                onClick={() => setIsUnpublishModalOpen(false)}
-                className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-accent"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleUnpublishRelease}
-                className="rounded-xl bg-destructive px-5 py-2 text-xs font-bold text-destructive-foreground hover:bg-destructive/90"
-              >
-                Withdraw Immediately
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Audit Logs Drawer / Modal */}
       {isAuditModalOpen && (

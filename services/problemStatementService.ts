@@ -109,30 +109,55 @@ export interface PublicProblemStatementsResponse {
  * Completely excludes internal review notes, held items, and unapproved proposals.
  */
 export async function getPublicProblemStatements(): Promise<PublicProblemStatementsResponse> {
+  // 1. Fetch active release pointer from event_config
   const { rows: configRows } = await query(`
-    SELECT problem_statements_published, active_problem_release_id
+    SELECT active_problem_release_id
     FROM public.event_config
     WHERE id = 1;
   `);
 
-  const isGloballyPublished = configRows.length > 0 && configRows[0].problem_statements_published === true;
-  if (!isGloballyPublished) {
-    return { isPublished: false, release: null, statements: [], tracks: [] };
+  const activeReleaseId = configRows.length > 0 ? configRows[0].active_problem_release_id : null;
+
+  let currentRelease: any = null;
+
+  // 2. Deterministic selection: If active_problem_release_id is configured, query that release
+  if (activeReleaseId) {
+    const { rows: targetedRows } = await query(`
+      SELECT id, version_number, label, published_at, status
+      FROM public.problem_statement_releases
+      WHERE id = $1 AND status != 'withdrawn'
+      LIMIT 1;
+    `, [activeReleaseId]);
+
+    if (targetedRows.length > 0) {
+      currentRelease = targetedRows[0];
+    } else {
+      logger.warn('active_problem_release_id in event_config did not resolve to a valid non-withdrawn release', {
+        activeReleaseId,
+      });
+    }
   }
 
-  // Find the currently published release
-  const { rows: releaseRows } = await query(`
-    SELECT id, version_number, label, published_at
-    FROM public.problem_statement_releases
-    WHERE is_current_published = TRUE AND status = 'published'
-    LIMIT 1;
-  `);
+  // 3. Fallback: If active release pointer is missing or invalid, resolve to current published release
+  if (!currentRelease) {
+    const { rows: fallbackRows } = await query(`
+      SELECT id, version_number, label, published_at, status
+      FROM public.problem_statement_releases
+      WHERE is_current_published = TRUE AND status = 'published'
+      LIMIT 1;
+    `);
 
-  if (releaseRows.length === 0) {
-    return { isPublished: false, release: null, statements: [], tracks: [] };
+    if (fallbackRows.length > 0) {
+      currentRelease = fallbackRows[0];
+    }
   }
 
-  const currentRelease = releaseRows[0];
+  // 4. Safe error handling: If no active release pointer or published release exists,
+  // safely log and return empty response — do NOT silently expose arbitrary drafts.
+  if (!currentRelease) {
+    logger.warn('No active or published problem statement release found in database');
+    return { isPublished: false, release: null, statements: [], tracks: [] };
+  }
 
   // Fetch only approved statements for this release
   const { rows: draftRows } = await query(`
@@ -147,6 +172,11 @@ export async function getPublicProblemStatements(): Promise<PublicProblemStateme
     WHERE release_id = $1 AND is_approved_for_release = TRUE
     ORDER BY display_order ASC, challenge_num ASC;
   `, [currentRelease.id]);
+
+  if (draftRows.length === 0) {
+    logger.error('Active release has 0 approved statements', { releaseId: currentRelease.id });
+    return { isPublished: false, release: null, statements: [], tracks: [] };
+  }
 
   const statements: PublicProblemStatement[] = draftRows.map((d: any) => ({
     id: d.proposed_id,
