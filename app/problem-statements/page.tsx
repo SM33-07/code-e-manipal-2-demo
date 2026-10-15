@@ -4,7 +4,7 @@ import { Sparkles, Layers, QrCode, AlertCircle, AlertTriangle } from "lucide-rea
 import { getPublicProblemStatements } from "@/services/problemStatementService";
 import { ProblemStatementsList } from "./ProblemStatementsList";
 
-export const revalidate = 60; // 60s ISR caching
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Problem Statements — Code-e-Manipal 2.0",
