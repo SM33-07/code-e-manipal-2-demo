@@ -28,6 +28,7 @@ const testFiles = [
   'tests/all-three-categories-real-login.test.mjs',
   'tests/judge-password-reset-by-admin.test.mjs',
   'tests/problem-statements-catalog-35.test.mjs',
+  'tests/final-participant-roster-acceptance.test.mjs',
 ];
 
 let totalPassed = 0;

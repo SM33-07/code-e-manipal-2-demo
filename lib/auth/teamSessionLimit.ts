@@ -153,7 +153,7 @@ export async function registerTeamSession(
           activeCount,
           isReconnected: false,
           reason: 'TEAM_SESSION_LIMIT_EXCEEDED',
-          message: `Team session limit reached: A maximum of ${TEAM_MAX_CONCURRENT_SESSIONS} concurrent active sessions are permitted per team. Please sign out from an active device before signing in.`,
+          message: 'This team has reached its limit of 5 active sessions (maximum of 5 concurrent active sessions). Please try again when a session is available.',
         };
       }
 
