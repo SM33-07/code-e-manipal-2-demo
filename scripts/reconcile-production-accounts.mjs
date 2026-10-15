@@ -108,8 +108,8 @@ if (!fs.existsSync(judgeXlsxPath)) {
 }
 const wb = xlsx.readFile(judgeXlsxPath);
 const officialJudges = xlsx.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-if (officialJudges.length !== 10) {
-  console.error(`❌ Expected exactly 10 judges in ${judgeXlsxPath}, found ${officialJudges.length}`);
+if (officialJudges.length < 5) {
+  console.error(`❌ Expected at least 5 judges in ${judgeXlsxPath}, found ${officialJudges.length}`);
   process.exit(1);
 }
 

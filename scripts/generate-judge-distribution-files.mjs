@@ -24,6 +24,7 @@ const exportRows = judges.map(j => ({
   'Slot': j.slot,
   'Judge Name': j.displayName,
   'Login ID': j.loginId,
+  'Designation': j.designation || (j.slot <= 2 ? 'PRIMARY' : 'BACKUP'),
   'Passcode (8-Digit)': j.initialPassword,
   'Badge / Canonical ID': j.canonicalIdentifier,
   'System Email': j.authEmail,
@@ -39,6 +40,7 @@ ws['!cols'] = [
   { wch: 8 },  // Slot
   { wch: 18 }, // Judge Name
   { wch: 14 }, // Login ID
+  { wch: 14 }, // Designation
   { wch: 22 }, // Passcode
   { wch: 22 }, // Badge ID
   { wch: 34 }, // Email
@@ -57,26 +59,34 @@ if (fs.existsSync(artifactDir)) {
 }
 
 // Build HTML preview
-const rowsHtml = judges.map(j => `
+const rowsHtml = judges.map(j => {
+  const isPrimary = (j.designation || (j.slot <= 2 ? 'PRIMARY' : 'BACKUP')) === 'PRIMARY';
+  const desigBadge = isPrimary
+    ? `<span style="display:inline-block; padding:0.25rem 0.6rem; background:#dbeafe; color:#1d4ed8; border-radius:4px; font-weight:700; font-size:0.75rem;">PRIMARY</span>`
+    : `<span style="display:inline-block; padding:0.25rem 0.6rem; background:#fef3c7; color:#b45309; border-radius:4px; font-weight:700; font-size:0.75rem;">BACKUP</span>`;
+
+  return `
   <tr>
     <td style="font-weight:700; text-align:center;">${j.slot}</td>
     <td style="font-weight:600;">${j.displayName}</td>
     <td style="font-family:monospace; font-weight:700; color:#0369a1;">${j.loginId}</td>
-    <td style="font-family:monospace; font-weight:700; color:#b45309; background:#fef3c7; letter-spacing:0.05em; padding: 0.4rem 0.8rem; border-radius: 4px; display:inline-block; margin: 0.2rem 0;">${j.initialPassword}</td>
+    <td style="text-align:center;">${desigBadge}</td>
+    <td style="font-family:monospace; font-weight:700; color:#b45309; background:#fffbeb; letter-spacing:0.05em; padding: 0.4rem 0.8rem; border-radius: 4px; display:inline-block; margin: 0.2rem 0; border: 1px solid #fef08a;">${j.initialPassword}</td>
     <td style="font-family:monospace;">${j.canonicalIdentifier}</td>
     <td style="color:#475569;">${j.authEmail}</td>
     <td><span style="display:inline-block; padding:0.2rem 0.5rem; background:#ede9fe; color:#6d28d9; border-radius:4px; font-weight:600; font-size:0.75rem;">JUDGE</span></td>
     <td><span style="display:inline-block; padding:0.2rem 0.5rem; background:#dcfce7; color:#15803d; border-radius:4px; font-weight:600; font-size:0.75rem;">ACTIVE</span></td>
     <td>${Array.isArray(j.assignedRounds) ? j.assignedRounds.join(', ') : 'All Rounds'}</td>
   </tr>
-`).join('');
+  `;
+}).join('');
 
 const htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Code-e-Manipal 2.0 — Official Judge Credentials</title>
+<title>Code-e-Manipal 2.0 — Official Judge Credentials (2 Primary + 3 Backup)</title>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 2rem; color: #1e293b; background: #fff; }
   .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 1rem; margin-bottom: 1.5rem; }
@@ -102,7 +112,7 @@ const htmlContent = `<!DOCTYPE html>
 <div class="header">
   <div>
     <h1>Code-e-Manipal 2.0 — Official Judge Credentials</h1>
-    <p class="meta">Target: Staging & Production Ready &bull; Total Judges: ${judges.length} &bull; Generated: ${new Date().toISOString()}</p>
+    <p class="meta">Target: Production (ihnclawnbtkwvbfqwxfe / postgres) &bull; Total Operational Judges: 5 (2 Primary + 3 Backup) &bull; Updated: ${new Date().toISOString()}</p>
   </div>
   <div class="badge">RESTRICTED &bull; EVENT ORGANIZER USE ONLY</div>
 </div>
@@ -110,11 +120,11 @@ const htmlContent = `<!DOCTYPE html>
 <div class="instructions">
   <h2>Judge Login Instructions</h2>
   <ol>
-    <li>Navigate to the Portal Login page (e.g. <code>https://code-e-manipal-portal.vercel.app/login</code> or <code>http://127.0.0.1:3000/login</code>).</li>
-    <li>In <strong>User ID / Email</strong>, enter the assigned <strong>Login ID</strong> (e.g., <code>judge1</code>, <code>judge2</code> ... <code>judge10</code>) or canonical ID (<code>JUDGE-02</code> ... <code>JUDGE-11</code>).</li>
-    <li>In <strong>Password</strong>, enter the 8-digit alphanumeric passcode.</li>
+    <li>Navigate to the official portal login: <a href="https://portal.codeemanipal.in/login" style="color:#0284c7; font-weight:600;">https://portal.codeemanipal.in/login</a> (or <code>https://code-e-manipal-portal.vercel.app/login</code>).</li>
+    <li>In <strong>User ID / Email</strong>, enter the assigned <strong>Login ID</strong> (e.g. <code>judge1</code>, <code>judge2</code> ... <code>judge5</code>) or canonical badge ID (<code>JUDGE-02</code> ... <code>JUDGE-06</code>).</li>
+    <li>In <strong>Password</strong>, enter the official 8-digit alphanumeric passcode.</li>
     <li>Upon logging in, the judge will be directed to the <code>/judge</code> evaluation workspace.</li>
-    <li>Administrators can reset judge passcodes to a new 8-digit alphanumeric code at any time via the Admin Users panel.</li>
+    <li>Backup accounts should be used only when required. Keep all credentials strictly confidential.</li>
   </ol>
 </div>
 
@@ -124,6 +134,7 @@ const htmlContent = `<!DOCTYPE html>
       <th style="text-align:center;">Slot</th>
       <th>Judge Name</th>
       <th>Login ID</th>
+      <th style="text-align:center;">Designation</th>
       <th>8-Digit Passcode</th>
       <th>Badge ID</th>
       <th>System Email</th>
