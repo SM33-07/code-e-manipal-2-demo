@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { 
   Radio, Lock, Unlock, Clock, Send, Trash2, 
   Search, ShieldAlert, Sparkles, Megaphone, Loader2,
-  CalendarDays, Plus, Pencil, ArrowUp, ArrowDown, Eye,
+  CalendarDays, Calendar, Plus, Pencil, ArrowUp, ArrowDown, Eye,
   CheckCircle2, AlertCircle, X, ExternalLink
 } from "lucide-react";
 
@@ -83,6 +83,14 @@ export default function EventControlPage() {
   const searchParams = useSearchParams();
   const initialTab = searchParams.get("tab") === "schedule" ? "schedule" : "operations";
   const [activeTab, setActiveTab] = useState<"operations" | "schedule">(initialTab);
+
+  // Submission Window & Pause/Resume state (Requirement 2)
+  const [submissionConfig, setSubmissionConfig] = useState<any>(null);
+  const [mutatingSubmissionWindow, setMutatingSubmissionWindow] = useState(false);
+  const [isDeadlineModalOpen, setIsDeadlineModalOpen] = useState(false);
+  const [customDeadlineInput, setCustomDeadlineInput] = useState("");
+  const [overrideReasonInput, setOverrideReasonInput] = useState("");
+  const [isOverrideModalOpen, setIsOverrideModalOpen] = useState(false);
 
   // Canonical Schedule state
   const [scheduleEvents, setScheduleEvents] = useState<TimelineEventRecord[]>([]);
@@ -295,9 +303,84 @@ export default function EventControlPage() {
         setIsStarted(data.hackathon_is_started === "true");
         setResultsPublished(data.results_published || "false");
         setResultsPublishTime(data.results_publish_time || "");
+        setSubmissionConfig(data);
+        if (data.end_time) {
+          try {
+            setCustomDeadlineInput(new Date(new Date(data.end_time).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+          } catch {}
+        }
       }
     } catch (err) {
       console.error("Failed to load event config:", err);
+    }
+  };
+
+  const handleSubmissionWindowAction = async (action: "open" | "pause" | "resume", deadline?: string) => {
+    setMutatingSubmissionWindow(true);
+    try {
+      const res = await fetch("/api/admin/event-config/submission-window", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, deadline }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Action failed");
+      toast.success(json.data?.message || `Submissions ${action}ed successfully.`);
+      fetchEventConfig();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update submission window.");
+    } finally {
+      setMutatingSubmissionWindow(false);
+    }
+  };
+
+  const handleSaveDeadline = async () => {
+    if (!customDeadlineInput) {
+      toast.error("Please enter a valid deadline.");
+      return;
+    }
+    setMutatingSubmissionWindow(true);
+    try {
+      const deadlineIso = new Date(customDeadlineInput).toISOString();
+      const res = await fetch("/api/admin/event-config/submission-window", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set_deadline", deadline: deadlineIso }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Update failed");
+      toast.success(`Deadline updated to ${new Date(deadlineIso).toLocaleString()}`);
+      setIsDeadlineModalOpen(false);
+      fetchEventConfig();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update deadline.");
+    } finally {
+      setMutatingSubmissionWindow(false);
+    }
+  };
+
+  const handleToggleOverride = async (allow: boolean) => {
+    setMutatingSubmissionWindow(true);
+    try {
+      const res = await fetch("/api/admin/event-config/submission-window", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "set_override",
+          allow_override: allow,
+          reason: overrideReasonInput || (allow ? "Admin manual post-deadline override" : "Admin override revoked"),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Override update failed");
+      toast.success(allow ? "Post-deadline override enabled!" : "Post-deadline override revoked.");
+      setIsOverrideModalOpen(false);
+      setOverrideReasonInput("");
+      fetchEventConfig();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to toggle override.");
+    } finally {
+      setMutatingSubmissionWindow(false);
     }
   };
 
@@ -682,118 +765,182 @@ export default function EventControlPage() {
         <div className="space-y-8">
           {/* Quick Controls Grid (3 Equal Columns) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Timer Settings Card */}
+            {/* SUBMISSION WINDOW & PAUSE/RESUME CONTROLS (Requirement 2) */}
             <div className="bg-card border border-border hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300 rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
               <div>
-                <div className="absolute top-0 right-0 p-3 opacity-10">
-                  <Clock size={80} className="text-secondary" />
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 bg-primary/10 border border-primary/30 rounded-xl text-primary">
+                    <Radio size={20} />
+                  </div>
+                  {/* Status Badge */}
+                  {submissionConfig?.submission_window_status === "OPEN" && (
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                      ● Submissions Open
+                    </span>
+                  )}
+                  {submissionConfig?.submission_window_status === "PAUSED" && (
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                      ● Submissions Paused
+                    </span>
+                  )}
+                  {submissionConfig?.submission_window_status === "CLOSED_BY_DEADLINE" && (
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                      ● Closed by Deadline
+                    </span>
+                  )}
+                  {submissionConfig?.submission_window_status === "OVERRIDDEN" && (
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20 animate-pulse">
+                      ● Overridden by Admin
+                    </span>
+                  )}
+                  {(submissionConfig?.submission_window_status === "SCHEDULED" || !submissionConfig?.submission_window_status) && (
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-muted text-muted-foreground border border-border">
+                      ● Scheduled
+                    </span>
+                  )}
+                  {submissionConfig?.submission_window_status === "FROZEN" && (
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                      ● Globally Frozen
+                    </span>
+                  )}
                 </div>
-                
-                <h3 className="text-lg font-bold text-foreground flex items-center gap-2 mb-4">
-                  <Clock size={18} className="text-secondary" />
-                  Hackathon Event Timer
-                </h3>
 
-                <div className="space-y-4">
-                  {/* Round-aware live timer metadata (Phase 2 Requirement C) */}
-                  <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 space-y-1.5">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] uppercase font-bold text-primary">Active Round</span>
-                      <span className="text-xs font-mono font-bold text-foreground truncate max-w-[150px]">
-                        {activeRound ? activeRound.title : "No Active Round"}
-                      </span>
-                    </div>
-                    {activeRound && (
+                <h3 className="text-xl font-bold text-foreground mb-1">
+                  Submission Window
+                </h3>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Authoritative portal submission gate, pause/resume switch, and deadline policy.
+                </p>
+
+                <div className="space-y-3.5">
+                  {/* Round-aware live timer metadata */}
+                  {activeRound && (
+                    <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] uppercase font-bold text-primary">Active Round</span>
+                        <span className="text-xs font-mono font-bold text-foreground truncate max-w-[150px]">
+                          {activeRound.title}
+                        </span>
+                      </div>
                       <p className="text-[11px] text-muted-foreground leading-tight">
                         {activeRound.time_range} &bull; {activeRound.venue || "AB1"}
                       </p>
-                    )}
-                    {nextRound && (
-                      <div className="text-[11px] text-muted-foreground pt-1.5 border-t border-border/50">
-                        Next: <strong className="text-foreground">{nextRound.title}</strong> ({nextRound.time_range})
-                      </div>
+                    </div>
+                  )}
+
+                  {/* Scheduled Deadline Info */}
+                  <div className="bg-muted/40 p-3 rounded-xl border border-border space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground">Scheduled Deadline</span>
+                      <button
+                        type="button"
+                        onClick={() => setIsDeadlineModalOpen(true)}
+                        className="text-[10px] font-bold text-primary hover:underline cursor-pointer flex items-center gap-1"
+                      >
+                        <Pencil size={11} /> Change
+                      </button>
+                    </div>
+                    <p className="text-xs font-bold text-foreground">
+                      {submissionConfig?.end_time
+                        ? new Date(submissionConfig.end_time).toLocaleString([], {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            timeZoneName: "short",
+                          })
+                        : "No deadline configured"}
+                    </p>
+                    {submissionConfig?.end_time && (
+                      <p className="text-[10px] font-mono text-muted-foreground">
+                        UTC: {new Date(submissionConfig.end_time).toISOString().replace("T", " ").slice(0, 19)}Z
+                      </p>
                     )}
                   </div>
 
+                  {/* Post-Deadline Override Status */}
                   <div className="flex justify-between items-center bg-muted/40 p-3 rounded-xl border border-border">
                     <div>
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground">Status</span>
-                      <p className="text-sm font-bold text-foreground">
-                        {isStarted ? (
-                          <span className="text-emerald-500">● Live Running</span>
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground">Admin Override</span>
+                      <p className="text-xs font-bold text-foreground">
+                        {submissionConfig?.allow_deadline_override ? (
+                          <span className="text-purple-400 font-semibold">Active (Accepts Late)</span>
                         ) : (
-                          <span className="text-muted-foreground">● Not Started</span>
+                          <span className="text-muted-foreground">Inactive (Enforce Deadline)</span>
                         )}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground">Time Left</span>
-                      <p className="text-sm font-mono font-bold text-secondary">{timeRemainingStr}</p>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsOverrideModalOpen(true)}
+                      className="px-2.5 py-1.5 text-[10px] font-bold rounded-lg border border-border hover:bg-muted text-foreground transition cursor-pointer"
+                    >
+                      {submissionConfig?.allow_deadline_override ? "Revoke" : "Override"}
+                    </button>
                   </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
-                  Hackathon Start Time
-                </label>
-                <input
-                  type="datetime-local"
-                  value={startTime ? new Date(new Date(startTime).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ""}
-                  onChange={(e) => setStartTime(e.target.value ? new Date(e.target.value).toISOString() : "")}
-                  disabled={isStarted}
-                  className="w-full bg-background border border-border rounded-xl p-3 text-xs text-foreground focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-50"
-                />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
-                  Duration (Hours)
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={168}
-                  value={durationHours}
-                  onChange={(e) => setDurationHours(Math.max(1, parseInt(e.target.value) || 0))}
-                  disabled={isStarted}
-                  className="w-full bg-background border border-border rounded-xl p-3 text-xs text-foreground focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-50"
-                />
+              {/* Action Buttons */}
+              <div className="pt-4 flex flex-col gap-2">
+                {submissionConfig?.submission_window_status === "PAUSED" && (
+                  <button
+                    type="button"
+                    onClick={() => handleSubmissionWindowAction("resume")}
+                    disabled={mutatingSubmissionWindow}
+                    className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition duration-200 cursor-pointer flex items-center justify-center gap-2 shadow-md disabled:opacity-50"
+                  >
+                    {mutatingSubmissionWindow ? <Loader2 className="animate-spin size-4" /> : <Unlock size={14} />}
+                    Resume Submissions
+                  </button>
+                )}
+
+                {(submissionConfig?.submission_window_status === "OPEN" || submissionConfig?.submission_window_status === "OVERRIDDEN") && (
+                  <button
+                    type="button"
+                    onClick={() => handleSubmissionWindowAction("pause")}
+                    disabled={mutatingSubmissionWindow}
+                    className="w-full py-3 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 font-bold text-xs transition duration-200 cursor-pointer flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+                  >
+                    {mutatingSubmissionWindow ? <Loader2 className="animate-spin size-4" /> : <Lock size={14} />}
+                    Pause Submissions Immediately
+                  </button>
+                )}
+
+                {submissionConfig?.submission_window_status === "SCHEDULED" && (
+                  <button
+                    type="button"
+                    onClick={() => handleSubmissionWindowAction("open")}
+                    disabled={mutatingSubmissionWindow}
+                    className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition duration-200 cursor-pointer flex items-center justify-center gap-2 shadow-md disabled:opacity-50"
+                  >
+                    {mutatingSubmissionWindow ? <Loader2 className="animate-spin size-4" /> : <Radio size={14} />}
+                    Open Submissions Now
+                  </button>
+                )}
+
+                {submissionConfig?.submission_window_status === "CLOSED_BY_DEADLINE" && (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsDeadlineModalOpen(true)}
+                      disabled={mutatingSubmissionWindow}
+                      className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/90 transition duration-200 cursor-pointer flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50"
+                    >
+                      <Clock size={14} /> Extend Deadline
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsOverrideModalOpen(true)}
+                      disabled={mutatingSubmissionWindow}
+                      className="flex-1 py-3 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 font-bold text-xs transition duration-200 cursor-pointer flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                    >
+                      <ShieldAlert size={14} /> Override Gate
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-
-          <div className="flex gap-2 pt-4">
-            {!isStarted ? (
-              <button
-                onClick={() => handleSaveTimer(true)}
-                disabled={updatingTimer}
-                className="flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-500 transition duration-200 cursor-pointer flex items-center justify-center gap-1.5 shadow-md"
-              >
-                {updatingTimer ? <Loader2 className="animate-spin size-4" /> : <Clock size={14} />}
-                Start Now
-              </button>
-            ) : (
-              <button
-                onClick={handleStopTimer}
-                disabled={updatingTimer}
-                className="flex-1 py-3 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition duration-200 cursor-pointer flex items-center justify-center gap-1.5 shadow-md"
-              >
-                {updatingTimer ? <Loader2 className="animate-spin size-4" /> : <Lock size={14} />}
-                Stop / Reset Timer
-              </button>
-            )}
-            
-            {!isStarted && (
-              <button
-                onClick={() => handleSaveTimer(false)}
-                disabled={updatingTimer || !startTime}
-                className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition duration-200 cursor-pointer flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Set Schedule
-              </button>
-            )}
-          </div>
-        </div>
 
         {/* LEADERBOARD & RESULTS PUBLISHING CARD */}
         <div className="bg-card border border-border hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300 rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
@@ -1575,6 +1722,191 @@ export default function EventControlPage() {
                 className="h-10 px-5 rounded-xl bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center gap-2 hover:bg-primary/90 transition-all cursor-pointer shadow-sm"
               >
                 {publishingResults ? "Initiating..." : "Confirm & Publish"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Deadline Configuration Modal */}
+      {isDeadlineModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md rounded-2xl bg-card border border-border p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                  <Calendar className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-foreground">Configure Scheduled Deadline</h3>
+                  <p className="text-xs text-muted-foreground">Sets authoritative submission cut-off timestamp</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDeadlineModalOpen(false)}
+                className="text-muted-foreground hover:text-foreground text-xl leading-none p-1 cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-3 rounded-xl bg-muted/30 border border-border/50 text-xs text-muted-foreground space-y-1">
+                <div className="flex justify-between">
+                  <span className="font-semibold text-foreground">Current Configured Deadline:</span>
+                  <span className="font-mono text-primary font-bold">
+                    {submissionConfig?.end_time
+                      ? new Date(submissionConfig.end_time).toLocaleString("en-IN", {
+                          timeZone: "Asia/Kolkata",
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        }) + " IST"
+                      : "Not configured (defaults to timeline)"}
+                  </span>
+                </div>
+                <p className="text-[11px] leading-relaxed pt-1">
+                  When the scheduled deadline passes, submissions automatically close unless an explicit post-deadline override is granted.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
+                  New Scheduled Deadline
+                </label>
+                <input
+                  type="datetime-local"
+                  value={customDeadlineInput}
+                  onChange={(e) => setCustomDeadlineInput(e.target.value)}
+                  className="w-full h-11 px-3 rounded-xl bg-muted/50 border border-border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    // 16 October 2026 07:00 IST = 2026-10-16T01:30:00Z
+                    const target = new Date("2026-10-16T01:30:00Z");
+                    const offsetMs = target.getTimezoneOffset() * 60000;
+                    const localIso = new Date(target.getTime() - offsetMs).toISOString().slice(0, 16);
+                    setCustomDeadlineInput(localIso);
+                  }}
+                  className="text-[11px] text-primary hover:underline font-semibold"
+                >
+                  Quick preset: 16 Oct 2026, 07:00 AM IST
+                </button>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setIsDeadlineModalOpen(false)}
+                disabled={mutatingSubmissionWindow}
+                className="h-10 px-4 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:bg-muted transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveDeadline}
+                disabled={mutatingSubmissionWindow}
+                className="h-10 px-5 rounded-xl bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center gap-2 hover:bg-primary/90 transition-all cursor-pointer shadow-sm disabled:opacity-50"
+              >
+                {mutatingSubmissionWindow ? "Saving..." : "Save Scheduled Deadline"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Post-Deadline Override Modal */}
+      {isOverrideModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md rounded-2xl bg-card border border-border p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`h-10 w-10 rounded-xl flex items-center justify-center ${
+                    submissionConfig?.allow_deadline_override
+                      ? "bg-rose-500/10 text-rose-500"
+                      : "bg-amber-500/10 text-amber-500"
+                  }`}
+                >
+                  <ShieldAlert className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-foreground">
+                    {submissionConfig?.allow_deadline_override
+                      ? "Revoke Post-Deadline Override"
+                      : "Enable Post-Deadline Admin Override"}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    {submissionConfig?.allow_deadline_override
+                      ? "Return to authoritative scheduled deadline"
+                      : "Allow participant submissions past scheduled deadline"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsOverrideModalOpen(false)}
+                className="text-muted-foreground hover:text-foreground text-xl leading-none p-1 cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-300 space-y-1.5">
+                <p className="font-semibold flex items-center gap-1.5">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  Preserves Authoritative Scheduled Deadline
+                </p>
+                <p className="text-[11px] leading-relaxed">
+                  Enabling this override allows submissions past the configured deadline without modifying or rewriting the scheduled deadline timestamp. All override operations are recorded in the security audit log.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
+                  Override Justification / Reason
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Organizer approved extension for late participants"
+                  value={overrideReasonInput}
+                  onChange={(e) => setOverrideReasonInput(e.target.value)}
+                  className="w-full h-11 px-3 rounded-xl bg-muted/50 border border-border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setIsOverrideModalOpen(false)}
+                disabled={mutatingSubmissionWindow}
+                className="h-10 px-4 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:bg-muted transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleToggleOverride(!submissionConfig?.allow_deadline_override)}
+                disabled={mutatingSubmissionWindow}
+                className={`h-10 px-5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm disabled:opacity-50 ${
+                  submissionConfig?.allow_deadline_override
+                    ? "bg-rose-600 hover:bg-rose-700 text-white"
+                    : "bg-amber-600 hover:bg-amber-700 text-white"
+                }`}
+              >
+                {mutatingSubmissionWindow
+                  ? "Saving..."
+                  : submissionConfig?.allow_deadline_override
+                  ? "Revoke Override"
+                  : "Confirm & Enable Override"}
               </button>
             </div>
           </div>
