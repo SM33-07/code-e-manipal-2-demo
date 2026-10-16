@@ -101,6 +101,9 @@ export const POST = withAuth(async (req, { user, profile }) => {
     if (err.message === 'SUBMISSIONS_FROZEN_GLOBALLY') {
       return Errors.FORBIDDEN("Submissions are temporarily frozen globally by event administrators.");
     }
+    if (err.message === 'SUBMISSION_PAUSED') {
+      return Errors.FORBIDDEN("Submissions are currently paused by event administrators.");
+    }
     if (err.message === 'TEAM_SUBMISSION_LOCKED') {
       return Errors.FORBIDDEN("Submissions for your team have been locked by an administrator.");
     }

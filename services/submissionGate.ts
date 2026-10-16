@@ -1,27 +1,26 @@
 /**
- * Authoritative Server-Side Submission Decision Gate (Phase 2 Requirement D)
+ * Authoritative Server-Side Submission Decision Gate (Phase 2 Requirement D & Submission Window Controls)
  * File: services/submissionGate.ts
  *
  * Implements strict precedence rules for submission eligibility:
  * 1. Phase Boundary: Event must have started and must not be in final evaluation/ended state
- *    (unless an approved extension is active). Finalization is strictly barred during HACKING phase.
+ *    (unless an approved extension or admin deadline override is active). Finalization is strictly barred during HACKING phase.
  * 2. Global Freeze (HIGHEST PRECEDENCE): If event_config.global_freeze is TRUE, all submission
- *    mutations are blocked immediately. Cannot be bypassed by individual team extensions.
- * 3. Individual Team Lock (SECOND PRECEDENCE): If team.submission_frozen is TRUE, the team's
+ *    mutations are blocked immediately. Cannot be bypassed by individual team extensions or deadline overrides.
+ * 3. Submission Pause Control: If event_config.submission_open is FALSE, submissions are paused by administrators.
+ * 4. Individual Team Lock (FOURTH PRECEDENCE): If team.submission_frozen is TRUE, the team's
  *    submission operations are blocked. Cannot be bypassed by deadline extensions.
- * 4. Submission Finalization Lock: If submission status === 'submitted' or is_locked === TRUE,
- *    further modifications/draft edits are prohibited.
- * 5. Effective Deadline Evaluation:
+ * 5. Effective Deadline & Post-Deadline Admin Override Evaluation:
  *    - Base deadline: event_config.end_time or active submission round end timestamp.
- *    - Grace period: event_config.buffer_minutes (default 5 or 15 mins).
+ *    - Grace period: event_config.buffer_minutes (default 5 mins).
  *    - Team Extension: team.deadline_extension (if greater than base + buffer).
  *    - Effective deadline = MAX(base_deadline + buffer, team.deadline_extension).
- *    - If server_now > effective_deadline: blocked with SUBMISSION_WINDOW_CLOSED.
+ *    - Post-Deadline Override: If event_config.allow_deadline_override is TRUE, submissions remain open past the deadline.
+ *    - If server_now > effective_deadline AND allow_deadline_override is FALSE: blocked with SUBMISSION_WINDOW_CLOSED.
  */
 
-import { pool, query } from '@/lib/db';
+import { query } from '@/lib/db';
 import { logger } from '@/lib/utils/logger';
-import { getEventConfigState } from '@/lib/event/eventConfigHelper';
 import { EventPhase } from '@/lib/event/state-machine';
 
 export interface SubmissionEligibilityResult {
@@ -29,6 +28,7 @@ export interface SubmissionEligibilityResult {
   code?: 
     | 'EVENT_NOT_STARTED'
     | 'SUBMISSIONS_FROZEN_GLOBALLY'
+    | 'SUBMISSION_PAUSED'
     | 'TEAM_SUBMISSION_LOCKED'
     | 'SUBMISSION_ALREADY_FINALIZED'
     | 'FINALIZATION_NOT_ALLOWED_IN_HACKING'
@@ -37,8 +37,10 @@ export interface SubmissionEligibilityResult {
   effectiveDeadline?: string | null;
   serverTime: string;
   isGloballyFrozen: boolean;
+  isSubmissionOpen: boolean;
   isTeamLocked: boolean;
   hasExtension: boolean;
+  isOverridden?: boolean;
 }
 
 export interface VerifyEligibilityOptions {
@@ -66,10 +68,7 @@ export async function verifySubmissionEligibility(
     serverNow = new Date(timeRows[0].server_now);
 
     const { rows: cfgRows } = await client.query(
-      `SELECT event_phase, global_freeze, submission_open, end_time, buffer_minutes
-       FROM public.event_config
-       WHERE id = 1
-       FOR UPDATE`
+      `SELECT * FROM public.event_config WHERE id = 1 FOR UPDATE`
     );
     if (cfgRows.length === 0) throw new Error('CONFIG_NOT_FOUND');
     configRow = cfgRows[0];
@@ -78,9 +77,7 @@ export async function verifySubmissionEligibility(
     serverNow = new Date(timeRows[0].server_now);
 
     const { rows: cfgRows } = await query(
-      `SELECT event_phase, global_freeze, submission_open, end_time, buffer_minutes
-       FROM public.event_config
-       WHERE id = 1`
+      `SELECT * FROM public.event_config WHERE id = 1`
     );
     configRow = cfgRows[0] || {};
   }
@@ -88,6 +85,8 @@ export async function verifySubmissionEligibility(
   const serverNowMs = serverNow.getTime();
   const eventPhase: EventPhase = configRow.event_phase || 'NOT_STARTED';
   const isGlobalFreeze: boolean = Boolean(configRow.global_freeze);
+  const isSubmissionOpen: boolean = configRow.submission_open !== undefined ? Boolean(configRow.submission_open) : false;
+  const allowDeadlineOverride: boolean = Boolean(configRow.allow_deadline_override);
 
   // 2. Resolve team lock & deadline extension
   const teamQuery = client ? client.query.bind(client) : query;
@@ -110,8 +109,10 @@ export async function verifySubmissionEligibility(
       message: 'Hackathon has not started yet. Submissions are closed.',
       serverTime: serverNow.toISOString(),
       isGloballyFrozen: isGlobalFreeze,
+      isSubmissionOpen,
       isTeamLocked,
       hasExtension: Boolean(teamExtensionIso),
+      isOverridden: false,
     };
   }
 
@@ -125,12 +126,31 @@ export async function verifySubmissionEligibility(
       message: 'Submissions are temporarily frozen globally by event administrators.',
       serverTime: serverNow.toISOString(),
       isGloballyFrozen: true,
+      isSubmissionOpen,
       isTeamLocked,
       hasExtension: Boolean(teamExtensionIso),
+      isOverridden: false,
     };
   }
 
-  // ── Precedence Rule 3: Individual Team Lock ──
+  // ── Precedence Rule 3: Admin Pause Control (submission_open = false) ──
+  // When an admin pauses submissions, all creation and edits are immediately halted.
+  if (!isSubmissionOpen) {
+    logger.warn('Submission mutation blocked by admin pause control', { teamId });
+    return {
+      eligible: false,
+      code: 'SUBMISSION_PAUSED',
+      message: 'Submissions are currently paused by event administrators.',
+      serverTime: serverNow.toISOString(),
+      isGloballyFrozen: false,
+      isSubmissionOpen: false,
+      isTeamLocked,
+      hasExtension: Boolean(teamExtensionIso),
+      isOverridden: false,
+    };
+  }
+
+  // ── Precedence Rule 4: Individual Team Lock ──
   // An explicit team lock blocks submission operations and cannot be bypassed by deadline extensions.
   if (isTeamLocked) {
     logger.warn('Submission mutation blocked by individual team lock', { teamId });
@@ -140,12 +160,14 @@ export async function verifySubmissionEligibility(
       message: 'Submissions for your team have been locked by an administrator.',
       serverTime: serverNow.toISOString(),
       isGloballyFrozen: false,
+      isSubmissionOpen: true,
       isTeamLocked: true,
       hasExtension: Boolean(teamExtensionIso),
+      isOverridden: false,
     };
   }
 
-  // ── Precedence Rule 4: Phase-specific finalization barrier ──
+  // ── Precedence Rule 5: Phase-specific finalization barrier ──
   if (eventPhase === 'HACKING' && isFinalizing) {
     return {
       eligible: false,
@@ -153,12 +175,14 @@ export async function verifySubmissionEligibility(
       message: 'Final submission is not allowed during the HACKING phase. Submissions can only be finalized during the SUBMISSION phase.',
       serverTime: serverNow.toISOString(),
       isGloballyFrozen: false,
+      isSubmissionOpen: true,
       isTeamLocked: false,
       hasExtension: Boolean(teamExtensionIso),
+      isOverridden: false,
     };
   }
 
-  // ── Precedence Rule 5: Effective Deadline & Approved Team Extension ──
+  // ── Precedence Rule 6: Effective Deadline & Admin Deadline Override ──
   // Calculate baseline deadline from event_config end_time
   let baseDeadlineMs: number | null = null;
   if (configRow.end_time) {
@@ -200,7 +224,28 @@ export async function verifySubmissionEligibility(
     eventPhase === 'ENDED'
   );
 
+  const isPastDeadline = effectiveDeadlineMs ? serverNowMs > effectiveDeadlineMs : false;
+
   if (isPostSubmissionPhase) {
+    // If post-submission phase, allow ONLY if admin deadline override is active or active team extension
+    if (allowDeadlineOverride) {
+      logger.info('Submission allowed in post-submission phase due to active admin deadline override', {
+        teamId,
+        eventPhase,
+        serverTime: serverNow.toISOString(),
+      });
+      return {
+        eligible: true,
+        effectiveDeadline: effectiveDeadlineIso,
+        serverTime: serverNow.toISOString(),
+        isGloballyFrozen: false,
+        isSubmissionOpen: true,
+        isTeamLocked: false,
+        hasExtension: Boolean(teamExtensionIso),
+        isOverridden: true,
+      };
+    }
+
     if (teamExtensionIso) {
       const extMs = new Date(teamExtensionIso).getTime();
       if (serverNowMs > extMs) {
@@ -211,8 +256,10 @@ export async function verifySubmissionEligibility(
           effectiveDeadline: teamExtensionIso,
           serverTime: serverNow.toISOString(),
           isGloballyFrozen: false,
+          isSubmissionOpen: true,
           isTeamLocked: false,
           hasExtension: true,
+          isOverridden: false,
         };
       }
       // Extension is still active!
@@ -224,14 +271,34 @@ export async function verifySubmissionEligibility(
         effectiveDeadline: effectiveDeadlineIso,
         serverTime: serverNow.toISOString(),
         isGloballyFrozen: false,
+        isSubmissionOpen: true,
         isTeamLocked: false,
         hasExtension: false,
+        isOverridden: false,
       };
     }
   }
 
   // If effective deadline has elapsed
-  if (effectiveDeadlineMs && serverNowMs > effectiveDeadlineMs) {
+  if (isPastDeadline) {
+    if (allowDeadlineOverride) {
+      logger.info('Submission allowed past deadline due to active admin deadline override', {
+        teamId,
+        serverTime: serverNow.toISOString(),
+        effectiveDeadline: effectiveDeadlineIso,
+      });
+      return {
+        eligible: true,
+        effectiveDeadline: effectiveDeadlineIso,
+        serverTime: serverNow.toISOString(),
+        isGloballyFrozen: false,
+        isSubmissionOpen: true,
+        isTeamLocked: false,
+        hasExtension: Boolean(teamExtensionIso),
+        isOverridden: true,
+      };
+    }
+
     logger.info('Submission attempt rejected: deadline exceeded', {
       teamId,
       serverTime: serverNow.toISOString(),
@@ -245,8 +312,10 @@ export async function verifySubmissionEligibility(
       effectiveDeadline: effectiveDeadlineIso,
       serverTime: serverNow.toISOString(),
       isGloballyFrozen: false,
+      isSubmissionOpen: true,
       isTeamLocked: false,
       hasExtension: Boolean(teamExtensionIso),
+      isOverridden: false,
     };
   }
 
@@ -255,7 +324,9 @@ export async function verifySubmissionEligibility(
     effectiveDeadline: effectiveDeadlineIso,
     serverTime: serverNow.toISOString(),
     isGloballyFrozen: false,
+    isSubmissionOpen: true,
     isTeamLocked: false,
     hasExtension: Boolean(teamExtensionIso),
+    isOverridden: false,
   };
 }

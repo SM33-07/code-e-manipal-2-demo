@@ -203,17 +203,21 @@ export async function verifyMutationPhase(client?: any, isFinalizing = false, te
   let configRow: any;
   if (client) {
     const { rows } = await client.query(
-      'SELECT event_phase, global_freeze FROM public.event_config WHERE id = 1 FOR UPDATE'
+      'SELECT event_phase, global_freeze, submission_open FROM public.event_config WHERE id = 1 FOR UPDATE'
     );
     if (rows.length === 0) throw new Error('CONFIG_NOT_FOUND');
     configRow = rows[0];
   } else {
-    const { rows } = await query('SELECT event_phase, global_freeze FROM public.event_config WHERE id = 1');
+    const { rows } = await query('SELECT event_phase, global_freeze, submission_open FROM public.event_config WHERE id = 1');
     configRow = rows[0] || {};
   }
 
   if (configRow.global_freeze) {
     throw new Error('SUBMISSIONS_FROZEN_GLOBALLY');
+  }
+
+  if (configRow.submission_open === false) {
+    throw new Error('SUBMISSION_PAUSED');
   }
 
   const eventPhase: EventPhase = configRow.event_phase || 'NOT_STARTED';

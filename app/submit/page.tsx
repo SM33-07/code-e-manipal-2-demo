@@ -229,38 +229,79 @@ export default function SubmissionPage() {
     }
   };
 
-  // Real-time Countdown calculation
+  // Real-time Countdown calculation & Submission Window Lock State
   useEffect(() => {
     const updateCountdown = () => {
-      const isStarted = timerConfig?.hackathon_is_started === "true";
-      const startTime = timerConfig?.hackathon_start_time
-        ? new Date(timerConfig.hackathon_start_time).getTime()
-        : null;
-      const configuredDuration = Number(timerConfig?.hackathon_duration_hours);
-      const durationHours = Number.isFinite(configuredDuration) ? configuredDuration : 0;
+      // 1. Authoritative Server State Precedence
+      const phase = timerConfig?.event_phase || "NOT_STARTED";
+      const isSubmissionOpen = timerConfig?.submission_open;
+      const isGloballyFrozen = timerConfig?.global_freeze;
+      const allowOverride = timerConfig?.allow_deadline_override;
 
-      if (!isStarted || !startTime) {
-        setTimeRemainingHours(durationHours);
+      if (phase === "NOT_STARTED") {
         setCountdownBadge("Scheduled");
         setCountdownSubtitle("event not started");
         setIsLocked(true);
+        setTimeRemainingHours(0);
         return;
       }
 
-      const globalEnd = startTime + durationHours * 60 * 60 * 1000;
-      let effectiveEnd = globalEnd;
+      if (isGloballyFrozen) {
+        setCountdownBadge("Frozen");
+        setCountdownSubtitle("submissions frozen");
+        setIsLocked(true);
+        setTimeRemainingHours(0);
+        return;
+      }
+
+      if (isSubmissionOpen === false) {
+        setCountdownBadge("Paused");
+        setCountdownSubtitle("submissions paused by admin");
+        setIsLocked(true);
+        setTimeRemainingHours(0);
+        return;
+      }
+
+      // 2. Deadline Calculation
+      // Priority: team.deadline_extension > timerConfig.end_time > (startTime + durationHours)
+      let effectiveEnd: number | null = null;
+      if (timerConfig?.end_time) {
+        effectiveEnd = new Date(timerConfig.end_time).getTime();
+      } else if (timerConfig?.hackathon_start_time) {
+        const configuredDuration = Number(timerConfig?.hackathon_duration_hours) || 48;
+        effectiveEnd = new Date(timerConfig.hackathon_start_time).getTime() + configuredDuration * 60 * 60 * 1000;
+      }
+
       const hasExtension = team && team.deadline_extension;
       if (hasExtension) {
-        effectiveEnd = new Date(team.deadline_extension).getTime();
+        const extMs = new Date(team.deadline_extension).getTime();
+        if (!effectiveEnd || extMs > effectiveEnd) {
+          effectiveEnd = extMs;
+        }
+      }
+
+      if (!effectiveEnd) {
+        setTimeRemainingHours(48);
+        setCountdownBadge("Ongoing");
+        setCountdownSubtitle("submissions active");
+        setIsLocked(false);
+        return;
       }
 
       const remainingMs = effectiveEnd - Date.now();
 
       if (remainingMs <= 0) {
-        setTimeRemainingHours(0);
-        setCountdownBadge("Closed");
-        setCountdownSubtitle(hasExtension ? "extension expired" : "deadline passed");
-        setIsLocked(true);
+        if (allowOverride) {
+          setTimeRemainingHours(0);
+          setCountdownBadge("Extended");
+          setCountdownSubtitle("admin override active");
+          setIsLocked(false);
+        } else {
+          setTimeRemainingHours(0);
+          setCountdownBadge("Closed");
+          setCountdownSubtitle(hasExtension ? "extension expired" : "deadline passed");
+          setIsLocked(true);
+        }
       } else {
         const hoursLeft = Math.ceil(remainingMs / (1000 * 60 * 60));
         setTimeRemainingHours(hoursLeft);
@@ -285,10 +326,10 @@ export default function SubmissionPage() {
         description: newSubmission.solutionSummary,
         category: newSubmission.category,
         technologies: newSubmission.techStack || [],
-        github_url: newSubmission.githubUrl,
-        demo_url: newSubmission.demoUrl,
-        docs_url: newSubmission.docsUrl,
-        demo_video_url: newSubmission.videoUrl,
+        github_url: newSubmission.githubUrl?.trim() || null,
+        demo_url: newSubmission.demoUrl?.trim() || null,
+        docs_url: newSubmission.docsUrl?.trim() || null,
+        demo_video_url: newSubmission.videoUrl?.trim() || null,
         tagline: newSubmission.tagline,
         problem_solved: newSubmission.problemSolved,
         architecture_overview: newSubmission.architectureOverview,
@@ -314,16 +355,18 @@ export default function SubmissionPage() {
       }
 
       if (!res.ok) {
-        toast.error(data.error || "Submission failed");
-        return;
+        const errorMsg = data?.error
+          ? (data.details?.errors?.length ? `${data.error}: ${data.details.errors.join('; ')}` : data.error)
+          : "Submission failed";
+        throw new Error(errorMsg);
       }
 
       setSubmissions((prev) => [data.data, ...prev]);
       toast.success("Project submitted successfully!");
       router.push(`/submission-result/${data.data.id}`);
-    } catch (err) {
-      console.error(err);
-      toast.error("Something went wrong");
+    } catch (err: any) {
+      console.error("handleSubmission error:", err);
+      throw err;
     }
   };
 

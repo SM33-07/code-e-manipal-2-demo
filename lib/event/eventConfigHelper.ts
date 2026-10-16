@@ -2,6 +2,14 @@ import { query } from '@/lib/db';
 import { getEffectiveResultsRelease, ResultsReleaseState } from './results-release';
 import { EventPhase } from './state-machine';
 
+export type SubmissionWindowStatus =
+  | 'OPEN'
+  | 'PAUSED'
+  | 'CLOSED_BY_DEADLINE'
+  | 'OVERRIDDEN'
+  | 'SCHEDULED'
+  | 'FROZEN';
+
 export interface EventConfigState {
   id: number;
   event_phase: EventPhase;
@@ -13,6 +21,9 @@ export interface EventConfigState {
   end_time: string | null;
   /** Explicit release gate for challenge content; intentionally independent of event_phase. */
   problem_statements_published: boolean;
+  global_freeze: boolean;
+  submission_open: boolean;
+  allow_deadline_override: boolean;
   updated_at: string;
   // Computed legacy compatibility fields
   hackathon_is_started: string;
@@ -20,6 +31,8 @@ export interface EventConfigState {
   hackathon_duration_hours: string;
   results_published: string;
   results_publish_time: string | null;
+  submission_window_status: SubmissionWindowStatus;
+  is_submission_open: boolean;
 }
 
 /**
@@ -42,6 +55,63 @@ export interface PublicEventConfig {
   }>;
   active_round: string;
   problem_statements_published: boolean;
+  submission_open: boolean;
+  allow_deadline_override: boolean;
+  global_freeze: boolean;
+  submission_window_status: SubmissionWindowStatus;
+  is_submission_open: boolean;
+  server_time: string;
+}
+
+/**
+ * Authoritative Submission Window Evaluator
+ * Evaluates state based on phase, freeze, admin pause, scheduled deadline, and admin override.
+ */
+export function computeSubmissionWindowStatus(
+  config: {
+    event_phase: EventPhase;
+    global_freeze?: boolean;
+    submission_open?: boolean;
+    allow_deadline_override?: boolean;
+    end_time?: string | null;
+    buffer_minutes?: number;
+  },
+  now = new Date()
+): { status: SubmissionWindowStatus; isOpen: boolean; effectiveDeadline: string | null } {
+  if (config.global_freeze) {
+    return { status: 'FROZEN', isOpen: false, effectiveDeadline: null };
+  }
+  if (config.event_phase === 'NOT_STARTED') {
+    return { status: 'SCHEDULED', isOpen: false, effectiveDeadline: null };
+  }
+  if (config.submission_open === false) {
+    return { status: 'PAUSED', isOpen: false, effectiveDeadline: null };
+  }
+
+  const bufferMs = (config.buffer_minutes || 5) * 60 * 1000;
+  let effectiveDeadlineMs: number | null = null;
+  if (config.end_time) {
+    effectiveDeadlineMs = new Date(config.end_time).getTime() + bufferMs;
+  }
+  const effectiveDeadlineIso = effectiveDeadlineMs ? new Date(effectiveDeadlineMs).toISOString() : null;
+
+  const isPostSubmissionPhase = (
+    config.event_phase === 'SUBMISSION_CLOSED' ||
+    config.event_phase === 'JUDGING' ||
+    config.event_phase === 'RESULTS' ||
+    config.event_phase === 'ENDED'
+  );
+
+  const isPastDeadline = effectiveDeadlineMs ? now.getTime() > effectiveDeadlineMs : false;
+
+  if (isPostSubmissionPhase || isPastDeadline) {
+    if (config.allow_deadline_override) {
+      return { status: 'OVERRIDDEN', isOpen: true, effectiveDeadline: effectiveDeadlineIso };
+    }
+    return { status: 'CLOSED_BY_DEADLINE', isOpen: false, effectiveDeadline: effectiveDeadlineIso };
+  }
+
+  return { status: 'OPEN', isOpen: true, effectiveDeadline: effectiveDeadlineIso };
 }
 
 /**
@@ -71,6 +141,19 @@ export async function getEventConfigState(): Promise<EventConfigState> {
       if (effectiveRelease === 'PUBLISHED') legacyRelease = 'true';
       else if (effectiveRelease === 'PUBLISHING') legacyRelease = 'publishing';
 
+      const isSubmissionOpen = row.submission_open !== undefined ? Boolean(row.submission_open) : false;
+      const isGlobalFreeze = Boolean(row.global_freeze);
+      const allowDeadlineOverride = Boolean(row.allow_deadline_override);
+
+      const windowEval = computeSubmissionWindowStatus({
+        event_phase: row.event_phase,
+        global_freeze: isGlobalFreeze,
+        submission_open: isSubmissionOpen,
+        allow_deadline_override: allowDeadlineOverride,
+        end_time: row.end_time,
+        buffer_minutes: row.buffer_minutes,
+      }, now);
+
       return {
         id: 1,
         event_phase: row.event_phase,
@@ -81,6 +164,9 @@ export async function getEventConfigState(): Promise<EventConfigState> {
         start_time: row.start_time ? new Date(row.start_time).toISOString() : null,
         end_time: row.end_time ? new Date(row.end_time).toISOString() : null,
         problem_statements_published: row.problem_statements_published === true,
+        global_freeze: isGlobalFreeze,
+        submission_open: isSubmissionOpen,
+        allow_deadline_override: allowDeadlineOverride,
         updated_at: new Date(row.updated_at).toISOString(),
         // Legacy computed fields
         hackathon_is_started: isStarted ? 'true' : 'false',
@@ -88,6 +174,8 @@ export async function getEventConfigState(): Promise<EventConfigState> {
         hackathon_duration_hours: '48',
         results_published: legacyRelease,
         results_publish_time: row.publish_at ? new Date(row.publish_at).toISOString() : null,
+        submission_window_status: windowEval.status,
+        is_submission_open: windowEval.isOpen,
       };
     }
   } catch (err: any) {
@@ -119,6 +207,16 @@ export async function getEventConfigState(): Promise<EventConfigState> {
       now
     );
 
+    const isSubmissionOpen = isStarted;
+    const windowEval = computeSubmissionWindowStatus({
+      event_phase: phase,
+      global_freeze: false,
+      submission_open: isSubmissionOpen,
+      allow_deadline_override: false,
+      end_time: null,
+      buffer_minutes: 5,
+    }, now);
+
     return {
       id: 1,
       event_phase: phase,
@@ -129,12 +227,17 @@ export async function getEventConfigState(): Promise<EventConfigState> {
       start_time: kv.hackathon_start_time || null,
       end_time: null,
       problem_statements_published: kv.problem_statements_published === 'true',
+      global_freeze: false,
+      submission_open: isSubmissionOpen,
+      allow_deadline_override: false,
       updated_at: new Date().toISOString(),
       hackathon_is_started: kv.hackathon_is_started || 'false',
       hackathon_start_time: kv.hackathon_start_time || null,
       hackathon_duration_hours: kv.hackathon_duration_hours || '48',
       results_published: effectiveRelease === 'PUBLISHED' ? 'true' : effectiveRelease === 'PUBLISHING' ? 'publishing' : 'false',
       results_publish_time: kv.results_publish_time || null,
+      submission_window_status: windowEval.status,
+      is_submission_open: windowEval.isOpen,
     };
   } catch (err: any) {
     // Return sensible defaults if database unreachable during cold start
@@ -148,12 +251,17 @@ export async function getEventConfigState(): Promise<EventConfigState> {
       start_time: null,
       end_time: null,
       problem_statements_published: false,
+      global_freeze: false,
+      submission_open: false,
+      allow_deadline_override: false,
       updated_at: new Date().toISOString(),
       hackathon_is_started: 'false',
       hackathon_start_time: null,
       hackathon_duration_hours: '48',
       results_published: 'false',
       results_publish_time: null,
+      submission_window_status: 'SCHEDULED',
+      is_submission_open: false,
     };
   }
 }
@@ -172,15 +280,22 @@ export async function getEventConfigState(): Promise<EventConfigState> {
  * - countdown_target
  * - announcements
  * - active_round
+ * - submission_open
+ * - allow_deadline_override
+ * - global_freeze
+ * - submission_window_status
+ * - is_submission_open
+ * - server_time
  */
 export async function getPublicEventConfig(): Promise<PublicEventConfig> {
   const fullConfig = await getEventConfigState();
+  const now = new Date();
 
-  // Determine countdown target based on current phase and release state
+  // Determine countdown target based on current phase, release state, and submission deadline
   let countdownTarget: string | null = null;
   if (fullConfig.event_phase === 'NOT_STARTED' && fullConfig.start_time) {
     countdownTarget = fullConfig.start_time;
-  } else if (fullConfig.event_phase === 'HACKING' && fullConfig.end_time) {
+  } else if ((fullConfig.event_phase === 'HACKING' || fullConfig.event_phase === 'SUBMISSION') && fullConfig.end_time) {
     countdownTarget = fullConfig.end_time;
   } else if (fullConfig.event_phase === 'RESULTS' && fullConfig.results_release === 'PUBLISHING' && fullConfig.publish_at) {
     countdownTarget = fullConfig.publish_at;
@@ -216,5 +331,11 @@ export async function getPublicEventConfig(): Promise<PublicEventConfig> {
     announcements,
     active_round: '1',
     problem_statements_published: fullConfig.problem_statements_published,
+    submission_open: fullConfig.submission_open,
+    allow_deadline_override: fullConfig.allow_deadline_override,
+    global_freeze: fullConfig.global_freeze,
+    submission_window_status: fullConfig.submission_window_status,
+    is_submission_open: fullConfig.is_submission_open,
+    server_time: now.toISOString(),
   };
 }
