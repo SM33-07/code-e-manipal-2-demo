@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { withAuth } from '@/lib/middleware/withAuth';
 import { successResponse, Errors } from '@/lib/utils/response';
 import { logger } from '@/lib/utils/logger';
-import { materializeResultsSnapshot } from '@/lib/event/results-release';
+import { materializeResultsSnapshot, cancelResultsPublication } from '@/lib/event/results-release';
 
 /**
  * POST /api/admin/event-config/publish
@@ -44,5 +44,34 @@ export const POST = withAuth(async (req: NextRequest, { user }: { user: any }) =
 
     logger.error('POST /api/admin/event-config/publish failed', { error: String(err) });
     return Errors.INTERNAL('Failed to publish results.');
+  }
+}, 'admin');
+
+/**
+ * DELETE /api/admin/event-config/publish
+ *
+ * Admin only — Aborts an in-progress results publishing countdown.
+ *
+ * Invariants:
+ * 1. Only aborts when results_release is 'PUBLISHING' and current time is before publish_at.
+ * 2. Rejects if results are already PUBLISHED (status 409).
+ * 3. Rejects if no countdown is active (status 400).
+ * 4. Preserves immutable records in results_snapshot.
+ * 5. Does NOT mutate or revert event_phase.
+ */
+export const DELETE = withAuth(async (req: NextRequest, { user }: { user: any }) => {
+  try {
+    const result = await cancelResultsPublication(user.id);
+    return successResponse(result);
+  } catch (err: any) {
+    if (err.code === 'RESULTS_ALREADY_PUBLISHED') {
+      return Errors.CONFLICT(err.message);
+    }
+    if (err.code === 'NO_PUBLICATION_IN_PROGRESS') {
+      return Errors.BAD_REQUEST(err.message);
+    }
+
+    logger.error('DELETE /api/admin/event-config/publish failed', { error: String(err) });
+    return Errors.INTERNAL(err.message || 'Failed to cancel results publication.');
   }
 }, 'admin');

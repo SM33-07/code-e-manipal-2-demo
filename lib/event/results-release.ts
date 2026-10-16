@@ -242,3 +242,147 @@ export async function reconcilePublishWorker(releaseId: string): Promise<boolean
     return false;
   }
 }
+
+export interface CancelPublishResult {
+  status: ResultsReleaseState;
+  cancelledReleaseId: string | null;
+  message: string;
+}
+
+/**
+ * Aborts an in-progress results publication countdown.
+ *
+ * Strict Invariants:
+ * 1. Only aborts when results_release is 'PUBLISHING' and current time is before publish_at.
+ * 2. Rejects if results are already PUBLISHED (either explicitly or via elapsed countdown).
+ * 3. Rejects if results_release is DRAFT.
+ * 4. Preserves immutable records in public.results_snapshot and results_awards.
+ * 5. Does NOT mutate or revert event_phase.
+ * 6. Executes in a serializable transaction with SELECT ... FOR UPDATE.
+ */
+export async function cancelResultsPublication(
+  adminUserId: string,
+  providedClient?: any
+): Promise<CancelPublishResult> {
+  const client = providedClient || (await pool.connect());
+  const shouldRelease = !providedClient;
+
+  try {
+    if (!providedClient) {
+      await client.query('BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE');
+    }
+
+    const { rows: configRows } = await client.query(
+      'SELECT id, event_phase, results_release, publish_at, active_release_id, NOW() AS db_now FROM public.event_config WHERE id = 1 FOR UPDATE'
+    );
+
+    if (configRows.length === 0) {
+      throw new Error('Event configuration record (id=1) not found.');
+    }
+
+    const config = configRows[0];
+    if (!config.db_now) {
+      logger.error('cancelResultsPublication: database clock timestamp (db_now) is missing from query result');
+      throw new Error('Database clock timestamp unavailable for publication cancellation.');
+    }
+
+    const dbNow = new Date(config.db_now);
+    if (isNaN(dbNow.getTime())) {
+      logger.error('cancelResultsPublication: database clock timestamp (db_now) is invalid', {
+        rawDbNow: config.db_now,
+      });
+      throw new Error('Database clock timestamp is invalid for publication cancellation.');
+    }
+    const effectiveStatus = getEffectiveResultsRelease(config, dbNow);
+
+    // 1. Invariant: Never unpublish already-published results
+    if (effectiveStatus === 'PUBLISHED') {
+      const err = new Error(
+        'Cannot cancel publication: results have already been published live. Unpublishing live results requires an authorized administrative override.'
+      ) as any;
+      err.code = 'RESULTS_ALREADY_PUBLISHED';
+      err.statusCode = 409;
+      throw err;
+    }
+
+    // 2. Invariant: Only abort when an active countdown is in progress
+    if (config.results_release !== 'PUBLISHING') {
+      const err = new Error(
+        'No results publication countdown is currently in progress.'
+      ) as any;
+      err.code = 'NO_PUBLICATION_IN_PROGRESS';
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const cancelledReleaseId = config.active_release_id;
+    let cancelledPublishAtIso: string | null = null;
+    if (config.publish_at) {
+      const parsed = new Date(config.publish_at);
+      if (!isNaN(parsed.getTime())) {
+        cancelledPublishAtIso = parsed.toISOString();
+      } else {
+        logger.warn('cancelResultsPublication encountered invalid publish_at timestamp', {
+          rawPublishAt: config.publish_at,
+        });
+      }
+    } else {
+      logger.warn('cancelResultsPublication encountered null publish_at while in PUBLISHING state');
+    }
+
+    // 3. Atomically reset countdown to DRAFT without touching event_phase
+    await client.query(
+      `UPDATE public.event_config SET
+         results_release = 'DRAFT',
+         publish_at = NULL,
+         active_release_id = NULL,
+         updated_at = NOW()
+       WHERE id = 1`
+    );
+
+    if (!providedClient) {
+      await client.query('COMMIT');
+    }
+
+    // 4. Audit logging (best-effort, non-blocking telemetry convention)
+    logAudit({
+      userId: adminUserId,
+      action: 'RESULTS_PUBLISH_CANCELLED',
+      targetTable: 'event_config',
+      targetId: '1',
+      details: {
+        cancelledReleaseId,
+        cancelledPublishAt: cancelledPublishAtIso,
+        revertedTo: 'DRAFT',
+      },
+    }).catch((auditErr) => {
+      logger.error('Failed to dispatch audit log for RESULTS_PUBLISH_CANCELLED', {
+        adminUserId,
+        cancelledReleaseId,
+        error: String(auditErr),
+      });
+    });
+
+    logger.info('Results publication countdown cancelled by admin', {
+      adminUserId,
+      cancelledReleaseId,
+    });
+
+    return {
+      status: 'DRAFT',
+      cancelledReleaseId,
+      message: 'Results publication countdown aborted successfully. Status reset to DRAFT.',
+    };
+  } catch (err) {
+    if (!providedClient) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {}
+    }
+    throw err;
+  } finally {
+    if (shouldRelease) {
+      client.release();
+    }
+  }
+}

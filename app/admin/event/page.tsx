@@ -633,21 +633,16 @@ export default function EventControlPage() {
   const handleStartPublish = async () => {
     setPublishingResults(true);
     try {
-      const publishTime = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-      const res = await fetch("/api/event-config", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          results_published: "publishing",
-          results_publish_time: publishTime,
-        }),
+      const res = await fetch("/api/admin/event-config/publish", {
+        method: "POST",
       });
+      const json = await res.json();
       if (res.ok) {
-        toast.success("Leaderboard publishing initiated (5-minute countdown started).");
+        toast.success(json.data?.message || "Leaderboard publishing initiated (5-minute countdown started).");
         setShowPublishModal(false);
         fetchEventConfig();
       } else {
-        toast.error("Failed to start publishing countdown.");
+        toast.error(json.error?.message || json.error || "Failed to start publishing countdown.");
       }
     } catch (err) {
       console.error(err);
@@ -660,23 +655,19 @@ export default function EventControlPage() {
   const handleCancelPublish = async () => {
     setPublishingResults(true);
     try {
-      const res = await fetch("/api/event-config", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          results_published: "false",
-          results_publish_time: "",
-        }),
+      const res = await fetch("/api/admin/event-config/publish", {
+        method: "DELETE",
       });
+      const json = await res.json();
       if (res.ok) {
-        toast.success("Results publishing reset / unpublished.");
+        toast.success(json.data?.message || "Results publishing countdown cancelled.");
         fetchEventConfig();
       } else {
-        toast.error("Failed to reset results status.");
+        toast.error(json.error?.message || json.error || "Failed to cancel results publishing.");
       }
     } catch (err) {
       console.error(err);
-      toast.error("Error resetting publishing state.");
+      toast.error("Error cancelling publishing countdown.");
     } finally {
       setPublishingResults(false);
     }
@@ -1009,13 +1000,9 @@ export default function EventControlPage() {
                 )}
 
                 {resultsPublished === "true" && (
-                  <button
-                    onClick={handleCancelPublish}
-                    disabled={publishingResults}
-                    className="w-full py-3 rounded-xl bg-card border border-border text-foreground hover:bg-muted font-bold text-xs transition duration-200 cursor-pointer flex items-center justify-center gap-2 shadow-sm"
-                  >
-                    {publishingResults ? <Loader2 className="animate-spin size-4" /> : <Unlock size={14} />} Unpublish Leaderboard
-                  </button>
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold text-center flex items-center justify-center gap-2">
+                    <Sparkles size={14} /> Results are Published Live
+                  </div>
                 )}
               </div>
             </div>
