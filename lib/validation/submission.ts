@@ -12,7 +12,7 @@
  * 5. Pre-flight finalization validation.
  */
 
-import { OFFICIAL_TRACKS } from '@/lib/event/eventConstants';
+import { OFFICIAL_TRACKS } from '../event/eventConstants.ts';
 
 export const ALLOWED_CATEGORIES = [
   // Official 9 Reconciled Code-e-Manipal 2.0 Tracks (lowercased)
@@ -274,16 +274,26 @@ export function validateCreateSubmission(input: any): ValidationResult<Submissio
   }
 
   // 5. URLs
-  const githubRes = validateGithubUrl(input.github_url);
-  if (!githubRes.valid) errors.push(githubRes.error || 'Invalid github_url.');
+  // GitHub repository is mandatory
+  let githubRes: ReturnType<typeof validateGithubUrl> = { valid: false, sanitized: null };
+  if (!input.github_url || typeof input.github_url !== 'string' || input.github_url.trim() === '') {
+    errors.push('github_url is required.');
+  } else {
+    githubRes = validateGithubUrl(input.github_url);
+    if (!githubRes.valid || !githubRes.sanitized) {
+      errors.push(githubRes.error || 'Invalid github_url.');
+    }
+  }
 
+  // Demo URL, Docs URL, Demo Video URL are optional
   const demoRes = validatePassiveUrl(input.demo_url);
   if (!demoRes.valid) errors.push(demoRes.error || 'Invalid demo_url.');
 
   const docsRes = validatePassiveUrl(input.docs_url);
   if (!docsRes.valid) errors.push(docsRes.error || 'Invalid docs_url.');
 
-  const videoRes = validatePassiveUrl(input.demo_video_url || input.video_url || input.videoUrl);
+  const rawVideo = input.demo_video_url !== undefined ? input.demo_video_url : (input.video_url !== undefined ? input.video_url : input.videoUrl);
+  const videoRes = validatePassiveUrl(rawVideo);
   if (!videoRes.valid) errors.push(videoRes.error || 'Invalid demo_video_url.');
 
   // 6. Optional text fields
@@ -392,28 +402,44 @@ export function validateUpdateSubmission(input: any): ValidationResult<Partial<S
   }
 
   if (input.github_url !== undefined) {
-    const githubRes = validateGithubUrl(input.github_url);
-    if (!githubRes.valid) errors.push(githubRes.error || 'Invalid github_url.');
-    else updates.github_url = githubRes.sanitized;
+    if (!input.github_url || typeof input.github_url !== 'string' || input.github_url.trim() === '') {
+      errors.push('github_url cannot be empty.');
+    } else {
+      const githubRes = validateGithubUrl(input.github_url);
+      if (!githubRes.valid || !githubRes.sanitized) errors.push(githubRes.error || 'Invalid github_url.');
+      else updates.github_url = githubRes.sanitized;
+    }
   }
 
   if (input.demo_url !== undefined) {
-    const demoRes = validatePassiveUrl(input.demo_url);
-    if (!demoRes.valid) errors.push(demoRes.error || 'Invalid demo_url.');
-    else updates.demo_url = demoRes.sanitized;
+    if (input.demo_url === null || (typeof input.demo_url === 'string' && input.demo_url.trim() === '')) {
+      updates.demo_url = null;
+    } else {
+      const demoRes = validatePassiveUrl(input.demo_url);
+      if (!demoRes.valid) errors.push(demoRes.error || 'Invalid demo_url.');
+      else updates.demo_url = demoRes.sanitized;
+    }
   }
 
   if (input.docs_url !== undefined) {
-    const docsRes = validatePassiveUrl(input.docs_url);
-    if (!docsRes.valid) errors.push(docsRes.error || 'Invalid docs_url.');
-    else updates.docs_url = docsRes.sanitized;
+    if (input.docs_url === null || (typeof input.docs_url === 'string' && input.docs_url.trim() === '')) {
+      updates.docs_url = null;
+    } else {
+      const docsRes = validatePassiveUrl(input.docs_url);
+      if (!docsRes.valid) errors.push(docsRes.error || 'Invalid docs_url.');
+      else updates.docs_url = docsRes.sanitized;
+    }
   }
 
   const rawVideo = input.demo_video_url !== undefined ? input.demo_video_url : (input.video_url !== undefined ? input.video_url : input.videoUrl);
   if (rawVideo !== undefined) {
-    const videoRes = validatePassiveUrl(rawVideo);
-    if (!videoRes.valid) errors.push(videoRes.error || 'Invalid demo_video_url.');
-    else updates.demo_video_url = videoRes.sanitized;
+    if (rawVideo === null || (typeof rawVideo === 'string' && rawVideo.trim() === '')) {
+      updates.demo_video_url = null;
+    } else {
+      const videoRes = validatePassiveUrl(rawVideo);
+      if (!videoRes.valid) errors.push(videoRes.error || 'Invalid demo_video_url.');
+      else updates.demo_video_url = videoRes.sanitized;
+    }
   }
 
   const sanitizeText = (val: any, max: number, name: string): string | null => {

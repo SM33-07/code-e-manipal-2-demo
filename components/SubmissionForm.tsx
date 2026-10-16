@@ -257,11 +257,53 @@ export function SubmissionForm({ onSubmit, disabled = false }: SubmissionFormPro
     if (!formData.category) { toast.error("Please select a Category"); return; }
     if (formData.techStack.length === 0) { toast.error("Please select at least one tech stack item"); return; }
     if (!formData.architectureOverview) { toast.error("Architecture Overview is required"); return; }
-    if (wordCount(formData.architectureOverview) > 300) { toast.error("Architecture Overview exceeds 300 words"); return; }
     if (!formData.technicalChallenges) { toast.error("Unique Technical Challenges is required"); return; }
-    if (!formData.githubUrl) { toast.error("GitHub/Code Repository link is required"); return; }
-    if (!formData.videoUrl) { toast.error("Presentation/Demo Video link is required"); return; }
-    if (!formData.docsUrl) { toast.error("Documentation/Slides link is required"); return; }
+    if (!formData.githubUrl || !formData.githubUrl.trim()) {
+      toast.error("Public GitHub / Code Repository link is required");
+      return;
+    }
+    try {
+      const parsedGithub = new URL(formData.githubUrl.trim());
+      if (parsedGithub.hostname !== "github.com" && parsedGithub.hostname !== "www.github.com") {
+        toast.error("GitHub repository link must point to github.com");
+        return;
+      }
+      const segments = parsedGithub.pathname.split("/").filter(Boolean);
+      if (segments.length < 2) {
+        toast.error("GitHub repository link must include owner and repository name (e.g. https://github.com/owner/repo)");
+        return;
+      }
+    } catch {
+      toast.error("Invalid GitHub repository URL format");
+      return;
+    }
+
+    if (formData.videoUrl && formData.videoUrl.trim()) {
+      try {
+        const parsedVideo = new URL(formData.videoUrl.trim());
+        if (parsedVideo.protocol !== "http:" && parsedVideo.protocol !== "https:") {
+          toast.error("Demo Video link must be a valid HTTP or HTTPS URL");
+          return;
+        }
+      } catch {
+        toast.error("Invalid Demo Video URL format");
+        return;
+      }
+    }
+
+    if (formData.docsUrl && formData.docsUrl.trim()) {
+      try {
+        const parsedDocs = new URL(formData.docsUrl.trim());
+        if (parsedDocs.protocol !== "http:" && parsedDocs.protocol !== "https:") {
+          toast.error("Documentation link must be a valid HTTP or HTTPS URL");
+          return;
+        }
+      } catch {
+        toast.error("Invalid Documentation URL format");
+        return;
+      }
+    }
+
     if (!formData.whatWorkedWell) { toast.error("'What Worked Well' is required"); return; }
     if (!formData.challengesFaced) { toast.error("'What Failed / Challenges Encountered' is required"); return; }
     if (!formData.lessonsLearned) { toast.error("Lessons Learned is required"); return; }
@@ -282,8 +324,9 @@ export function SubmissionForm({ onSubmit, disabled = false }: SubmissionFormPro
       setLockedMembers(false);
       setSubmitted(true);
       setTimeout(() => setSubmitted(false), 3500);
-    } catch {
-      toast.error("Failed to submit. Please try again.");
+    } catch (err: any) {
+      const msg = err?.message || "Failed to submit. Please try again.";
+      toast.error(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -430,9 +473,9 @@ export function SubmissionForm({ onSubmit, disabled = false }: SubmissionFormPro
           <SectionHeader
             number={3}
             title="External Links"
-            subtitle="Public GitHub/Code Repository (required), Presentation/Demo Video (required), Documentation/Slides (optional)"
+            subtitle="Public GitHub/Code Repository (required), Presentation/Demo Video (optional), Documentation/Slides (optional)"
             icon={<Link className="w-4 h-4" />}
-            completed={!!(formData.githubUrl && formData.videoUrl)}
+            completed={!!formData.githubUrl}
           />
           <div className="flex flex-col gap-4">
             <Field
@@ -444,20 +487,20 @@ export function SubmissionForm({ onSubmit, disabled = false }: SubmissionFormPro
               hint="Required for validation — must be a public repository"
             />
             <Field
-              label="Presentation / Demo Video" required
+              label="Presentation / Demo Video"
               icon={<Video className="w-3.5 h-3.5" />}
               id="videoUrl" name="videoUrl" type="url"
               value={formData.videoUrl} onChange={handleChange}
               placeholder="https://youtube.com/watch?v=... or similar"
-              hint="Required — link to your demo video or presentation recording"
+              hint="Optional — link to your demo video or presentation recording"
             />
             <Field
-              label="Documentation / Slides" required
+              label="Documentation / Slides"
               icon={<BookOpen className="w-3.5 h-3.5" />}
               id="docsUrl" name="docsUrl" type="url"
               value={formData.docsUrl} onChange={handleChange}
               placeholder="https://docs.google.com/... or similar"
-              hint="Required — technical documentation, slides, or Notion page"
+              hint="Optional — technical documentation, slides, or Notion page"
             />
           </div>
         </Section>
