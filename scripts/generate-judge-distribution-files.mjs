@@ -120,7 +120,7 @@ const htmlContent = `<!DOCTYPE html>
 <div class="instructions">
   <h2>Judge Login Instructions</h2>
   <ol>
-    <li>Navigate to the official portal login: <a href="https://portal.codeemanipal.in/login" style="color:#0284c7; font-weight:600;">https://portal.codeemanipal.in/login</a> (or <code>https://code-e-manipal-portal.vercel.app/login</code>).</li>
+    <li>Navigate to the official portal login: <a href="https://code-e-manipal-portal.vercel.app/login" style="color:#0284c7; font-weight:600;">https://code-e-manipal-portal.vercel.app/login</a>.</li>
     <li>In <strong>User ID / Email</strong>, enter the assigned <strong>Login ID</strong> (e.g. <code>judge1</code>, <code>judge2</code> ... <code>judge5</code>) or canonical badge ID (<code>JUDGE-02</code> ... <code>JUDGE-06</code>).</li>
     <li>In <strong>Password</strong>, enter the official 8-digit alphanumeric passcode.</li>
     <li>Upon logging in, the judge will be directed to the <code>/judge</code> evaluation workspace.</li>
