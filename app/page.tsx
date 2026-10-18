@@ -31,6 +31,7 @@ import { FeatureCard } from "@/components/ui/FeatureCard";
 import { FinalCta } from "@/components/ui/FinalCta";
 import { SponsorPartners } from "@/components/ui/SponsorPartners";
 import { DETAILED_TRACKS, EVENT_IDENTITY, PRIZE_STRUCTURE } from "@/lib/event/eventConstants";
+import { isDemoMode } from "@/lib/demo/demoMode";
 
 type EventIndexStatus =
   | "checking"
@@ -215,6 +216,14 @@ export default function HomePage() {
             <div data-hero-step className="flex flex-col gap-3 pt-1 sm:flex-row sm:flex-wrap sm:items-center">
               {loading ? (
                 <div className="h-12 w-full max-w-52 animate-pulse bg-accent sm:w-52" />
+              ) : isDemoMode() ? (
+                <Link
+                  href="/problem-statements"
+                  className="hero-primary-action group inline-flex min-h-12 w-full items-center justify-center gap-2 bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-[background-color,transform] hover:bg-primary/90 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-auto"
+                >
+                  <span>Explore 35 Challenges</span>
+                  <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" />
+                </Link>
               ) : isAuthenticated ? (
                 <Link
                   href={getWorkspaceHref()}
@@ -241,13 +250,23 @@ export default function HomePage() {
                 <span>Explore the timeline</span>
               </Link>
 
-              <Link
-                href="/problem-statements"
-                className="group inline-flex min-h-12 items-center justify-center gap-2 border border-border bg-surface-elevated px-5 py-2.5 text-sm font-semibold text-foreground transition-[border-color,background-color] hover:border-primary hover:bg-accent"
-              >
-                <Code2 size={15} className="text-primary" />
-                <span>Problem Statements</span>
-              </Link>
+              {isDemoMode() ? (
+                <Link
+                  href="/results"
+                  className="group inline-flex min-h-12 items-center justify-center gap-2 border border-border bg-surface-elevated px-5 py-2.5 text-sm font-semibold text-foreground transition-[border-color,background-color] hover:border-primary hover:bg-accent"
+                >
+                  <Trophy size={15} className="text-primary" />
+                  <span>Results Leaderboard</span>
+                </Link>
+              ) : (
+                <Link
+                  href="/problem-statements"
+                  className="group inline-flex min-h-12 items-center justify-center gap-2 border border-border bg-surface-elevated px-5 py-2.5 text-sm font-semibold text-foreground transition-[border-color,background-color] hover:border-primary hover:bg-accent"
+                >
+                  <Code2 size={15} className="text-primary" />
+                  <span>Problem Statements</span>
+                </Link>
+              )}
             </div>
 
             <div data-hero-step className="flex flex-wrap gap-x-6 gap-y-2 border-t border-border/80 pt-4 text-xs font-medium text-muted-foreground">
@@ -481,7 +500,23 @@ export default function HomePage() {
       <ScrollReveal as="div"><SponsorPartners /></ScrollReveal>
 
       {/* ── FOOTER CALLOUT ── */}
-      <ScrollReveal as="div"><FinalCta title="Ready to Begin the Engineering Sprint?" description="Sign in with your provisioned team credentials or review the event timeline before the challenge release." href="/login" action="Enter Console" /></ScrollReveal>
+      <ScrollReveal as="div">
+        {isDemoMode() ? (
+          <FinalCta
+            title="Public Portfolio & Architecture Showcase"
+            description="Explore the 35 version-controlled challenge statements, interactive multi-phase event schedule, and final verified leaderboard."
+            href="/problem-statements"
+            action="Explore Challenge Briefs"
+          />
+        ) : (
+          <FinalCta
+            title="Ready to Begin the Engineering Sprint?"
+            description="Sign in with your provisioned team credentials or review the event timeline before the challenge release."
+            href="/login"
+            action="Enter Console"
+          />
+        )}
+      </ScrollReveal>
     </div>
   );
 }

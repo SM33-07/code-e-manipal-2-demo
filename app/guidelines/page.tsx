@@ -1,5 +1,6 @@
 import { BookOpenCheck, CircleHelp, FileCheck2, ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import { isDemoMode } from "@/lib/demo/demoMode";
 
 const guidance = [
   { icon: ShieldCheck, title: "Account access", text: "Use your provisioned credentials. Your portal access and actions are tied to your assigned role." },
@@ -29,7 +30,9 @@ export default function GuidelinesPage() {
       </div>
       <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 sm:flex-row sm:items-center sm:justify-between shadow-sm">
         <div className="flex items-start gap-3"><CircleHelp className="mt-0.5 size-5 shrink-0 text-secondary" aria-hidden="true" /><p className="text-sm text-muted-foreground">Need help with a team or submission? Check event announcements first, then contact the official support channel shared by organisers.</p></div>
-        <Link href="/dashboard" className="shrink-0 rounded-lg border border-border bg-accent/50 px-4 py-2 text-center text-sm font-semibold text-foreground hover:bg-accent transition-colors">Back to dashboard</Link>
+        <Link href={isDemoMode() ? "/problem-statements" : "/dashboard"} className="shrink-0 rounded-lg border border-border bg-accent/50 px-4 py-2 text-center text-sm font-semibold text-foreground hover:bg-accent transition-colors">
+          {isDemoMode() ? "View problem statements" : "Back to dashboard"}
+        </Link>
       </div>
     </section>
   );

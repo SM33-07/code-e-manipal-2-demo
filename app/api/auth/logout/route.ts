@@ -16,8 +16,20 @@ import { logAudit, extractClientIp } from '@/lib/auth/telemetry';
 import { logger } from '@/lib/utils/logger';
 import { successResponse, Errors } from '@/lib/utils/response';
 import { revokeTeamSession } from '@/lib/auth/teamSessionLimit';
+import { isDemoMode } from '@/lib/demo/demoMode';
 
 export async function POST(req: NextRequest) {
+  if (isDemoMode()) {
+    const res = successResponse({ message: 'Logged out successfully.' });
+    res.cookies.set('cem_session_id', '', {
+      path: '/',
+      maxAge: 0,
+      httpOnly: true,
+      sameSite: 'lax',
+    });
+    return res;
+  }
+
   try {
     // CSRF validation (browser mutation)
     const csrfError = validateCsrf(req);

@@ -22,6 +22,7 @@ import type { Profile, UserRole } from '@/types';
 import type { User } from '@supabase/supabase-js';
 import { logger } from '@/lib/utils/logger';
 import { verifyTeamSessionActive } from './teamSessionLimit';
+import { isDemoMode } from '@/lib/demo/demoMode';
 
 export interface ValidatedSession {
   /** Supabase GoTrue user object */
@@ -47,6 +48,11 @@ export async function validateSession(): Promise<
   | { session: null; error: 'UNAUTHENTICATED' | 'DISABLED' | 'FORCE_LOGOUT' | 'NO_PROFILE' | 'DB_ERROR' }
 > {
   try {
+    // In synthetic demo mode without Supabase, sessions are always unauthenticated
+    if (isDemoMode() && (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY)) {
+      return { session: null, error: 'UNAUTHENTICATED' };
+    }
+
     // 1. Validate GoTrue session (cookie or Authorization: Bearer <token>)
     const headerList = await headers();
     const authHeader = headerList.get('authorization');

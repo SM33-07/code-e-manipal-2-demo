@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { query } from '@/lib/db';
 import { successResponse, Errors } from '@/lib/utils/response';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { isDemoMode, assertDemoModeSafety } from '@/lib/demo/demoMode';
 import { logger } from '@/lib/utils/logger';
 
 /**
@@ -12,6 +13,12 @@ import { logger } from '@/lib/utils/logger';
  */
 export async function POST(req: NextRequest) {
   try {
+    // ── Demo Mode Read-Only Guard ──
+    if (isDemoMode()) {
+      assertDemoModeSafety();
+      return Errors.FORBIDDEN('Demo Mode Active: Password setup is disabled in this read-only showcase.');
+    }
+
     const supabase = await createSupabaseServerClient();
     
     // Support both cookie-based auth and bearer token header fallback

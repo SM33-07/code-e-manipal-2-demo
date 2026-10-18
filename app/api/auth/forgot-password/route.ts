@@ -5,6 +5,7 @@ import { checkEndpointRateLimit, serverSleep } from '@/lib/auth/throttle';
 import { extractClientIp, hashClientIp } from '@/lib/auth/telemetry';
 import { getSetupPasswordRedirectUrl } from '@/lib/auth/siteUrl';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { isDemoMode, assertDemoModeSafety } from '@/lib/demo/demoMode';
 import { logger } from '@/lib/utils/logger';
 import { Errors, successResponse } from '@/lib/utils/response';
 
@@ -16,6 +17,12 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(req: NextRequest) {
   try {
+    // ── Demo Mode Read-Only Guard ──
+    if (isDemoMode()) {
+      assertDemoModeSafety();
+      return Errors.FORBIDDEN('Demo Mode Active: Password recovery and email delivery are disabled in this read-only showcase.');
+    }
+
     // 1. CSRF validation
     const csrfError = validateCsrf(req);
     if (csrfError) return csrfError;

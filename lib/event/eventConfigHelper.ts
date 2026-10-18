@@ -1,6 +1,8 @@
 import { query } from '@/lib/db';
 import { getEffectiveResultsRelease, ResultsReleaseState } from './results-release';
 import { EventPhase } from './state-machine';
+import { isDemoMode, getDemoDataSourceMode } from '@/lib/demo/demoMode';
+import { DEMO_EVENT_CONFIG } from '@/lib/demo/demoFixtures';
 
 export type SubmissionWindowStatus =
   | 'OPEN'
@@ -288,6 +290,10 @@ export async function getEventConfigState(): Promise<EventConfigState> {
  * - server_time
  */
 export async function getPublicEventConfig(): Promise<PublicEventConfig> {
+  if (isDemoMode() && getDemoDataSourceMode() === 'synthetic') {
+    return DEMO_EVENT_CONFIG;
+  }
+
   const fullConfig = await getEventConfigState();
   const now = new Date();
 

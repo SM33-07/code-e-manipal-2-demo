@@ -16,6 +16,8 @@
 
 import { pool, query } from '@/lib/db';
 import { logger } from '@/lib/utils/logger';
+import { isDemoMode, getDemoDataSourceMode } from '@/lib/demo/demoMode';
+import { getDemoTimeline } from '@/lib/demo/demoFixtures';
 
 export const EVENT_TIMEZONE = 'Asia/Kolkata';
 
@@ -90,6 +92,10 @@ export async function getPublishedTimeline(): Promise<{
   serverTime: string;
   config: { is_published: boolean; published_at: string | null; published_version: number };
 }> {
+  if (isDemoMode() && getDemoDataSourceMode() === 'synthetic') {
+    return getDemoTimeline();
+  }
+
   const { rows } = await query(`
     SELECT 
       tc.is_published as cfg_is_published,

@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Sparkles } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Sparkles, ShieldCheck } from "lucide-react";
 import clsx from "clsx";
 import { useAuth } from "@/components/AuthProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { BrandLogo } from "@/components/BrandLogo";
+import { isDemoMode } from "@/lib/demo/demoMode";
 
 import { SpecularButton } from "@/components/ui/SpecularButton";
 
@@ -31,6 +32,10 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isDemoMode()) {
+      triggerError("Authentication is disabled in public demo mode. Please explore the public sections below.");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -89,12 +94,43 @@ export default function LoginPage() {
             <span>Code-e-Manipal · Secure portal</span>
             </div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            Sign in to build.
+            {isDemoMode() ? "Public Demo Mode" : "Sign in to build."}
             </h1>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Use your provisioned participant, judge, or administrator credentials.
+            {isDemoMode()
+              ? "All mutations and credentials authentication are disabled. Explore the platform in read-only mode."
+              : "Use your provisioned participant, judge, or administrator credentials."}
             </p>
           </div>
+
+          {/* Demo Mode Notice Box */}
+          {isDemoMode() && (
+            <div className="mb-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs text-foreground">
+              <div className="flex items-start gap-2.5">
+                <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                <div className="space-y-2">
+                  <p className="font-bold text-foreground">Read-Only Demonstration</p>
+                  <p className="text-muted-foreground leading-relaxed">
+                    This portfolio deployment does not accept user logins. You can freely explore the portal features anonymously:
+                  </p>
+                  <div className="flex flex-col gap-1.5 pt-1 font-semibold">
+                    <Link href="/problem-statements" className="text-primary hover:underline">
+                      → Browse 35 Problem Statements
+                    </Link>
+                    <Link href="/timeline" className="text-primary hover:underline">
+                      → View Event Timeline & Schedule
+                    </Link>
+                    <Link href="/results" className="text-primary hover:underline">
+                      → View Results Leaderboard
+                    </Link>
+                    <Link href="/" className="text-secondary hover:underline">
+                      → Return to Home Page
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Form */}
           <form onSubmit={handleLogin} className="flex flex-col gap-4">

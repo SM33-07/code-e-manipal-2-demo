@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation"
 import { HeritageBackground } from "@/components/HeritageBackground"
 import { SiteFooter } from "@/components/SiteFooter"
 import { ScrollReveal } from "@/components/ui/ScrollReveal"
+import { DemoModeBanner } from "@/components/DemoModeBanner"
 
 const Navbar = dynamic(() => import("@/components/Navbar"), { ssr: false })
 
@@ -17,7 +18,13 @@ interface Announcement {
   type: "info" | "warning" | "urgent" | "success";
 }
 
-function AnnouncementBanner({ onActiveChange }: { onActiveChange: (active: boolean) => void }) {
+function AnnouncementBanner({
+  onActiveChange,
+  topOffset = 0,
+}: {
+  onActiveChange: (active: boolean) => void;
+  topOffset?: number;
+}) {
   const { isAuthenticated } = useAuth()
   const [announcement, setAnnouncement] = useState<Announcement | null>(null)
   const [publishingAlert, setPublishingAlert] = useState<boolean>(false)
@@ -73,7 +80,8 @@ function AnnouncementBanner({ onActiveChange }: { onActiveChange: (active: boole
   if (publishingAlert) {
     return (
       <div 
-        className="fixed top-0 left-0 right-0 z-[9999] h-10 px-4 flex items-center justify-center gap-2 border-b shadow-sm transition-all duration-300 bg-amber-600 dark:bg-amber-950 text-white border-amber-500 animate-pulse"
+        style={{ top: `${topOffset}px` }}
+        className="fixed left-0 right-0 z-40 h-10 px-4 flex items-center justify-center gap-2 border-b shadow-sm transition-all duration-300 bg-amber-600 dark:bg-amber-950 text-white border-amber-500 animate-pulse"
       >
         <span className="text-sm">🏆</span>
         <p className="text-xs font-bold tracking-wide text-center uppercase truncate max-w-[90%]">
@@ -108,7 +116,8 @@ function AnnouncementBanner({ onActiveChange }: { onActiveChange: (active: boole
 
   return (
     <div 
-      className={`fixed top-0 left-0 right-0 z-[9999] h-10 px-4 flex items-center justify-center gap-2 border-b shadow-sm transition-all duration-300 ${style.bg}`}
+      style={{ top: `${topOffset}px` }}
+      className={`fixed left-0 right-0 z-40 h-10 px-4 flex items-center justify-center gap-2 border-b shadow-sm transition-all duration-300 ${style.bg}`}
     >
       <span className="text-sm">{style.icon}</span>
       <p className="text-xs font-semibold tracking-wide text-center uppercase truncate max-w-[90%]">
@@ -130,10 +139,11 @@ function Shell({ children }: { children: React.ReactNode }) {
   // These pages intentionally serve public information too. Once a session is
   // known, they participate in the portal shell instead of losing account and
   // navigation access.
-  const isSharedPortalRoute = ["/timeline", "/problem-statements", "/gallery", "/results"].includes(pathname)
+  const isSharedPortalRoute = ["/timeline", "/problem-statements", "/results"].includes(pathname)
   const isPortalRoute = isProtectedPortalRoute || (isAuthenticated && isSharedPortalRoute)
 
   const [hasBanner, setHasBanner] = useState(false)
+  const [demoBannerHeight, setDemoBannerHeight] = useState(0)
 
   useEffect(() => {
     if (!isPortalRoute) setHasBanner(false)
@@ -141,23 +151,32 @@ function Shell({ children }: { children: React.ReactNode }) {
 
   if (isLogin) {
     return (
-      <>
+      <div style={{ paddingTop: demoBannerHeight > 0 ? `${demoBannerHeight}px` : undefined }}>
         <HeritageBackground />
+        <DemoModeBanner onHeightChange={setDemoBannerHeight} />
         {children}
-      </>
+      </div>
     )
   }
 
   const isFullBleedRoute = pathname.startsWith("/admin") || pathname.startsWith("/judge") || pathname.startsWith("/judging")
+  const totalTopOffset = demoBannerHeight + (hasBanner ? 40 : 0)
 
   return (
     <>
       <HeritageBackground />
-      {isPortalRoute && <AnnouncementBanner onActiveChange={setHasBanner} />}
+      <DemoModeBanner onHeightChange={setDemoBannerHeight} />
+      {isPortalRoute && (
+        <AnnouncementBanner onActiveChange={setHasBanner} topOffset={demoBannerHeight} />
+      )}
       
-      <div style={{ paddingTop: hasBanner ? "40px" : "0px" }}>
+      <div style={{ paddingTop: `${totalTopOffset}px` }}>
         <Suspense fallback={null}>
-          <Navbar portal={isPortalRoute} className={`cem-navbar-shell ${hasBanner ? "top-[40px]" : "top-0"}`} />
+          <Navbar
+            portal={isPortalRoute}
+            className="cem-navbar-shell"
+            style={{ top: `${totalTopOffset}px` }}
+          />
         </Suspense>
         <div className={`relative z-10 min-h-screen ${isFullBleedRoute ? "pt-20" : isLanding ? "pt-16 pb-12 sm:pt-20" : "pt-24 pb-12"}`}>
           {children}

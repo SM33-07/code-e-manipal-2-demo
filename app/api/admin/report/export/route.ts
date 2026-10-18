@@ -30,7 +30,7 @@ export const GET = withAuth(async (req) => {
       .select('id, name, hackathon');
     if (e2) throw e2;
 
-    const teamMap = new Map((teams ?? []).map(t => [t.id, t]));
+    const teamMap = new Map<string, any>((teams ?? []).map((t: any) => [t.id, t]));
 
     // 3. Build CSV rows
     const headers = 'Rank,Team Name,Project Title,Category,Summary,Technologies,GitHub URL,Status,Submitted At';

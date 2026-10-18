@@ -133,7 +133,7 @@ export const GET = withAuth(async (req, { user, profile }) => {
     // Optional status filter
     const status = req.nextUrl.searchParams.get('status');
     const filtered = status
-      ? rows.filter(i => i.submissions?.status === status)
+      ? rows.filter((i: any) => i.submissions?.status === status)
       : rows;
 
     logger.info('GET /api/judging/assignments', {

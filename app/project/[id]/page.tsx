@@ -25,6 +25,15 @@ const JudgeScorePanel = dynamic(
   { ssr: false }
 );
 
+function toVideoEmbedUrl(url: string): string {
+  if (url.includes('/embed/')) return url;
+  const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/i);
+  if (match && match[1]) {
+    return `https://www.youtube-nocookie.com/embed/${match[1]}`;
+  }
+  return url;
+}
+
 export default function ProjectDetail() {
   const params = useParams()
   const router = useRouter()
@@ -93,13 +102,25 @@ export default function ProjectDetail() {
                 {project.demo_video_url && (
                   <GlassCard className="p-6 border border-border bg-card">
                     <h2 className="text-foreground text-xl font-semibold mb-4">Demo Video</h2>
-                    <video
-                      src={project.demo_video_url}
-                      controls
-                      autoPlay
-                      loop
-                      className="rounded-lg w-full max-h-[480px] bg-black"
-                    />
+                    {project.demo_video_url.includes('youtube.com') ||
+                    project.demo_video_url.includes('youtu.be') ||
+                    project.demo_video_url.includes('/embed/') ? (
+                      <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black">
+                        <iframe
+                          src={toVideoEmbedUrl(project.demo_video_url)}
+                          title={project.title || "Project Demo Video"}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          className="w-full h-full border-0"
+                        />
+                      </div>
+                    ) : (
+                      <video
+                        src={project.demo_video_url}
+                        controls
+                        className="rounded-lg w-full max-h-[480px] bg-black"
+                      />
+                    )}
                   </GlassCard>
                 )}
 

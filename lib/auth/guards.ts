@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateSession, ValidatedSession } from './session';
 import { validateCsrf } from './csrf';
+import { isDemoMode, assertDemoModeSafety } from '@/lib/demo/demoMode';
 import { query } from '@/lib/db';
 import type { UserRole } from '@/types';
 import { Errors } from '@/lib/utils/response';
@@ -58,6 +59,17 @@ export function withGuardedAuth(handler: GuardedHandler, requiredRole?: UserRole
   ): Promise<NextResponse> => {
     const context = args[0] as { params?: Record<string, string> | Promise<Record<string, string>> } | undefined;
     try {
+      // 0. Demo Mode Read-Only Mutation Guard
+      if (isDemoMode()) {
+        assertDemoModeSafety();
+        const method = req.method.toUpperCase();
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+          return Errors.FORBIDDEN(
+            'Demo Mode Active: All data modifications, submissions, judging, and administrative actions are strictly disabled in this read-only showcase.'
+          );
+        }
+      }
+
       // 1. CSRF validation for state-changing requests
       const csrfError = validateCsrf(req);
       if (csrfError) return csrfError;

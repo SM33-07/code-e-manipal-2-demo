@@ -133,12 +133,12 @@ export async function autoAssignAllJudges(): Promise<number> {
   const shuffled = shuffleArray(submissions);
 
   // Build assignments round-robin
-  const assignments = shuffled.map((sub, i) => ({
+  const assignments = shuffled.map((sub: any, i) => ({
     judge_id: judges[i % judges.length].id,
     submission_id: sub.id,
   }));
 
-  const subIds = submissions.map((s) => s.id);
+  const subIds = submissions.map((s: any) => s.id);
   
   // Clear existing assignments for these submissions
   await query('DELETE FROM public.judge_assignments WHERE submission_id = ANY($1::uuid[])', [subIds]);

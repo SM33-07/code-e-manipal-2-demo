@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { logger } from '@/lib/utils/logger';
+import { isDemoMode } from '@/lib/demo/demoMode';
 
 /**
  * GET /api/auth/callback
@@ -11,6 +12,10 @@ import { logger } from '@/lib/utils/logger';
  */
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = req.nextUrl;
+
+  if (isDemoMode()) {
+    return NextResponse.redirect(`${origin}/login?notice=demo_mode`);
+  }
   const code  = searchParams.get('code');
   const type  = searchParams.get('type');
   const error = searchParams.get('error');

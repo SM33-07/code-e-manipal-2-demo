@@ -3,6 +3,8 @@ import { query } from '@/lib/db';
 import { successResponse, Errors } from '@/lib/utils/response';
 import { logger } from '@/lib/utils/logger';
 import { getEventConfigState } from '@/lib/event/eventConfigHelper';
+import { isDemoMode, getDemoDataSourceMode } from '@/lib/demo/demoMode';
+import { DEMO_RANKED_RESULTS } from '@/lib/demo/demoFixtures';
 
 /**
  * GET /api/results/public
@@ -11,6 +13,16 @@ import { getEventConfigState } from '@/lib/event/eventConfigHelper';
  */
 export async function GET(req: NextRequest) {
   try {
+    // ── Synthetic Demo Mode Guard ──
+    if (isDemoMode() && getDemoDataSourceMode() === 'synthetic') {
+      return successResponse(DEMO_RANKED_RESULTS, {
+        published: true,
+        total: DEMO_RANKED_RESULTS.length,
+        is_demo: true,
+        disclaimer: 'Public Demo Mode: The standings, teams, and scores displayed below are synthetic sample records for demonstration purposes.',
+      });
+    }
+
     // 1. Check event_config for results_published state
     const config = await getEventConfigState();
     let isPublished = config.results_published === 'true';

@@ -201,7 +201,7 @@ export const POST = withAuth(async (req, { user: adminUser }) => {
         'SELECT user_id FROM public.team_members WHERE team_id = $1',
         [team_id]
       );
-      const isAlreadyInTeam = existingMembers.some((m) => m.user_id === user_id);
+      const isAlreadyInTeam = existingMembers.some((m: any) => m.user_id === user_id);
       if (!isAlreadyInTeam && existingMembers.length >= 6) {
         return Errors.BAD_REQUEST(`Team "${targetTeam.name}" is already at full capacity (6 members maximum)`);
       }

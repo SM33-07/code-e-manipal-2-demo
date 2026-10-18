@@ -115,7 +115,7 @@ export const GET = withAuth(async (req: NextRequest) => {
     const actionsRes = await query(
       `SELECT DISTINCT action FROM public.audit_logs ORDER BY action ASC LIMIT 50`
     );
-    const availableActions = actionsRes.rows.map((r) => r.action);
+    const availableActions = actionsRes.rows.map((r: any) => r.action);
 
     return successResponse(dataRes.rows, {
       pagination: {

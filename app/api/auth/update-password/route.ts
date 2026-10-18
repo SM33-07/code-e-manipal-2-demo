@@ -3,6 +3,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { Errors, successResponse } from '@/lib/utils/response';
 import { logger } from '@/lib/utils/logger';
 
+import { isDemoMode } from '@/lib/demo/demoMode';
+
 /**
  * POST /api/auth/update-password
  *
@@ -10,6 +12,10 @@ import { logger } from '@/lib/utils/logger';
  * Ensures client-side code never needs Supabase service/anon keys to update credentials.
  */
 export async function POST(req: NextRequest) {
+  if (isDemoMode()) {
+    return Errors.FORBIDDEN('Password updates are disabled in public demo mode.');
+  }
+
   try {
     const supabase = await createSupabaseServerClient();
 

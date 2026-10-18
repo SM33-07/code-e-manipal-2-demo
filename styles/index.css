@@ -1,5 +1,9 @@
 /* CODE-e-MANIPAL 2.0 — Architectural Styles & Utilities */
 
+html {
+  scroll-padding-top: calc(var(--demo-banner-height, 0px) + 80px);
+}
+
 /* Subtle Jali Architectural Pattern */
 .bg-jali-pattern {
   background-color: var(--background);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runSchedulerTick } from "@/services/schedulerService";
 import { successResponse, Errors } from "@/lib/utils/response";
+import { isDemoMode, assertDemoModeSafety } from "@/lib/demo/demoMode";
 import { logger } from "@/lib/utils/logger";
 
 /**
@@ -11,6 +12,18 @@ import { logger } from "@/lib/utils/logger";
  */
 async function handleScheduler(req: NextRequest) {
   try {
+    // ── Demo Mode Read-Only Guard ──
+    if (isDemoMode()) {
+      assertDemoModeSafety();
+      if (req.method === 'POST') {
+        return Errors.FORBIDDEN('Background scheduler mutations are disabled in public demo mode.');
+      }
+      return successResponse({
+        status: 'disabled_in_demo_mode',
+        message: 'Background scheduler jobs are disabled in public demo mode.',
+      });
+    }
+
     const authHeader = req.headers.get("authorization");
     const cronSecret = process.env.CRON_SECRET;
 

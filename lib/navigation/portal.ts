@@ -39,9 +39,27 @@ export function getPortalNavigation(role: string): NavigationItem[] {
   return portalNavigation[(role in portalNavigation ? role : "participant") as PortalRole];
 }
 
+import { isDemoMode } from '../demo/demoMode.ts';
+
 export const publicNavigation: NavigationItem[] = [
   { name: "Home", link: "/" },
   { name: "Problem Statements", link: "/problem-statements" },
   { name: "Timeline", link: "/timeline" },
   { name: "FAQ", link: "/faq" },
 ];
+
+export const demoPublicNavigation: NavigationItem[] = [
+  { name: "Home", link: "/" },
+  { name: "Problem Statements", link: "/problem-statements" },
+  { name: "Timeline", link: "/timeline" },
+  { name: "Results", link: "/results" },
+  { name: "Guidelines", link: "/guidelines" },
+  { name: "FAQ", link: "/faq" },
+];
+
+export function getPublicNavigation(): NavigationItem[] {
+  if (isDemoMode()) {
+    return demoPublicNavigation;
+  }
+  return publicNavigation;
+}

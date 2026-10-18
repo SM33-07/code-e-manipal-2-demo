@@ -197,6 +197,7 @@ export default function TimelinePage() {
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>(RAW_SCHEDULE);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const isDemo = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
   // Authoritative real-time sync with database server clock & published events
   useEffect(() => {
@@ -219,7 +220,7 @@ export default function TimelinePage() {
             title: e.title,
             location: e.venue || "Manipal University Jaipur",
             description: e.description || "",
-            phase: e.day_label === "DAY 1" ? "day1" : "day2",
+            phase: String(e.day_label || '').trim().toUpperCase().includes('DAY 1') ? "day1" : "day2",
             type: (e.event_type as any) || "general",
             status: e.status || "upcoming",
           }));
@@ -462,10 +463,10 @@ export default function TimelinePage() {
             <ArrowRight size={13} />
           </Link>
           <Link
-            href="/dashboard"
+            href={isDemo ? "/results" : "/dashboard"}
             className="px-4 py-2 rounded-xl border border-border bg-background text-xs font-semibold text-foreground hover:bg-accent transition-colors"
           >
-            My Workspace
+            {isDemo ? "View Results" : "My Workspace"}
           </Link>
         </div>
       </div>

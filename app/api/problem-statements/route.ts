@@ -48,7 +48,8 @@ export async function GET(req: NextRequest) {
         'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
       },
     });
-  } catch (error) {
+  } catch (error: any) {
+    console.error('Failed to fetch public problem statements:', error?.message, error?.stack);
     return Errors.INTERNAL('Failed to fetch public problem statements.');
   }
 }

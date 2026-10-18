@@ -4,6 +4,8 @@ import { successResponse, Errors, NO_CACHE_HEADERS } from "@/lib/utils/response"
 import { isValidUUID } from "@/lib/utils/validate";
 import { logger } from "@/lib/utils/logger";
 import { query } from "@/lib/db";
+import { isDemoMode } from "@/lib/demo/demoMode";
+import { getDemoSubmission } from "@/lib/demo/demoFixtures";
 import {
   getSubmissionById,
   getUserTeamId,
@@ -20,8 +22,9 @@ import { validateUpdateSubmission } from "@/lib/validation/submission";
  *   Returns non-disclosing 404 (NOT_FOUND) if submission does not exist or belongs to another team.
  * - Judge: Allowed only if assigned to this submission. Non-disclosing 404 if not assigned.
  * - Admin: Allowed.
+ * - Demo Mode: Publicly serves sanitized demo project showcases matching numeric IDs from projects catalogue.
  */
-export const GET = withAuth(async (req, { user, profile, params }) => {
+const standardGetHandler = withAuth(async (req, { user, profile, params }) => {
   const id = params?.id!;
 
   if (!isValidUUID(id)) {
@@ -56,6 +59,21 @@ export const GET = withAuth(async (req, { user, profile, params }) => {
     return Errors.INTERNAL('Internal server error', NO_CACHE_HEADERS);
   }
 });
+
+export const GET = async (req: NextRequest, ...args: any[]) => {
+  const context = args[0] as { params?: Record<string, string> | Promise<Record<string, string>> } | undefined;
+  const resolvedParams = context?.params instanceof Promise ? await context.params : context?.params;
+  const id = resolvedParams?.id;
+
+  if (isDemoMode() && id) {
+    const demoProject = getDemoSubmission(id);
+    if (demoProject) {
+      return successResponse(demoProject, undefined, 200, NO_CACHE_HEADERS);
+    }
+  }
+
+  return standardGetHandler(req, ...args);
+};
 
 /**
  * PUT /api/submissions/[id]

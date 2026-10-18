@@ -11,7 +11,8 @@ import { motion, AnimatePresence } from "framer-motion"
 import { useState, useEffect } from "react"
 import { Bell, Clock, AlertCircle, Info, X, CheckCircle2 } from "lucide-react"
 import { BrandLogo } from "@/components/BrandLogo"
-import { getPortalNavigation, publicNavigation } from "@/lib/navigation/portal"
+import { getPortalNavigation, publicNavigation, getPublicNavigation } from "@/lib/navigation/portal"
+import { isDemoMode } from "@/lib/demo/demoMode"
 
 import {
   Navbar as ResizableNavbar,
@@ -34,7 +35,15 @@ interface LiveNotification {
   read_at?: string | null;
 }
 
-export default function Navbar({ className, portal = false }: { className?: string; portal?: boolean }) {
+export default function Navbar({
+  className,
+  style,
+  portal = false,
+}: {
+  className?: string;
+  style?: React.CSSProperties;
+  portal?: boolean;
+}) {
   const { role, logout, user, isAuthenticated } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
@@ -314,12 +323,12 @@ export default function Navbar({ className, portal = false }: { className?: stri
 
   // A public visit always receives public navigation, even when an existing
   // session is present. The portal shell explicitly opts into role-aware links.
-  const navItems = portal ? getPortalNavigation(role) : publicNavigation
+  const navItems = portal ? getPortalNavigation(role) : getPublicNavigation();
 
   const isSubmissionForm = pathname?.startsWith("/submit") || pathname?.startsWith("/SubmissionForm")
 
   return (
-    <ResizableNavbar isSubmissionForm={isSubmissionForm} className={className}>
+    <ResizableNavbar isSubmissionForm={isSubmissionForm} className={className} style={style}>
       {/* ── Desktop Navigation ── */}
       <NavBody>
         {/* Brand / Logo Region with deterministic boundary */}
@@ -471,7 +480,12 @@ export default function Navbar({ className, portal = false }: { className?: stri
           </div>}
 
           {/* User Auth / Enter Console CTA */}
-          {!portal || !isAuthenticated ? (
+          {isDemoMode() ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs font-bold tracking-wide">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Demo Mode
+            </span>
+          ) : !portal || !isAuthenticated ? (
             <Link
               href="/login"
               className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold shadow-sm hover:opacity-95 transition-opacity"

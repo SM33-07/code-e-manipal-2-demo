@@ -4,6 +4,7 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "next dev",
+    "dev:demo": "node scripts/run-demo.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint ."

@@ -12,6 +12,8 @@
 
 import { pool, query } from '../lib/db.ts';
 import { logger } from '../lib/utils/logger.ts';
+import { isDemoMode, getDemoDataSourceMode } from '@/lib/demo/demoMode';
+import { getSyntheticDemoProblemStatements } from '@/lib/demo/demoFixtures';
 
 export interface ProblemStatementRelease {
   id: string;
@@ -109,6 +111,10 @@ export interface PublicProblemStatementsResponse {
  * Completely excludes internal review notes, held items, and unapproved proposals.
  */
 export async function getPublicProblemStatements(): Promise<PublicProblemStatementsResponse> {
+  if (isDemoMode() && getDemoDataSourceMode() === 'synthetic') {
+    return getSyntheticDemoProblemStatements();
+  }
+
   // 1. Fetch active release pointer from event_config
   const { rows: configRows } = await query(`
     SELECT active_problem_release_id

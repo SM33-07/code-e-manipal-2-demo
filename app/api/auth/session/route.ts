@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { Errors, successResponse } from '@/lib/utils/response';
 import { cookies } from 'next/headers';
 import { query } from '@/lib/db';
+import { isDemoMode, assertDemoModeSafety } from '@/lib/demo/demoMode';
 import { logger } from '@/lib/utils/logger';
 
 /**
@@ -14,6 +15,12 @@ import { logger } from '@/lib/utils/logger';
  */
 export async function POST(req: NextRequest) {
   try {
+    // ── Demo Mode Read-Only Guard ──
+    if (isDemoMode()) {
+      assertDemoModeSafety();
+      return Errors.FORBIDDEN('Demo Mode Active: Session establishment is disabled in this read-only showcase.');
+    }
+
     const body = await req.json().catch(() => ({}));
     const { access_token, refresh_token, code, token_hash, type } = body;
     const supabase = await createSupabaseServerClient();

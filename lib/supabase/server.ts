@@ -1,13 +1,23 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { cache } from "react";
+import { isDemoMode, assertDemoModeSafety } from "@/lib/demo/demoMode";
 
-export const createSupabaseServerClient = cache(async () => {
+const safeCache = typeof cache === 'function' ? cache : (<T extends (...args: any[]) => any>(fn: T): T => fn);
+
+export const createSupabaseServerClient = safeCache(async () => {
   const cookieStore = await cookies();
 
+  if (isDemoMode()) {
+    assertDemoModeSafety();
+  }
+
+  const supabaseUrl = process.env.SUPABASE_URL || (isDemoMode() ? "https://demo-mock.supabase.co" : "");
+  const supabaseKey = process.env.SUPABASE_ANON_KEY || (isDemoMode() ? "demo-mock-anon-key" : "");
+
   return createServerClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseKey,
     {
       cookies: {
         getAll() {

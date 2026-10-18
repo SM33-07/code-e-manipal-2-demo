@@ -14,6 +14,7 @@ import Link from "next/link";
 interface NavbarProps {
   children: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties;
   isSubmissionForm?: boolean;
 }
 
@@ -53,7 +54,7 @@ interface MobileNavMenuProps {
   onClose: () => void;
 }
 
-export const Navbar = ({ children, className, isSubmissionForm }: NavbarProps) => {
+export const Navbar = ({ children, className, style, isSubmissionForm }: NavbarProps) => {
   const ref = useRef<HTMLDivElement>(null);
   const { scrollY } = useScroll();
   const [visible, setVisible] = useState<boolean>(false);
@@ -69,8 +70,9 @@ export const Navbar = ({ children, className, isSubmissionForm }: NavbarProps) =
   return (
     <div
       ref={ref}
+      style={style}
       className={cn(
-        "fixed inset-x-0 top-0 z-50 w-full flex flex-col items-center transition-all duration-300 pointer-events-none",
+        "fixed inset-x-0 top-0 z-40 w-full flex flex-col items-center transition-all duration-300 pointer-events-none",
         visible ? "py-2 sm:py-2.5" : "py-3 sm:py-4",
         className
       )}

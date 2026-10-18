@@ -33,6 +33,7 @@ import { cookies } from 'next/headers';
 import { query } from '@/lib/db';
 import { getUserTeamId } from '@/services/submissionService';
 import { registerTeamSession, TEAM_MAX_CONCURRENT_SESSIONS } from '@/lib/auth/teamSessionLimit';
+import { isDemoMode, assertDemoModeSafety } from '@/lib/demo/demoMode';
 import crypto from 'crypto';
 
 /** Generic error message for enumeration resistance (ADR-007) */
@@ -40,6 +41,12 @@ const GENERIC_AUTH_ERROR = 'Invalid identifier or password.';
 
 export async function POST(req: NextRequest) {
   try {
+    // ── Demo Mode Read-Only Guard ──
+    if (isDemoMode()) {
+      assertDemoModeSafety();
+      return Errors.FORBIDDEN('Demo Mode Active: Authentication and login are disabled in this public read-only demonstration.');
+    }
+
     // ── CSRF validation (browser mutation) ──
     const csrfError = validateCsrf(req);
     if (csrfError) return csrfError;

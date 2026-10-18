@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
+import { isDemoMode, assertDemoModeSafety } from '@/lib/demo/demoMode';
 
 export async function proxy(req: NextRequest) {
   let res = NextResponse.next({
@@ -7,6 +8,10 @@ export async function proxy(req: NextRequest) {
       headers: req.headers,
     },
   });
+
+  if (isDemoMode()) {
+    assertDemoModeSafety();
+  }
 
   const { pathname } = req.nextUrl;
 
@@ -16,6 +21,7 @@ export async function proxy(req: NextRequest) {
     pathname === '/about' ||
     pathname === '/schedule' ||
     pathname === '/problem-statements' ||
+    pathname.startsWith('/problem-statements/') ||
     pathname === '/prizes' ||
     pathname === '/judges' ||
     pathname === '/sponsors' ||
@@ -24,6 +30,8 @@ export async function proxy(req: NextRequest) {
     pathname === '/contact' ||
     pathname === '/enter' ||
     pathname === '/results' ||
+    pathname === '/guidelines' ||
+    pathname === '/timeline' ||
     pathname.startsWith('/project/');
 
   // 2. Auth routes
@@ -48,29 +56,36 @@ export async function proxy(req: NextRequest) {
 
   // Resolve Supabase user from session cookies
   let user = null;
-  const supabase = createServerClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get: (name) => req.cookies.get(name)?.value,
-        set: (name, value, options: CookieOptions) => {
-          req.cookies.set({ name, value, ...options });
-          res.cookies.set({ name, value, ...options });
-        },
-        remove: (name, options: CookieOptions) => {
-          req.cookies.set({ name, value: '', ...options });
-          res.cookies.set({ name, value: '', ...options });
-        },
-      },
-    }
-  );
+  let supabase: any = null;
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  try {
-    const { data } = await supabase.auth.getUser();
-    user = data.user;
-  } catch {
-    user = null;
+  if (supabaseUrl && supabaseAnonKey) {
+    try {
+      supabase = createServerClient(
+        supabaseUrl,
+        supabaseAnonKey,
+        {
+          cookies: {
+            get: (name) => req.cookies.get(name)?.value,
+            set: (name, value, options: CookieOptions) => {
+              req.cookies.set({ name, value, ...options });
+              res.cookies.set({ name, value, ...options });
+            },
+            remove: (name, options: CookieOptions) => {
+              req.cookies.set({ name, value: '', ...options });
+              res.cookies.set({ name, value: '', ...options });
+            },
+          },
+        }
+      );
+
+      const { data } = await supabase.auth.getUser();
+      user = data?.user || null;
+    } catch {
+      user = null;
+      supabase = null;
+    }
   }
 
   // Unauthenticated user attempting to access protected route -> redirect to /login
@@ -82,7 +97,7 @@ export async function proxy(req: NextRequest) {
   }
 
   // Role resolution for authenticated users
-  if (user) {
+  if (user && supabase) {
     // The profile table is the authoritative role source. Metadata is not used
     // for authorization decisions because it can lag behind an administrative
     // role change.

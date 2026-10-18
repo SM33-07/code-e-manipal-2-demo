@@ -8,14 +8,6 @@ import { Sparkles, Trophy, Users, Cpu } from "lucide-react";
 import { SpotlightCard } from "@/components/ui/SpotlightCard";
 
 export default function Gallery() {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) return null;
-
   return (
     <div className="min-h-screen text-foreground relative">
       {/* Hero Section */}

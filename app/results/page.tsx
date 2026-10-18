@@ -44,6 +44,8 @@ export default function ResultsPage() {
   const [error, setError] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
 
+  const [isDemo, setIsDemo] = useState(process.env.NEXT_PUBLIC_DEMO_MODE === 'true');
+
   useEffect(() => {
     let isMounted = true;
     async function fetchResults() {
@@ -55,6 +57,9 @@ export default function ResultsPage() {
         }
         const json = await res.json();
         if (!isMounted) return;
+
+        const isDemoActive = Boolean(json.meta?.is_demo || process.env.NEXT_PUBLIC_DEMO_MODE === 'true');
+        setIsDemo(isDemoActive);
 
         if (json.meta && json.meta.published) {
           setIsPublished(true);
@@ -94,14 +99,16 @@ export default function ResultsPage() {
         <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6">
           <div className="space-y-3 max-w-2xl">
             <div className="inline-flex items-center gap-2 border-b border-secondary/50 pb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-secondary">
-              {isPublished ? <Trophy size={14} className="text-secondary" /> : <Lock size={14} />}
-              <span>{isPublished ? "OFFICIAL AWARDS ANNOUNCEMENT" : "RESULTS CEREMONY EMBARGO"}</span>
+              {isDemo ? <Sparkles size={14} className="text-secondary" /> : isPublished ? <Trophy size={14} className="text-secondary" /> : <Lock size={14} />}
+              <span>{isDemo ? "PUBLIC DEMO · SAMPLE SHOWCASE DATA" : isPublished ? "OFFICIAL AWARDS ANNOUNCEMENT" : "RESULTS CEREMONY EMBARGO"}</span>
             </div>
             <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-foreground">
-              Official Results
+              {isDemo ? "Sample Results Showcase" : "Official Results"}
             </h1>
             <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-              {isPublished
+              {isDemo
+                ? "Demonstration leaderboard showcasing the multi-criteria weighted scoring engine and rank derivation. Team names, projects, and scores below are synthetic fixtures."
+                : isPublished
                 ? "Verified standings from the Grand Finale of Code-e-Manipal 2.0. Scores are cryptographically sealed by event evaluators."
                 : "The official hackathon standings have not yet been released. Results will be published following the ceremonial adjudication."}
             </p>
@@ -111,13 +118,15 @@ export default function ResultsPage() {
           <div className="min-w-[220px] shrink-0 border-l-2 border-primary bg-background/70 p-4 text-left sm:text-center">
             <div className="flex items-center justify-center gap-2 text-xs font-bold text-secondary uppercase tracking-wider mb-1">
               <Calendar size={14} />
-              <span>Release Status</span>
+              <span>{isDemo ? "Dataset Type" : "Release Status"}</span>
             </div>
             <div className="text-xl sm:text-2xl font-black text-foreground">
-              {isPublished ? "Declared Live" : publishStatus === "publishing" ? "Ceremony Live" : "Pending Release"}
+              {isDemo ? "Sample Demo" : isPublished ? "Declared Live" : publishStatus === "publishing" ? "Ceremony Live" : "Pending Release"}
             </div>
             <div className="text-xs text-muted-foreground mt-1">
-              {isPublished
+              {isDemo
+                ? `${results.length} Synthetic Finalists`
+                : isPublished
                 ? `${results.length} Finalists Ranked`
                 : publishTime
                 ? `Expected: ${new Date(publishTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
@@ -125,11 +134,22 @@ export default function ResultsPage() {
             </div>
             <div className="mt-3 pt-3 border-t border-border flex items-center justify-center gap-1.5 text-[11px] font-semibold text-primary">
               <ShieldCheck size={13} />
-              <span>Audited Standings</span>
+              <span>{isDemo ? "Synthetic Rubric" : "Audited Standings"}</span>
             </div>
           </div>
         </div>
       </header>
+
+      {/* ── Demo Mode Notice Banner ── */}
+      {isDemo && (
+        <div className="rounded-2xl border border-secondary/30 bg-secondary/10 p-4 text-xs text-foreground flex items-center gap-3">
+          <Sparkles className="w-5 h-5 text-secondary shrink-0" />
+          <div className="leading-relaxed">
+            <span className="font-bold text-secondary uppercase tracking-wider block mb-0.5">Portfolio Demonstration Dataset</span>
+            These standings demonstrate Code-e-Manipal 2.0&apos;s real-time leaderboard engine, weighted evaluation rubric (Innovation, Technical Execution, Presentation, Impact), and track category filtering. All team identities and scoring values shown are synthetic sample records to guarantee 100% participant privacy.
+          </div>
+        </div>
+      )}
 
       {/* ── Content Body ── */}
       {loading ? (
@@ -181,10 +201,10 @@ export default function ResultsPage() {
 
           <div className="pt-4 flex items-center justify-center gap-3">
             <Link
-              href="/dashboard"
+              href={isDemo ? "/problem-statements" : "/dashboard"}
               className="px-5 py-2.5 rounded-xl border border-border bg-card text-xs font-semibold text-foreground hover:bg-accent transition-colors"
             >
-              Return to Workspace
+              {isDemo ? "Explore Challenges" : "Return to Workspace"}
             </Link>
             <Link
               href="/timeline"
@@ -371,10 +391,10 @@ export default function ResultsPage() {
       {/* Footer Navigation */}
       <div className="flex items-center justify-between pt-4 border-t border-border text-xs">
         <Link
-          href="/dashboard"
+          href={isDemo ? "/problem-statements" : "/dashboard"}
           className="text-muted-foreground hover:text-foreground transition-colors font-medium"
         >
-          ← Return to Workspace
+          {isDemo ? "← Explore Problem Statements" : "← Return to Workspace"}
         </Link>
       </div>
     </div>
