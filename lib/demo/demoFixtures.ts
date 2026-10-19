@@ -587,3 +587,519 @@ export function getDemoSubmission(id: string) {
     updated_at: '2026-10-15T09:00:00.000Z',
   };
 }
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Comprehensive Synthetic Fixtures for Interactive Role Demos
+ * Zero production credentials, zero PII, zero database queries.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+export interface DemoTeamMember {
+  userId: string;
+  name: string;
+  email: string;
+  role: 'lead' | 'member';
+  avatarUrl?: string;
+}
+
+export interface DemoParticipantSummary {
+  event: typeof DEMO_EVENT_CONFIG;
+  profile: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    identifier: string;
+  };
+  team: {
+    id: string;
+    name: string;
+    inviteCode: string;
+    track: string;
+    leaderName: string;
+    members: DemoTeamMember[];
+  };
+  selectedProblemStatement: {
+    id: string;
+    title: string;
+    track: string;
+    difficulty: string;
+    scopeNote: string;
+    deliverables: string;
+    evaluationTests: string;
+  };
+  submission: {
+    id: string;
+    title: string;
+    summary: string;
+    category: string;
+    status: string;
+    githubUrl: string;
+    demoUrl: string;
+    docsUrl: string;
+    demoVideoUrl: string;
+    submittedAt: string;
+    isLocked: boolean;
+  };
+  announcements: Array<{
+    id: string;
+    title: string;
+    content: string;
+    type: 'success' | 'info' | 'warning';
+    created_at: string;
+  }>;
+  milestones: Array<{
+    time: string;
+    title: string;
+    status: 'completed' | 'active' | 'upcoming' | 'deadline';
+  }>;
+}
+
+export const DEMO_PARTICIPANT_SUMMARY: DemoParticipantSummary = {
+  event: DEMO_EVENT_CONFIG,
+  profile: {
+    id: 'usr-demo-lead',
+    name: 'Aarav Sharma',
+    email: 'aarav.sharma@example.edu',
+    role: 'participant',
+    identifier: 'TEAM039',
+  },
+  team: {
+    id: 'demo-team-01',
+    name: 'Team NeuralPulse',
+    inviteCode: 'PULSE-DEMO-2026',
+    track: 'AI/ML & Earth Observation',
+    leaderName: 'Aarav Sharma',
+    members: [
+      { userId: 'u-01', name: 'Aarav Sharma', email: 'aarav.sharma@example.edu', role: 'lead' },
+      { userId: 'u-02', name: 'Diya Patel', email: 'diya.patel@example.edu', role: 'member' },
+      { userId: 'u-03', name: 'Rohan Gupta', email: 'rohan.gupta@example.edu', role: 'member' },
+      { userId: 'u-04', name: 'Ananya Sen', email: 'ananya.sen@example.edu', role: 'member' },
+    ],
+  },
+  selectedProblemStatement: {
+    id: 'PS 05',
+    title: 'ArcSense: Real-Time Early Warning for Unstable Weld Signatures',
+    track: 'AI/ML & Earth Observation',
+    difficulty: 'Advanced',
+    scopeNote: 'Critical acoustic & electrical sensor streaming for automated arc welding diagnostics in high-throughput manufacturing.',
+    deliverables: 'Complete pipeline repository, real-time inferencing API, interactive dashboard, hardware sensor schematics.',
+    evaluationTests: 'Simulated high-frequency sensor capture test under fluctuating current load with < 50ms classification latency.',
+  },
+  submission: {
+    id: 'demo-sub-01',
+    title: 'ArcSense: Real-Time Early Warning for Unstable Weld Signatures',
+    summary: 'Edge-deployed acoustic and electrical signature analyzer predicting welding defects using spectral anomaly detection.',
+    category: 'AI/ML & Earth Observation',
+    status: 'SUBMITTED',
+    githubUrl: 'https://github.com/demo-showcase/arcsense-weld-guardian',
+    demoUrl: 'https://arcsense-demo.example.com',
+    docsUrl: 'https://docs.arcsense-demo.example.com',
+    demoVideoUrl: 'https://youtube.com/watch?v=demo-arcsense',
+    submittedAt: '2026-10-15T08:45:00.000Z',
+    isLocked: true,
+  },
+  announcements: [
+    {
+      id: 'ann-1',
+      title: 'Grand Finale Evaluation Concluded',
+      content: 'Jury evaluations and final leaderboard rankings have been verified. View your evaluation feedback and overall scores in the results view.',
+      type: 'success',
+      created_at: '2026-10-16T11:30:00.000Z',
+    },
+    {
+      id: 'ann-2',
+      title: 'Final Certificate & Prize Distribution',
+      content: 'Award distribution and closing ceremony starts at 3:00 PM at Vasanti Pai Hall.',
+      type: 'info',
+      created_at: '2026-10-16T12:00:00.000Z',
+    },
+  ],
+  milestones: [
+    {
+      time: 'Day 1, 09:00 AM',
+      title: 'Check-in, Registration Kit & Workstation Allocation',
+      status: 'completed',
+    },
+    {
+      time: 'Day 1, 11:00 AM',
+      title: 'Opening Ceremony & 35 Challenge Briefs Release',
+      status: 'completed',
+    },
+    {
+      time: 'Day 1, 02:00 PM',
+      title: '36-Hour Hackathon Sprint Commences',
+      status: 'completed',
+    },
+    {
+      time: 'Day 2, 06:00 AM',
+      title: 'Judging Round 2: Technical Architecture & Progress Evaluation',
+      status: 'completed',
+    },
+    {
+      time: 'Day 2, 01:00 PM',
+      title: 'Grand Finale Round 3 Jury Pitching & Live Demonstrations',
+      status: 'completed',
+    },
+    {
+      time: 'Day 2, 03:00 PM',
+      title: 'Valedictory Closing Ceremony & Awards Announcement',
+      status: 'completed',
+    },
+  ],
+};
+
+export function getDemoParticipantSummary(): DemoParticipantSummary {
+  return DEMO_PARTICIPANT_SUMMARY;
+}
+
+/**
+ * Synthetic Judge Evaluation Queue & Rubric Simulator Data
+ */
+export interface DemoJudgeSubmissionItem {
+  id: string;
+  submissionId: string;
+  teamId: string;
+  teamName: string;
+  title: string;
+  track: string;
+  category: string;
+  summary: string;
+  description: string;
+  problemStatementId: string;
+  problemStatementTitle: string;
+  githubUrl: string;
+  demoUrl: string;
+  docsUrl: string;
+  videoUrl: string;
+  reviewStatus: 'completed' | 'pending';
+  scores: {
+    innovation: number;
+    technical: number;
+    presentation: number;
+    impact: number;
+    total: number;
+  };
+  feedback: string;
+  submittedAt: string;
+  evaluatedAt?: string;
+}
+
+export interface DemoJudgeProfile {
+  id: string;
+  name: string;
+  email: string;
+  badgeId: string;
+  title: string;
+  organization: string;
+  assignedTracks: string[];
+}
+
+export interface DemoJudgeData {
+  judgeProfile: DemoJudgeProfile;
+  assignedSubmissions: DemoJudgeSubmissionItem[];
+  rubricCriteria: Array<{
+    key: 'innovation' | 'technical' | 'presentation' | 'impact';
+    title: string;
+    weight: string;
+    weightNum: number;
+    description: string;
+    color: string;
+  }>;
+}
+
+export const DEMO_JUDGE_DATA: DemoJudgeData = {
+  judgeProfile: {
+    id: 'jdg-882',
+    name: 'Dr. Sarah Jenkins',
+    email: 'sarah.jenkins@eval.demo',
+    badgeId: 'JUDGE-EVAL-882',
+    title: 'Principal Research Scientist & Jury Panelist',
+    organization: 'Center for Applied Intelligent Systems',
+    assignedTracks: ['AI/ML & Earth Observation', 'Cybersecurity', 'Multi-Agent Systems / Logistics'],
+  },
+  assignedSubmissions: [
+    {
+      id: 'demo-sub-01',
+      submissionId: 'demo-sub-01',
+      teamId: 'demo-team-01',
+      teamName: 'Team NeuralPulse',
+      title: 'ArcSense: Real-Time Early Warning for Unstable Weld Signatures',
+      track: 'AI/ML & Earth Observation',
+      category: 'AI/ML & Earth Observation',
+      summary: 'Edge-deployed acoustic and electrical signature analyzer predicting welding defects using spectral anomaly detection.',
+      description: 'ArcSense integrates high-frequency sensor capture with quantized convolutional anomaly detectors to flag micro-fractures and thermal instability in real time, preventing catastrophic weld failures in industrial fabrication.',
+      problemStatementId: 'PS 05',
+      problemStatementTitle: 'Real-Time Early Warning for Unstable Weld Signatures',
+      githubUrl: 'https://github.com/demo-showcase/arcsense-weld-guardian',
+      demoUrl: 'https://arcsense-demo.example.com',
+      docsUrl: 'https://docs.arcsense-demo.example.com',
+      videoUrl: 'https://youtube.com/watch?v=demo-arcsense',
+      reviewStatus: 'completed',
+      scores: {
+        innovation: 9.8,
+        technical: 9.6,
+        presentation: 9.5,
+        impact: 9.7,
+        total: 96.5,
+      },
+      feedback: 'Exceptional edge model deployment with real-time FFT processing. Robust fail-safe handling and outstanding documentation.',
+      submittedAt: '2026-10-15T08:45:00.000Z',
+      evaluatedAt: '2026-10-16T08:15:00.000Z',
+    },
+    {
+      id: 'demo-sub-04',
+      submissionId: 'demo-sub-04',
+      teamId: 'demo-team-04',
+      teamName: 'Team AgriSense',
+      title: 'FarmPulse: Autonomous Multispectral Soil Nutrient Mapping',
+      track: 'AI/ML & Earth Observation',
+      category: 'AI/ML & Earth Observation',
+      summary: 'Low-cost UAV sensor array and offline computer vision pipeline estimating nitrogen-phosphorus-potassium distribution.',
+      description: 'FarmPulse operates offline onboard low-cost drones to capture multispectral vegetative indices, processing hyper-local soil fertility maps for smallholder farmers.',
+      problemStatementId: 'PS 12',
+      problemStatementTitle: 'Multispectral Soil Nutrient Estimation',
+      githubUrl: 'https://github.com/demo-showcase/farmpulse-uav',
+      demoUrl: 'https://farmpulse.example.com',
+      docsUrl: 'https://docs.farmpulse.example.com',
+      videoUrl: 'https://youtube.com/watch?v=demo-farmpulse',
+      reviewStatus: 'pending',
+      scores: {
+        innovation: 9.0,
+        technical: 9.1,
+        presentation: 9.0,
+        impact: 9.0,
+        total: 90.3,
+      },
+      feedback: 'Draft: Impressive hardware integration. Needs further clarification on calibration in overcast lighting conditions.',
+      submittedAt: '2026-10-15T08:15:00.000Z',
+    },
+    {
+      id: 'demo-sub-03',
+      submissionId: 'demo-sub-03',
+      teamId: 'demo-team-03',
+      teamName: 'Team CyberShield',
+      title: 'ZeroTrust Mesh: Hardware Microsegmentation for Legacy SCADA',
+      track: 'Cybersecurity',
+      category: 'Cybersecurity',
+      summary: 'Cryptographic perimeter guard for industrial control systems using eBPF packet filtering and mutual TLS tunnels.',
+      description: 'ZeroTrust Mesh wraps legacy programmable logic controllers with inline hardware bump-in-the-wire encryption, preventing unauthorized command injection.',
+      problemStatementId: 'PS 18',
+      problemStatementTitle: 'SCADA Infrastructure Isolation',
+      githubUrl: 'https://github.com/demo-showcase/zerotrust-mesh',
+      demoUrl: 'https://zerotrust-demo.example.com',
+      docsUrl: 'https://docs.zerotrust.example.com',
+      videoUrl: 'https://youtube.com/watch?v=demo-zerotrust',
+      reviewStatus: 'completed',
+      scores: {
+        innovation: 9.2,
+        technical: 9.4,
+        presentation: 9.1,
+        impact: 9.3,
+        total: 92.6,
+      },
+      feedback: 'Deep eBPF implementation with minimal packet overhead. Commendable microsegmentation architecture.',
+      submittedAt: '2026-10-15T08:30:00.000Z',
+      evaluatedAt: '2026-10-16T08:45:00.000Z',
+    },
+    {
+      id: 'demo-sub-07',
+      submissionId: 'demo-sub-07',
+      teamId: 'demo-team-07',
+      teamName: 'Team AgentCraft',
+      title: 'SwarmOps: Decentralized Drone Swarm for Disaster Search & Rescue',
+      track: 'Multi-Agent Systems / Logistics',
+      category: 'Multi-Agent Systems / Logistics',
+      summary: 'Consensus-based multi-agent exploration system operating over ad-hoc mesh radios in GPS-denied environments.',
+      description: 'SwarmOps implements distributed frontier exploration where individual drones negotiate search sectors over 915MHz LoRa mesh with zero centralized server dependency.',
+      problemStatementId: 'PS 27',
+      problemStatementTitle: 'Autonomous Mesh Search & Rescue Swarm',
+      githubUrl: 'https://github.com/demo-showcase/swarmops-rescue',
+      demoUrl: 'https://swarmops.example.com',
+      docsUrl: 'https://docs.swarmops.example.com',
+      videoUrl: 'https://youtube.com/watch?v=demo-swarmops',
+      reviewStatus: 'pending',
+      scores: {
+        innovation: 8.6,
+        technical: 8.7,
+        presentation: 8.5,
+        impact: 8.6,
+        total: 86.1,
+      },
+      feedback: '',
+      submittedAt: '2026-10-15T08:05:00.000Z',
+    },
+  ],
+  rubricCriteria: [
+    {
+      key: 'innovation',
+      title: 'Innovation & Creativity',
+      weight: '30%',
+      weightNum: 0.3,
+      description: 'Novelty of concept, uniqueness of technical approach, and creative problem-solving.',
+      color: 'text-primary',
+    },
+    {
+      key: 'technical',
+      title: 'Technical Execution',
+      weight: '30%',
+      weightNum: 0.3,
+      description: 'Code architecture, algorithmic complexity, runtime reliability, scalability, and engineering rigor.',
+      color: 'text-secondary',
+    },
+    {
+      key: 'presentation',
+      title: 'UI/UX & Presentation',
+      weight: '20%',
+      weightNum: 0.2,
+      description: 'Design polish, accessibility, documentation quality, and live demonstration execution.',
+      color: 'text-jaipur-pink',
+    },
+    {
+      key: 'impact',
+      title: 'Impact & Viability',
+      weight: '20%',
+      weightNum: 0.2,
+      description: 'Real-world deployment feasibility, market/community viability, and problem significance.',
+      color: 'text-jaipur-terracotta',
+    },
+  ],
+};
+
+export function getDemoJudgeData(): DemoJudgeData {
+  return DEMO_JUDGE_DATA;
+}
+
+export function getDemoJudgeSubmission(id: string): DemoJudgeSubmissionItem | null {
+  return DEMO_JUDGE_DATA.assignedSubmissions.find((s) => s.id === id || s.submissionId === id) || null;
+}
+
+/**
+ * Synthetic Admin Operations Console Data
+ */
+export interface DemoAdminUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'participant' | 'judge' | 'admin';
+  teamName?: string;
+  status: 'active' | 'verified';
+  createdAt: string;
+}
+
+export interface DemoAdminSubmissionRecord {
+  id: string;
+  teamName: string;
+  title: string;
+  track: string;
+  status: 'submitted' | 'reviewed';
+  score?: number;
+  rank?: number;
+  submittedAt: string;
+  membersCount: number;
+  demoUrl?: string;
+  githubUrl?: string;
+}
+
+export interface DemoJudgeAllocation {
+  judgeId: string;
+  judgeName: string;
+  badgeId: string;
+  assignedCount: number;
+  completedCount: number;
+  assignedTracks: string[];
+}
+
+export interface DemoAuditLogRecord {
+  id: string;
+  timestamp: string;
+  actor: string;
+  role: string;
+  action: string;
+  target: string;
+  status: 'success' | 'blocked' | 'info';
+  details: string;
+}
+
+export interface DemoAdminData {
+  stats: {
+    totalTeams: number;
+    totalSubmissions: number;
+    submittedCount: number;
+    reviewedCount: number;
+    totalUsers: number;
+    avgScore: number;
+    tracksCount: number;
+  };
+  users: DemoAdminUser[];
+  submissions: DemoAdminSubmissionRecord[];
+  judgeAllocations: DemoJudgeAllocation[];
+  auditLogs: DemoAuditLogRecord[];
+}
+
+export const DEMO_ADMIN_DATA: DemoAdminData = {
+  stats: {
+    totalTeams: 86,
+    totalSubmissions: 78,
+    submittedCount: 78,
+    reviewedCount: 74,
+    totalUsers: 342,
+    avgScore: 87.4,
+    tracksCount: 9,
+  },
+  users: [
+    { id: 'usr-01', name: 'Aarav Sharma', email: 'aarav.sharma@demo.edu', role: 'participant', teamName: 'Team NeuralPulse', status: 'verified', createdAt: '2026-10-14T04:15:00.000Z' },
+    { id: 'usr-02', name: 'Diya Patel', email: 'diya.patel@demo.edu', role: 'participant', teamName: 'Team NeuralPulse', status: 'verified', createdAt: '2026-10-14T04:20:00.000Z' },
+    { id: 'usr-03', name: 'Dr. Sarah Jenkins', email: 'sarah.jenkins@eval.demo', role: 'judge', status: 'active', createdAt: '2026-10-14T02:00:00.000Z' },
+    { id: 'usr-04', name: 'Vikram Mehta', email: 'vikram.mehta@demo.edu', role: 'participant', teamName: 'Team MedVanguard', status: 'verified', createdAt: '2026-10-14T04:45:00.000Z' },
+    { id: 'usr-05', name: 'Prof. Rajesh Kulkarni', email: 'rajesh.kulkarni@eval.demo', role: 'judge', status: 'active', createdAt: '2026-10-14T02:10:00.000Z' },
+    { id: 'usr-06', name: 'Organizing Chair', email: 'ops.chair@portal.demo', role: 'admin', status: 'active', createdAt: '2026-10-13T10:00:00.000Z' },
+    { id: 'usr-07', name: 'Ananya Sen', email: 'ananya.sen@demo.edu', role: 'participant', teamName: 'Team NeuralPulse', status: 'verified', createdAt: '2026-10-14T04:22:00.000Z' },
+    { id: 'usr-08', name: 'Dr. Elena Rostova', email: 'elena.rostova@eval.demo', role: 'judge', status: 'active', createdAt: '2026-10-14T02:15:00.000Z' },
+    { id: 'usr-09', name: 'Priya Iyer', email: 'priya.iyer@demo.edu', role: 'participant', teamName: 'Team CyberShield', status: 'verified', createdAt: '2026-10-14T05:00:00.000Z' },
+    { id: 'usr-10', name: 'System Security Lead', email: 'sec.audit@portal.demo', role: 'admin', status: 'active', createdAt: '2026-10-13T10:15:00.000Z' },
+    { id: 'usr-11', name: 'Kabir Verma', email: 'kabir.verma@demo.edu', role: 'participant', teamName: 'Team AgriSense', status: 'verified', createdAt: '2026-10-14T05:12:00.000Z' },
+    { id: 'usr-12', name: 'Dr. Michael Chen', email: 'michael.chen@eval.demo', role: 'judge', status: 'active', createdAt: '2026-10-14T02:30:00.000Z' },
+    { id: 'usr-13', name: 'Neha Deshmukh', email: 'neha.d@demo.edu', role: 'participant', teamName: 'Team EduFlow', status: 'verified', createdAt: '2026-10-14T05:30:00.000Z' },
+    { id: 'usr-14', name: 'Arjun Nair', email: 'arjun.nair@demo.edu', role: 'participant', teamName: 'Team GridSync', status: 'verified', createdAt: '2026-10-14T05:40:00.000Z' },
+    { id: 'usr-15', name: 'Technical Director', email: 'tech.director@portal.demo', role: 'admin', status: 'active', createdAt: '2026-10-13T10:20:00.000Z' },
+  ],
+  submissions: [
+    { id: 'demo-sub-01', teamName: 'Team NeuralPulse', title: 'ArcSense: Real-Time Early Warning for Unstable Weld Signatures', track: 'AI/ML & Earth Observation', status: 'reviewed', score: 96.5, rank: 1, submittedAt: '2026-10-15T08:45:00.000Z', membersCount: 4, demoUrl: 'https://arcsense-demo.example.com', githubUrl: 'https://github.com/demo-showcase/arcsense' },
+    { id: 'demo-sub-02', teamName: 'Team MedVanguard', title: 'SafeDose: Automated Pediatric Dosing Verification Protocol', track: 'HealthTech', status: 'reviewed', score: 94.8, rank: 2, submittedAt: '2026-10-15T08:50:00.000Z', membersCount: 4, demoUrl: 'https://safedose.example.com', githubUrl: 'https://github.com/demo-showcase/safedose' },
+    { id: 'demo-sub-03', teamName: 'Team CyberShield', title: 'ZeroTrust Mesh: Hardware Microsegmentation for Legacy SCADA', track: 'Cybersecurity', status: 'reviewed', score: 92.4, rank: 3, submittedAt: '2026-10-15T08:30:00.000Z', membersCount: 3, demoUrl: 'https://zerotrust.example.com', githubUrl: 'https://github.com/demo-showcase/zerotrust' },
+    { id: 'demo-sub-04', teamName: 'Team AgriSense', title: 'FarmPulse: Autonomous Multispectral Soil Nutrient Mapping', track: 'AI/ML & Earth Observation', status: 'reviewed', score: 90.1, rank: 4, submittedAt: '2026-10-15T08:15:00.000Z', membersCount: 4, demoUrl: 'https://farmpulse.example.com', githubUrl: 'https://github.com/demo-showcase/farmpulse' },
+    { id: 'demo-sub-05', teamName: 'Team EduFlow', title: 'OmniLearn: Multimodal Adaptive Curriculum Engine', track: 'FinTech / EdTech / LegalTech', status: 'reviewed', score: 88.7, rank: 5, submittedAt: '2026-10-15T08:20:00.000Z', membersCount: 4, demoUrl: 'https://omnilearn.example.com', githubUrl: 'https://github.com/demo-showcase/omnilearn' },
+    { id: 'demo-sub-06', teamName: 'Team GridSync', title: 'ResilientGrid: Distributed Frequency Stabilizer for Solar Rooftops', track: 'Smart City & Infrastructure', status: 'reviewed', score: 87.2, rank: 6, submittedAt: '2026-10-15T08:10:00.000Z', membersCount: 4, demoUrl: 'https://gridsync.example.com', githubUrl: 'https://github.com/demo-showcase/gridsync' },
+    { id: 'demo-sub-07', teamName: 'Team AgentCraft', title: 'SwarmOps: Decentralized Drone Swarm for Disaster Search & Rescue', track: 'Multi-Agent Systems / Logistics', status: 'reviewed', score: 86.0, rank: 7, submittedAt: '2026-10-15T08:05:00.000Z', membersCount: 4, demoUrl: 'https://swarmops.example.com', githubUrl: 'https://github.com/demo-showcase/swarmops' },
+    { id: 'demo-sub-08', teamName: 'Team GreenTrace', title: 'CarbonLedger: Zero-Knowledge Supply Chain Scope-3 Emission Audits', track: 'Open Innovation in Hardware', status: 'reviewed', score: 84.5, rank: 8, submittedAt: '2026-10-15T07:55:00.000Z', membersCount: 3, demoUrl: 'https://greentrace.example.com', githubUrl: 'https://github.com/demo-showcase/greentrace' },
+    { id: 'demo-sub-09', teamName: 'Team ImmersiSim', title: 'SurgicalXR: Sub-Millimeter Haptic-Feedback Telepresence Simulator', track: 'Gaming & Immersive Tech', status: 'reviewed', score: 83.1, rank: 9, submittedAt: '2026-10-15T07:50:00.000Z', membersCount: 4, demoUrl: 'https://surgicalxr.example.com', githubUrl: 'https://github.com/demo-showcase/surgicalxr' },
+    { id: 'demo-sub-10', teamName: 'Team DeepLex', title: 'NyayaAI: Multilingual Vernacular Legal Precedent Synthesizer', track: 'Generative AI & LLM Systems', status: 'reviewed', score: 81.9, rank: 10, submittedAt: '2026-10-15T07:45:00.000Z', membersCount: 3, demoUrl: 'https://deeplex.example.com', githubUrl: 'https://github.com/demo-showcase/deeplex' },
+  ],
+  judgeAllocations: [
+    { judgeId: 'jdg-882', judgeName: 'Dr. Sarah Jenkins', badgeId: 'JUDGE-EVAL-882', assignedCount: 16, completedCount: 16, assignedTracks: ['AI/ML & Earth Observation', 'Cybersecurity', 'Multi-Agent Systems / Logistics'] },
+    { judgeId: 'jdg-883', judgeName: 'Prof. Rajesh Kulkarni', badgeId: 'JUDGE-EVAL-883', assignedCount: 18, completedCount: 18, assignedTracks: ['HealthTech', 'Smart City & Infrastructure'] },
+    { judgeId: 'jdg-884', judgeName: 'Dr. Elena Rostova', badgeId: 'JUDGE-EVAL-884', assignedCount: 16, completedCount: 15, assignedTracks: ['FinTech / EdTech / LegalTech', 'Open Innovation in Hardware'] },
+    { judgeId: 'jdg-885', judgeName: 'Dr. Michael Chen', badgeId: 'JUDGE-EVAL-885', assignedCount: 14, completedCount: 13, assignedTracks: ['Generative AI & LLM Systems', 'Gaming & Immersive Tech'] },
+    { judgeId: 'jdg-886', judgeName: 'Anandita Roy', badgeId: 'JUDGE-EVAL-886', assignedCount: 14, completedCount: 12, assignedTracks: ['AI/ML & Earth Observation', 'Multi-Agent Systems / Logistics'] },
+  ],
+  auditLogs: [
+    { id: 'log-12', timestamp: '2026-10-16T11:30:15.000Z', actor: 'Organizing Chair', role: 'admin', action: 'RESULTS_PUBLISHED', target: 'Leaderboard Public Release', status: 'success', details: 'Final verified leaderboard and rubric scores approved and released publicly.' },
+    { id: 'log-11', timestamp: '2026-10-16T11:00:00.000Z', actor: 'System Security Lead', role: 'admin', action: 'GLOBAL_FREEZE_ENABLED', target: 'Event Configuration', status: 'success', details: 'All participant and judge mutation pathways globally locked for ceremony.' },
+    { id: 'log-10', timestamp: '2026-10-16T10:45:22.000Z', actor: 'Dr. Sarah Jenkins', role: 'judge', action: 'SCORE_SUBMITTED', target: 'demo-sub-01 (ArcSense)', status: 'success', details: 'Completed evaluation with weighted score 96.5 across 4 rubric criteria.' },
+    { id: 'log-09', timestamp: '2026-10-16T09:30:00.000Z', actor: 'System Scheduler', role: 'system', action: 'SUBMISSION_WINDOW_CLOSED', target: 'Submission Form', status: 'success', details: 'Hard deadline reached. Automatic lock applied to 78 submitted project dossiers.' },
+    { id: 'log-08', timestamp: '2026-10-16T06:00:00.000Z', actor: 'Organizing Chair', role: 'admin', action: 'ROUND_TRANSITION', target: 'Round 2 Judging', status: 'success', details: 'Transitioned active event phase to Round 2 Progress Evaluations.' },
+    { id: 'log-07', timestamp: '2026-10-15T14:00:00.000Z', actor: 'System Monitor', role: 'system', action: 'SECURITY_RATE_LIMIT_CHECK', target: 'API Gateway', status: 'info', details: 'Zero rate limit anomalies detected across 342 active concurrent user sessions.' },
+    { id: 'log-06', timestamp: '2026-10-15T08:45:10.000Z', actor: 'Aarav Sharma', role: 'participant', action: 'SUBMISSION_CREATED', target: 'ArcSense: Real-Time Early Warning', status: 'success', details: 'Artifacts committed with valid GitHub, live demo, and video links.' },
+    { id: 'log-05', timestamp: '2026-10-15T04:00:00.000Z', actor: 'Technical Director', role: 'admin', action: 'JUDGE_ASSIGNMENT_DISPATCH', target: '78 Submissions', status: 'success', details: 'Automated 3-judge panel allocation executed across 9 technical tracks.' },
+    { id: 'log-04', timestamp: '2026-10-15T02:00:00.000Z', actor: 'Organizing Chair', role: 'admin', action: 'HACKATHON_SPRINT_START', target: 'Event Timer', status: 'success', details: '36-hour sprint countdown officially initiated at Manipal University Jaipur.' },
+    { id: 'log-03', timestamp: '2026-10-14T03:30:00.000Z', actor: 'Organizing Chair', role: 'admin', action: 'CHALLENGES_PUBLISHED', target: '35 Problem Statements', status: 'success', details: 'Official 35 challenge briefs made visible to all registered participants.' },
+    { id: 'log-02', timestamp: '2026-10-13T14:20:00.000Z', actor: 'System Security Lead', role: 'admin', action: 'ROLE_VERIFIED', target: 'Jury Panelists (14 users)', status: 'success', details: 'Verified hardware 2FA keys and assigned judge badges.' },
+    { id: 'log-01', timestamp: '2026-10-13T10:00:00.000Z', actor: 'System', role: 'system', action: 'ENV_INITIALIZATION', target: 'Code-e-Manipal Portal', status: 'info', details: 'Portal initialization completed with strict data isolation policies.' },
+  ],
+};
+
+export function getDemoAdminData(): DemoAdminData {
+  return DEMO_ADMIN_DATA;
+}

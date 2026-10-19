@@ -50,6 +50,7 @@ export const publicNavigation: NavigationItem[] = [
 
 export const demoPublicNavigation: NavigationItem[] = [
   { name: "Home", link: "/" },
+  { name: "Portal Demo", link: "/demo" },
   { name: "Problem Statements", link: "/problem-statements" },
   { name: "Timeline", link: "/timeline" },
   { name: "Results", link: "/results" },

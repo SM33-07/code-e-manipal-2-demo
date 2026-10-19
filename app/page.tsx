@@ -20,6 +20,10 @@ import {
   ArrowUpRight,
   ChevronLeft,
   ChevronRight,
+  Sparkles,
+  Users,
+  ShieldAlert,
+  CheckCircle2,
   type LucideIcon
 } from "lucide-react";
 
@@ -217,13 +221,24 @@ export default function HomePage() {
               {loading ? (
                 <div className="h-12 w-full max-w-52 animate-pulse bg-accent sm:w-52" />
               ) : isDemoMode() ? (
-                <Link
-                  href="/problem-statements"
-                  className="hero-primary-action group inline-flex min-h-12 w-full items-center justify-center gap-2 bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-[background-color,transform] hover:bg-primary/90 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-auto"
-                >
-                  <span>Explore 35 Challenges</span>
-                  <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" />
-                </Link>
+                <>
+                  <Link
+                    href="/demo"
+                    className="hero-primary-action group inline-flex min-h-12 w-full items-center justify-center gap-2 bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-[background-color,transform] hover:bg-primary/90 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-auto"
+                  >
+                    <Sparkles size={16} />
+                    <span>Explore Portal Demo</span>
+                    <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" />
+                  </Link>
+
+                  <Link
+                    href="/problem-statements"
+                    className="group inline-flex min-h-12 items-center justify-center gap-2 border border-border bg-surface-elevated px-5 py-2.5 text-sm font-semibold text-foreground transition-[border-color,background-color] hover:border-primary hover:bg-accent"
+                  >
+                    <Code2 size={15} className="text-primary" />
+                    <span>35 Challenges</span>
+                  </Link>
+                </>
               ) : isAuthenticated ? (
                 <Link
                   href={getWorkspaceHref()}
@@ -345,6 +360,153 @@ export default function HomePage() {
             <div className="hero-stat-rule h-px w-8 bg-primary/65" />
           </SpotlightCard>
         ))}
+      </ScrollReveal>
+
+      {/* ── EXPLORE THE PORTAL DEMO SHOWCASE ── */}
+      <ScrollReveal as="section" className="space-y-8">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border pb-4">
+          <div>
+            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400 uppercase tracking-wider mb-1 font-mono">
+              <Sparkles size={14} className="animate-pulse" />
+              <span>Interactive Role Showcase</span>
+            </div>
+            <h2 className="text-2xl sm:text-4xl font-black text-foreground tracking-tight">
+              EXPLORE THE PORTAL DEMO
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
+              Experience authentic Participant, Judge, and Admin workspaces without registration or passwords. Fully isolated synthetic simulation with zero backend persistence.
+            </p>
+          </div>
+          <Link
+            href="/demo"
+            className="text-xs font-bold text-primary hover:text-primary/80 transition-colors flex items-center gap-1 self-start sm:self-auto shrink-0"
+          >
+            <span>Explore Demo Architecture</span>
+            <ArrowRight size={13} />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Participant Demo Card */}
+          <SpotlightCard className="relative flex flex-col justify-between rounded-2xl border-2 border-primary/40 bg-surface-elevated p-6 shadow-md hover:border-primary transition-all duration-200">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
+                  <Users size={22} />
+                </div>
+                <span className="rounded-full border border-border bg-surface px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary font-mono">
+                  Team Workspace
+                </span>
+              </div>
+              <div>
+                <span className="text-[11px] font-semibold uppercase text-muted-foreground">Participant Demo</span>
+                <h3 className="text-xl font-black text-foreground mt-0.5">Team NeuralPulse</h3>
+                <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+                  Inspect selected challenge briefs (PS 05: ArcSense), team roster, submitted repositories, deployment links, and sprint milestones.
+                </p>
+              </div>
+              <div className="pt-2 border-t border-border space-y-1.5 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
+                  <span>Interactive team roster & invite code</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
+                  <span>Submitted repository & demo walkthrough</span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 pt-4 border-t border-border">
+              <Link
+                href="/demo/participant"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                <span>Launch Participant Demo</span>
+                <ArrowRight size={14} />
+              </Link>
+            </div>
+          </SpotlightCard>
+
+          {/* Judge Demo Card */}
+          <SpotlightCard className="relative flex flex-col justify-between rounded-2xl border-2 border-secondary/40 bg-surface-elevated p-6 shadow-md hover:border-secondary transition-all duration-200">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="p-2.5 rounded-xl bg-secondary/10 text-secondary">
+                  <Award size={22} />
+                </div>
+                <span className="rounded-full border border-border bg-surface px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-secondary font-mono">
+                  Rubric Simulator
+                </span>
+              </div>
+              <div>
+                <span className="text-[11px] font-semibold uppercase text-muted-foreground">Judge Demo</span>
+                <h3 className="text-xl font-black text-foreground mt-0.5">Jury Evaluation Queue</h3>
+                <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+                  Review assigned projects across 4 tracks, adjust 4-criteria rubric sliders, and simulate live score recalculation in local state.
+                </p>
+              </div>
+              <div className="pt-2 border-t border-border space-y-1.5 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
+                  <span>Interactive 4-criteria rubric sliders</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
+                  <span>Real-time weighted score recalculation</span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 pt-4 border-t border-border">
+              <Link
+                href="/demo/judge"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-secondary px-4 py-2.5 text-xs font-bold text-secondary-foreground hover:bg-secondary/90 transition-colors"
+              >
+                <span>Launch Judge Demo</span>
+                <ArrowRight size={14} />
+              </Link>
+            </div>
+          </SpotlightCard>
+
+          {/* Admin Demo Card */}
+          <SpotlightCard className="relative flex flex-col justify-between rounded-2xl border-2 border-jaipur-pink/40 bg-surface-elevated p-6 shadow-md hover:border-jaipur-pink transition-all duration-200">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="p-2.5 rounded-xl bg-jaipur-pink/10 text-jaipur-pink">
+                  <ShieldAlert size={22} />
+                </div>
+                <span className="rounded-full border border-border bg-surface px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-jaipur-pink font-mono">
+                  Operations Console
+                </span>
+              </div>
+              <div>
+                <span className="text-[11px] font-semibold uppercase text-muted-foreground">Admin Demo</span>
+                <h3 className="text-xl font-black text-foreground mt-0.5">Command Center</h3>
+                <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+                  Access event statistics (86 teams, 78 submissions), filterable user roster, judge allocation matrix, and chronological audit logs.
+                </p>
+              </div>
+              <div className="pt-2 border-t border-border space-y-1.5 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
+                  <span>Searchable user directory & submission inspection</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
+                  <span>Judge allocation progress & audit trail</span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 pt-4 border-t border-border">
+              <Link
+                href="/demo/admin"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-jaipur-pink px-4 py-2.5 text-xs font-bold text-white hover:bg-jaipur-pink/90 transition-colors"
+              >
+                <span>Launch Admin Demo</span>
+                <ArrowRight size={14} />
+              </Link>
+            </div>
+          </SpotlightCard>
+        </div>
       </ScrollReveal>
 
       {/* ── TECHNICAL TRACKS & OPTION WHEEL EXPLORER ── */}

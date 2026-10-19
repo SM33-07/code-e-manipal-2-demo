@@ -108,23 +108,48 @@ export default function LoginPage() {
             <div className="mb-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs text-foreground">
               <div className="flex items-start gap-2.5">
                 <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
-                <div className="space-y-2">
-                  <p className="font-bold text-foreground">Read-Only Demonstration</p>
-                  <p className="text-muted-foreground leading-relaxed">
-                    This portfolio deployment does not accept user logins. You can freely explore the portal features anonymously:
-                  </p>
-                  <div className="flex flex-col gap-1.5 pt-1 font-semibold">
-                    <Link href="/problem-statements" className="text-primary hover:underline">
-                      → Browse 35 Problem Statements
+                <div className="space-y-2.5 w-full">
+                  <div>
+                    <p className="font-bold text-foreground">Interactive Portal Demo Available</p>
+                    <p className="text-muted-foreground leading-relaxed mt-0.5">
+                      No credentials required! You can explore authentic participant, judge, and admin workspaces in a secure, synthetic simulation:
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-1.5 pt-1 font-semibold">
+                    <Link
+                      href="/demo"
+                      className="inline-flex items-center justify-between rounded-lg bg-emerald-500/20 px-3 py-1.5 text-emerald-300 hover:bg-emerald-500/30 transition-colors"
+                    >
+                      <span>★ Explore All Role Demos</span>
+                      <ArrowRight size={13} />
                     </Link>
-                    <Link href="/timeline" className="text-primary hover:underline">
-                      → View Event Timeline & Schedule
+                    <div className="flex flex-col gap-1 pl-1 text-[11px] text-muted-foreground">
+                      <Link href="/demo/participant" className="text-primary hover:underline">
+                        → Participant Demo (Team & Submissions)
+                      </Link>
+                      <Link href="/demo/judge" className="text-secondary hover:underline">
+                        → Judge Demo (Rubric Scoring Simulator)
+                      </Link>
+                      <Link href="/demo/admin" className="text-jaipur-pink hover:underline">
+                        → Admin Demo (Operations & Audit Logs)
+                      </Link>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 border-t border-emerald-500/20 text-[11px] text-muted-foreground">
+                    <Link href="/problem-statements" className="hover:underline">
+                      35 Challenges
                     </Link>
-                    <Link href="/results" className="text-primary hover:underline">
-                      → View Results Leaderboard
+                    <span>·</span>
+                    <Link href="/timeline" className="hover:underline">
+                      Timeline
                     </Link>
-                    <Link href="/" className="text-secondary hover:underline">
-                      → Return to Home Page
+                    <span>·</span>
+                    <Link href="/results" className="hover:underline">
+                      Results
+                    </Link>
+                    <span>·</span>
+                    <Link href="/" className="hover:underline">
+                      Home
                     </Link>
                   </div>
                 </div>

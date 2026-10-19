@@ -11,7 +11,8 @@ import {
   Code2,
   Calendar,
   Trophy,
-  Info
+  Info,
+  Sparkles
 } from "lucide-react";
 import { isDemoMode } from "@/lib/demo/demoMode";
 
@@ -105,6 +106,18 @@ export function DemoModeBanner({ onHeightChange }: DemoModeBannerProps) {
           <div className="flex items-center gap-2">
             {!minimized && (
               <div className="hidden lg:flex items-center gap-1.5 text-xs">
+                <Link
+                  href="/demo"
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border transition-colors ${
+                    pathname?.startsWith("/demo")
+                      ? "border-emerald-300 bg-emerald-400/25 text-white font-bold shadow-sm"
+                      : "border-emerald-500/30 bg-emerald-900/50 hover:bg-emerald-800/60 text-emerald-200"
+                  }`}
+                >
+                  <Sparkles size={12} className="text-emerald-300" />
+                  <span>Portal Demo</span>
+                </Link>
+
                 <Link
                   href="/problem-statements"
                   className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border transition-colors ${
