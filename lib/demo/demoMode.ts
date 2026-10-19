@@ -35,12 +35,35 @@ export const PROHIBITED_PRODUCTION_PATTERNS = [
 export function isDemoMode(): boolean {
   const nextPublic = String(process.env.NEXT_PUBLIC_DEMO_MODE || '').trim().toLowerCase();
   const serverDemo = String(process.env.DEMO_MODE || '').trim().toLowerCase();
-  return (
+  if (
     nextPublic === 'true' ||
     nextPublic === '1' ||
     serverDemo === 'true' ||
     serverDemo === '1'
-  );
+  ) {
+    return true;
+  }
+
+  // Auto-detect browser runtime on demo hostnames
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname.toLowerCase();
+    if (host.includes('demo') || host.includes('code-e-manipal-portal-demo')) {
+      return true;
+    }
+  }
+
+  // Auto-detect Vercel server runtime on demo hostnames/deployments
+  const vercelUrl = String(
+    process.env.VERCEL_URL ||
+    process.env.NEXT_PUBLIC_VERCEL_URL ||
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ||
+    ''
+  ).toLowerCase();
+  if (vercelUrl.includes('demo') || vercelUrl.includes('code-e-manipal-portal-demo')) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
