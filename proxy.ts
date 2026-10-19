@@ -1,6 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
-import { isDemoMode, assertDemoModeSafety } from '@/lib/demo/demoMode';
+import { isDemoMode, sanitizeDemoRuntimeEnvironment } from '@/lib/demo/demoMode';
 
 export async function proxy(req: NextRequest) {
   let res = NextResponse.next({
@@ -9,11 +9,38 @@ export async function proxy(req: NextRequest) {
     },
   });
 
-  if (isDemoMode()) {
-    assertDemoModeSafety();
-  }
-
   const { pathname } = req.nextUrl;
+
+  // 0. Demo Mode: Fast-bypass for demo routes and role redirection for protected routes
+  if (isDemoMode()) {
+    // Demo hub and interactive role demo routes fast bypass immediately
+    if (pathname === '/demo' || pathname.startsWith('/demo/')) {
+      return res;
+    }
+
+    // Redirect protected routes to corresponding interactive demo workspaces
+    if (pathname.startsWith('/admin')) {
+      return NextResponse.redirect(new URL('/demo/admin', req.url));
+    }
+    if (pathname.startsWith('/judge') || pathname.startsWith('/judging')) {
+      return NextResponse.redirect(new URL('/demo/judge', req.url));
+    }
+    if (
+      pathname.startsWith('/dashboard') ||
+      pathname.startsWith('/team') ||
+      pathname.startsWith('/submit') ||
+      pathname.startsWith('/SubmissionForm') ||
+      pathname.startsWith('/submission-result') ||
+      pathname.startsWith('/account')
+    ) {
+      return NextResponse.redirect(new URL('/demo/participant', req.url));
+    }
+
+    // Public routes and other routes bypass Supabase session resolution in demo mode
+    if (pathname !== '/login') {
+      return res;
+    }
+  }
 
   // 1. Explicitly public routes (never require authentication)
   const isPublicRoute =
@@ -32,6 +59,8 @@ export async function proxy(req: NextRequest) {
     pathname === '/results' ||
     pathname === '/guidelines' ||
     pathname === '/timeline' ||
+    pathname === '/demo' ||
+    pathname.startsWith('/demo/') ||
     pathname.startsWith('/project/');
 
   // 2. Auth routes

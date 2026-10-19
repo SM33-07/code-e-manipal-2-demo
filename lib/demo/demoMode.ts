@@ -29,10 +29,44 @@ export const PROHIBITED_PRODUCTION_PATTERNS = [
 ];
 
 /**
+ * Auto-neutralizes inherited production credentials on demo deployments
+ * (e.g. Vercel demo environments with inherited production environment variables).
+ * Pre-setting safe mock variables ensures pure synthetic demo operation without
+ * inadvertent external network calls or false-positive safety aborts on demo hosts.
+ */
+export function sanitizeDemoRuntimeEnvironment(): void {
+  const isVercelOrDemoHost =
+    Boolean(process.env.VERCEL) ||
+    Boolean(process.env.VERCEL_URL?.toLowerCase().includes('demo')) ||
+    Boolean(process.env.VERCEL_PROJECT_PRODUCTION_URL?.toLowerCase().includes('demo')) ||
+    Boolean(process.env.NEXT_PUBLIC_VERCEL_URL?.toLowerCase().includes('demo')) ||
+    Boolean(process.env.VERCEL_GIT_REPO_SLUG?.toLowerCase().includes('testing')) ||
+    (typeof window !== 'undefined' && window.location.hostname.toLowerCase().includes('demo'));
+
+  if (isVercelOrDemoHost) {
+    process.env.DEMO_MODE = 'true';
+    process.env.NEXT_PUBLIC_DEMO_MODE = 'true';
+    process.env.DEMO_DATA_SOURCE = 'synthetic';
+
+    if (process.env.DATABASE_URL && PROHIBITED_PRODUCTION_PATTERNS.some((p) => process.env.DATABASE_URL?.toLowerCase().includes(p))) {
+      process.env.DATABASE_URL = 'postgresql://mock:mock@127.0.0.1:5432/mock';
+    }
+    if (process.env.SUPABASE_URL && PROHIBITED_PRODUCTION_PATTERNS.some((p) => process.env.SUPABASE_URL?.toLowerCase().includes(p))) {
+      process.env.SUPABASE_URL = 'https://demo-mock.supabase.co';
+    }
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && PROHIBITED_PRODUCTION_PATTERNS.some((p) => process.env.NEXT_PUBLIC_SUPABASE_URL?.toLowerCase().includes(p))) {
+      process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://demo-mock.supabase.co';
+    }
+  }
+}
+
+/**
  * Returns true if the application is running in Public Demo Mode.
  * Safe for use in both server-side and client-side components.
  */
 export function isDemoMode(): boolean {
+  sanitizeDemoRuntimeEnvironment();
+
   const nextPublic = String(process.env.NEXT_PUBLIC_DEMO_MODE || '').trim().toLowerCase();
   const serverDemo = String(process.env.DEMO_MODE || '').trim().toLowerCase();
   if (

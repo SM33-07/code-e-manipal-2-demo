@@ -7,12 +7,31 @@ const isVercelDemo =
   process.env.DEMO_MODE === 'true' ||
   process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
+if (isVercelDemo) {
+  process.env.DEMO_MODE = 'true';
+  process.env.NEXT_PUBLIC_DEMO_MODE = 'true';
+  process.env.DEMO_DATA_SOURCE = 'synthetic';
+  process.env.DATABASE_URL = 'postgresql://mock:mock@127.0.0.1:5432/mock';
+  process.env.SUPABASE_URL = 'https://demo-mock.supabase.co';
+  process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://demo-mock.supabase.co';
+  process.env.SUPABASE_ANON_KEY = 'demo-mock-anon-key';
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'demo-mock-anon-key';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'demo-mock-service-role-key';
+}
+
 const nextConfig = {
   reactStrictMode: false,
   env: isVercelDemo
     ? {
         NEXT_PUBLIC_DEMO_MODE: 'true',
         DEMO_MODE: 'true',
+        DEMO_DATA_SOURCE: 'synthetic',
+        DATABASE_URL: 'postgresql://mock:mock@127.0.0.1:5432/mock',
+        SUPABASE_URL: 'https://demo-mock.supabase.co',
+        NEXT_PUBLIC_SUPABASE_URL: 'https://demo-mock.supabase.co',
+        SUPABASE_ANON_KEY: 'demo-mock-anon-key',
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: 'demo-mock-anon-key',
+        SUPABASE_SERVICE_ROLE_KEY: 'demo-mock-service-role-key',
       }
     : {},
   images: {
