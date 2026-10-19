@@ -51,39 +51,51 @@ export default function DemoParticipantPage() {
 
       <main className="mx-auto max-w-7xl px-4 pt-8 sm:px-6 space-y-8">
         {/* Welcome Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-6">
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-primary">
-                <Users size={12} />
-                Participant Dashboard
-              </span>
-              <span className="text-muted-foreground text-xs font-mono">·</span>
-              <span className="text-xs font-mono text-muted-foreground">
-                ID: {data.profile.identifier}
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">
-              Welcome back, {data.profile.name}
-            </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              Team Leader of <span className="font-semibold text-foreground">{data.team.name}</span> · Track:{" "}
-              <span className="font-semibold text-foreground">{data.team.track}</span>
-            </p>
-          </div>
+        <div className="relative overflow-hidden rounded-2xl border border-border border-l-4 border-l-primary bg-surface-elevated p-6 sm:p-8 shadow-sm">
+          {/* Subtle architectural backdrop */}
+          <div
+            className="absolute inset-0 pointer-events-none overflow-hidden opacity-20 dark:opacity-14 bg-cover bg-center bg-[url('/images/heritage/light/03-city-palace-courtyard.webp')] dark:bg-[url('/images/heritage/dark/04-nahargarh-sunset-city.webp')]"
+            aria-hidden="true"
+          />
+          <div
+            className="absolute inset-0 pointer-events-none bg-gradient-to-r from-surface-elevated/96 via-surface-elevated/90 to-surface-elevated/75 dark:from-surface-elevated/98 dark:via-surface-elevated/92 dark:to-surface-elevated/80"
+            aria-hidden="true"
+          />
 
-          <div className="flex items-center gap-2.5 shrink-0">
-            <span className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-400">
-              <CheckCircle2 size={14} />
-              Grand Finale Concluded
-            </span>
-            <Link
-              href="/results"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-accent transition-colors"
-            >
-              <span>View Leaderboard</span>
-              <ExternalLink size={13} />
-            </Link>
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-primary">
+                  <Users size={12} />
+                  Participant Dashboard
+                </span>
+                <span className="text-muted-foreground text-xs font-mono">·</span>
+                <span className="text-xs font-mono text-muted-foreground">
+                  ID: {data.profile.identifier}
+                </span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">
+                Welcome back, {data.profile.name}
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                Team Leader of <span className="font-semibold text-foreground">{data.team.name}</span> · Track:{" "}
+                <span className="font-semibold text-foreground">{data.team.track}</span>
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0">
+              <span className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-400">
+                <CheckCircle2 size={14} />
+                Grand Finale Concluded
+              </span>
+              <Link
+                href="/results"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-accent transition-colors shadow-xs"
+              >
+                <span>View Leaderboard</span>
+                <ExternalLink size={13} />
+              </Link>
+            </div>
           </div>
         </div>
 

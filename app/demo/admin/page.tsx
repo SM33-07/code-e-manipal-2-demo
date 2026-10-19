@@ -97,44 +97,56 @@ export default function DemoAdminPage() {
 
       <main className="mx-auto max-w-7xl px-4 pt-8 sm:px-6 space-y-8">
         {/* Welcome Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-6">
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-jaipur-pink/40 bg-jaipur-pink/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-jaipur-pink">
-                <ShieldAlert size={12} />
-                Event Operations Console
-              </span>
-              <span className="text-muted-foreground text-xs font-mono">·</span>
-              <span className="text-xs font-mono text-muted-foreground">
-                Role: Lead Administrator
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">
-              Event Command Center
-            </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              Real-time monitoring snapshot for Code-e-Manipal 2.0 Grand Finale.
-            </p>
-          </div>
+        <div className="relative overflow-hidden rounded-2xl border border-border border-l-4 border-l-jaipur-pink bg-surface-elevated p-6 sm:p-8 shadow-sm">
+          {/* Subtle architectural backdrop */}
+          <div
+            className="absolute inset-0 pointer-events-none overflow-hidden opacity-18 dark:opacity-12 bg-cover bg-center bg-[url('/images/heritage/light/04-city-palace-exterior.webp')] dark:bg-[url('/images/heritage/dark/09-albert-hall-night.webp')]"
+            aria-hidden="true"
+          />
+          <div
+            className="absolute inset-0 pointer-events-none bg-gradient-to-r from-surface-elevated/96 via-surface-elevated/90 to-surface-elevated/75 dark:from-surface-elevated/98 dark:via-surface-elevated/92 dark:to-surface-elevated/80"
+            aria-hidden="true"
+          />
 
-          {/* Action CTAs */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => handleBlockedAction("Bulk User Generation")}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer"
-            >
-              <Plus size={13} />
-              <span>Create User (Blocked)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleBlockedAction("Production CSV Export")}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer"
-            >
-              <Download size={13} />
-              <span>Export Roster (Blocked)</span>
-            </button>
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-jaipur-pink/40 bg-jaipur-pink/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-jaipur-pink">
+                  <ShieldAlert size={12} />
+                  Event Operations Console
+                </span>
+                <span className="text-muted-foreground text-xs font-mono">·</span>
+                <span className="text-xs font-mono text-muted-foreground">
+                  Role: Lead Administrator
+                </span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">
+                Event Command Center
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                Real-time monitoring snapshot for Code-e-Manipal 2.0 Grand Finale.
+              </p>
+            </div>
+
+            {/* Action CTAs */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleBlockedAction("Bulk User Generation")}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer shadow-xs"
+              >
+                <Plus size={13} />
+                <span>Create User (Blocked)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleBlockedAction("Production CSV Export")}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer shadow-xs"
+              >
+                <Download size={13} />
+                <span>Export Roster (Blocked)</span>
+              </button>
+            </div>
           </div>
         </div>
 

@@ -33,6 +33,7 @@ export default function DemoHubPage() {
       color: "border-primary",
       accentBg: "bg-primary/10",
       accentText: "text-primary",
+      bgClass: "bg-[url('/images/heritage/light/03-city-palace-courtyard.webp')] dark:bg-[url('/images/heritage/dark/04-nahargarh-sunset-city.webp')]",
       href: "/demo/participant",
       icon: Users,
       description:
@@ -54,6 +55,7 @@ export default function DemoHubPage() {
       color: "border-secondary",
       accentBg: "bg-secondary/10",
       accentText: "text-secondary",
+      bgClass: "bg-[url('/images/heritage/light/15-city-palace-hall-arches.webp')] dark:bg-[url('/images/heritage/dark/01-jantar-mantar-arch.webp')]",
       href: "/demo/judge",
       icon: Award,
       description:
@@ -75,6 +77,7 @@ export default function DemoHubPage() {
       color: "border-jaipur-pink",
       accentBg: "bg-jaipur-pink/10",
       accentText: "text-jaipur-pink",
+      bgClass: "bg-[url('/images/heritage/light/04-city-palace-exterior.webp')] dark:bg-[url('/images/heritage/dark/09-albert-hall-night.webp')]",
       href: "/demo/admin",
       icon: ShieldAlert,
       description:
@@ -96,35 +99,47 @@ export default function DemoHubPage() {
 
       <main className="mx-auto max-w-7xl px-4 pt-10 sm:px-6 sm:pt-14 space-y-16">
         {/* Header Hero */}
-        <section className="text-center max-w-3xl mx-auto space-y-5">
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-400">
-            <Sparkles size={14} className="animate-pulse" />
-            <span>Interactive Portfolio Showcase</span>
-          </div>
+        <section className="relative text-center max-w-3xl mx-auto space-y-5 py-8 px-6 sm:px-10 rounded-3xl border border-border bg-surface-elevated shadow-sm overflow-hidden">
+          {/* Subtle architectural atmosphere veil */}
+          <div
+            className="absolute inset-0 pointer-events-none opacity-20 dark:opacity-12 bg-cover bg-center bg-[url('/images/heritage/light/01-hawa-mahal-landscape.webp')] dark:bg-[url('/images/heritage/dark/08-pink-city-night.webp')]"
+            aria-hidden="true"
+          />
+          <div
+            className="absolute inset-0 pointer-events-none bg-gradient-to-b from-surface-elevated/96 via-surface-elevated/90 to-surface-elevated/85 dark:from-surface-elevated/98 dark:via-surface-elevated/94 dark:to-surface-elevated/90"
+            aria-hidden="true"
+          />
 
-          <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-foreground">
-            Explore the <span className="text-primary">Portal Demo</span>
-          </h1>
+          <div className="relative z-10 space-y-4">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-400">
+              <Sparkles size={14} className="animate-pulse" />
+              <span>Interactive Portfolio Showcase</span>
+            </div>
 
-          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-            Experience the authentic Participant, Judge, and Administrator dashboards used during the Code-e-Manipal 36-hour hackathon. Test real workflows, scoring rubrics, and operational consoles in a safe, synthetic sandbox.
-          </p>
+            <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-foreground">
+              Explore the <span className="text-primary">Portal Demo</span>
+            </h1>
 
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-2 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
-              <CheckCircle2 size={14} className="text-emerald-400" />
-              No Registration or Password Required
-            </span>
-            <span className="text-border">·</span>
-            <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
-              <CheckCircle2 size={14} className="text-emerald-400" />
-              Zero Database Connections
-            </span>
-            <span className="text-border">·</span>
-            <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
-              <CheckCircle2 size={14} className="text-emerald-400" />
-              100% Synthetic Isolated Fixtures
-            </span>
+            <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-2xl mx-auto">
+              Experience the authentic Participant, Judge, and Administrator dashboards used during the Code-e-Manipal 36-hour hackathon. Test real workflows, scoring rubrics, and operational consoles in a safe, synthetic sandbox.
+            </p>
+
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                <CheckCircle2 size={14} className="text-emerald-400" />
+                No Registration or Password Required
+              </span>
+              <span className="text-border">·</span>
+              <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                <CheckCircle2 size={14} className="text-emerald-400" />
+                Zero Database Connections
+              </span>
+              <span className="text-border">·</span>
+              <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                <CheckCircle2 size={14} className="text-emerald-400" />
+                100% Synthetic Isolated Fixtures
+              </span>
+            </div>
           </div>
         </section>
 
@@ -135,12 +150,21 @@ export default function DemoHubPage() {
             return (
               <SpotlightCard
                 key={card.id}
-                className={`relative flex flex-col justify-between rounded-2xl border-2 ${card.color} bg-surface-elevated p-6 sm:p-7 shadow-lg transition-all duration-200 hover:-translate-y-1 hover:shadow-xl`}
+                className={`relative flex flex-col justify-between rounded-2xl border-2 ${card.color} bg-surface-elevated p-6 sm:p-7 shadow-lg transition-all duration-200 hover:-translate-y-1 hover:shadow-xl overflow-hidden`}
               >
-                <div className="space-y-5">
+                {/* Subtle top architectural accent watermark */}
+                <div
+                  className="absolute inset-x-0 top-0 h-36 pointer-events-none overflow-hidden opacity-18 dark:opacity-12"
+                  aria-hidden="true"
+                >
+                  <div className={`absolute inset-0 bg-cover bg-center ${card.bgClass}`} />
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent via-surface-elevated/70 to-surface-elevated" />
+                </div>
+
+                <div className="relative z-10 space-y-5">
                   {/* Top Bar with Icon & Badge */}
                   <div className="flex items-start justify-between gap-3">
-                    <div className={`p-3 rounded-xl ${card.accentBg} ${card.accentText}`}>
+                    <div className={`p-3 rounded-xl ${card.accentBg} ${card.accentText} border border-border/40 shadow-xs`}>
                       <Icon size={24} />
                     </div>
                     <span className="rounded-full border border-border bg-surface px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground font-mono">

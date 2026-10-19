@@ -309,6 +309,67 @@ export const HERITAGE_ROUTE_MAP: Record<string, HeritageRouteConfig> = {
       opacity: 0.30,
     },
   },
+
+  // ── PUBLIC DEMO PORTAL ROUTES ──
+  // Demo Hub (Level A — Grand Showcase Entry)
+  "/demo": {
+    mode: "hero",
+    light: {
+      asset: "/images/heritage/light/01-hawa-mahal-landscape.webp",
+      position: "center center",
+      opacity: 0.82,
+    },
+    dark: {
+      asset: "/images/heritage/dark/08-pink-city-night.webp",
+      position: "center 42%",
+      opacity: 0.48,
+    },
+  },
+
+  // Participant Demo Workspace (Level A — Welcoming, Clean, Builder Workspace)
+  "/demo/participant": {
+    mode: "hero",
+    light: {
+      asset: "/images/heritage/light/03-city-palace-courtyard.webp",
+      position: "center center",
+      opacity: 0.74,
+    },
+    dark: {
+      asset: "/images/heritage/dark/04-nahargarh-sunset-city.webp",
+      position: "center center",
+      opacity: 0.44,
+    },
+  },
+
+  // Judge Demo Workspace (Level B — Focused, Professional Evaluator Atmosphere)
+  "/demo/judge": {
+    mode: "edge",
+    light: {
+      asset: "/images/heritage/light/15-city-palace-hall-arches.webp",
+      position: "center center",
+      opacity: 0.62,
+    },
+    dark: {
+      asset: "/images/heritage/dark/01-jantar-mantar-arch.webp",
+      position: "center center",
+      opacity: 0.36,
+    },
+  },
+
+  // Admin Demo Operations Center (Level C — Structured, Polished Operational Console)
+  "/demo/admin": {
+    mode: "subtle",
+    light: {
+      asset: "/images/heritage/light/04-city-palace-exterior.webp",
+      position: "center center",
+      opacity: 0.42,
+    },
+    dark: {
+      asset: "/images/heritage/dark/09-albert-hall-night.webp",
+      position: "center center",
+      opacity: 0.25,
+    },
+  },
 };
 
 /**
@@ -327,6 +388,22 @@ export function getHeritageRouteConfig(pathname: string): HeritageRouteConfig {
       .sort((a, b) => b.length - a.length)[0];
     if (adminMatch) return HERITAGE_ROUTE_MAP[adminMatch];
     return { mode: "none" }; // Default admin routes: solid operational console
+  }
+
+  if (pathname.startsWith("/demo/judge")) {
+    return HERITAGE_ROUTE_MAP["/demo/judge"];
+  }
+
+  if (pathname.startsWith("/demo/participant")) {
+    return HERITAGE_ROUTE_MAP["/demo/participant"];
+  }
+
+  if (pathname.startsWith("/demo/admin")) {
+    return HERITAGE_ROUTE_MAP["/demo/admin"];
+  }
+
+  if (pathname.startsWith("/demo")) {
+    return HERITAGE_ROUTE_MAP["/demo"];
   }
 
   if (pathname.startsWith("/judge/") || pathname.startsWith("/judging/")) {

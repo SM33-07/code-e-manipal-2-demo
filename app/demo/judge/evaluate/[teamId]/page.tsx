@@ -84,36 +84,48 @@ export default function DemoJudgeEvaluatePage({ params }: PageProps) {
 
       <main className="mx-auto max-w-7xl px-4 pt-8 sm:px-6 space-y-8">
         {/* Top Header & Breadcrumb */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/demo/judge"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors"
-            >
-              <ArrowLeft size={14} />
-              <span>Back to Queue</span>
-            </Link>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="rounded-full bg-secondary/15 border border-secondary/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-secondary">
-                  {submission.track}
-                </span>
-                <span className="text-xs text-muted-foreground font-mono">Ref: {submission.problemStatementId}</span>
-              </div>
-              <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight mt-1">
-                Evaluate: {submission.teamName}
-              </h1>
-            </div>
-          </div>
+        <div className="relative overflow-hidden rounded-2xl border border-border border-l-4 border-l-secondary bg-surface-elevated p-6 sm:p-7 shadow-sm">
+          {/* Subtle architectural backdrop */}
+          <div
+            className="absolute inset-0 pointer-events-none overflow-hidden opacity-18 dark:opacity-12 bg-cover bg-center bg-[url('/images/heritage/light/15-city-palace-hall-arches.webp')] dark:bg-[url('/images/heritage/dark/01-jantar-mantar-arch.webp')]"
+            aria-hidden="true"
+          />
+          <div
+            className="absolute inset-0 pointer-events-none bg-gradient-to-r from-surface-elevated/96 via-surface-elevated/90 to-surface-elevated/75 dark:from-surface-elevated/98 dark:via-surface-elevated/92 dark:to-surface-elevated/80"
+            aria-hidden="true"
+          />
 
-          {/* Dynamic Live Score Badge */}
-          <div className="flex items-center gap-3 self-end sm:self-auto">
-            <div className="rounded-2xl border-2 border-secondary/40 bg-secondary/10 px-5 py-2.5 text-right">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-secondary font-mono block">
-                Live Weighted Score
-              </span>
-              <div className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">
-                {weightedTotal} <span className="text-xs font-normal text-muted-foreground">/ 100</span>
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Link
+                href="/demo/judge"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors shadow-xs"
+              >
+                <ArrowLeft size={14} />
+                <span>Back to Queue</span>
+              </Link>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-secondary/15 border border-secondary/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-secondary">
+                    {submission.track}
+                  </span>
+                  <span className="text-xs text-muted-foreground font-mono">Ref: {submission.problemStatementId}</span>
+                </div>
+                <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight mt-1">
+                  Evaluate: {submission.teamName}
+                </h1>
+              </div>
+            </div>
+
+            {/* Dynamic Live Score Badge */}
+            <div className="flex items-center gap-3 self-end sm:self-auto">
+              <div className="rounded-2xl border-2 border-secondary/40 bg-secondary/10 px-5 py-2.5 text-right backdrop-blur-xs shadow-xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-secondary font-mono block">
+                  Live Weighted Score
+                </span>
+                <div className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">
+                  {weightedTotal} <span className="text-xs font-normal text-muted-foreground">/ 100</span>
+                </div>
               </div>
             </div>
           </div>

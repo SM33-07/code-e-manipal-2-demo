@@ -59,33 +59,45 @@ export default function DemoJudgePage() {
 
       <main className="mx-auto max-w-7xl px-4 pt-8 sm:px-6 space-y-8">
         {/* Welcome Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-6">
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-secondary/40 bg-secondary/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-secondary">
-                <Award size={12} />
-                Jury Evaluation Workspace
-              </span>
-              <span className="text-muted-foreground text-xs font-mono">·</span>
-              <span className="text-xs font-mono text-muted-foreground">
-                Badge: {data.judgeProfile.badgeId}
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">
-              Welcome back, {data.judgeProfile.name}
-            </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              {data.judgeProfile.title} · {data.judgeProfile.organization}
-            </p>
-          </div>
+        <div className="relative overflow-hidden rounded-2xl border border-border border-l-4 border-l-secondary bg-surface-elevated p-6 sm:p-8 shadow-sm">
+          {/* Subtle architectural backdrop */}
+          <div
+            className="absolute inset-0 pointer-events-none overflow-hidden opacity-18 dark:opacity-12 bg-cover bg-center bg-[url('/images/heritage/light/15-city-palace-hall-arches.webp')] dark:bg-[url('/images/heritage/dark/01-jantar-mantar-arch.webp')]"
+            aria-hidden="true"
+          />
+          <div
+            className="absolute inset-0 pointer-events-none bg-gradient-to-r from-surface-elevated/96 via-surface-elevated/90 to-surface-elevated/75 dark:from-surface-elevated/98 dark:via-surface-elevated/92 dark:to-surface-elevated/80"
+            aria-hidden="true"
+          />
 
-          {/* Quick Stats Pill */}
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl border border-border bg-surface-elevated p-3 text-right">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground font-mono">Evaluation Progress</p>
-              <p className="text-lg font-black text-foreground">
-                {completedCount} <span className="text-xs font-normal text-muted-foreground">/ {totalAssigned} completed</span>
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-secondary/40 bg-secondary/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-secondary">
+                  <Award size={12} />
+                  Jury Evaluation Workspace
+                </span>
+                <span className="text-muted-foreground text-xs font-mono">·</span>
+                <span className="text-xs font-mono text-muted-foreground">
+                  Badge: {data.judgeProfile.badgeId}
+                </span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">
+                Welcome back, {data.judgeProfile.name}
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                {data.judgeProfile.title} · {data.judgeProfile.organization}
               </p>
+            </div>
+
+            {/* Quick Stats Pill */}
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl border border-border bg-surface/90 backdrop-blur-xs p-3 text-right shadow-xs">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground font-mono">Evaluation Progress</p>
+                <p className="text-lg font-black text-foreground">
+                  {completedCount} <span className="text-xs font-normal text-muted-foreground">/ {totalAssigned} completed</span>
+                </p>
+              </div>
             </div>
           </div>
         </div>
